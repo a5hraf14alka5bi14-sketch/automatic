@@ -8,6 +8,7 @@ const navItems = [
   { id: 'inventory', label: 'Inventory', icon: '📦' },
   { id: 'customers', label: 'Customers', icon: '👥' },
   { id: 'reports', label: 'Reports', icon: '📊' },
+  { id: 'notion', label: 'Notion', icon: '🔗', divider: true },
 ]
 
 export default function Sidebar({ currentPage, setCurrentPage, user, onLogout, isOpen, setIsOpen }) {
@@ -33,18 +34,22 @@ export default function Sidebar({ currentPage, setCurrentPage, user, onLogout, i
 
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => setCurrentPage(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-              currentPage === item.id
-                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <span className="text-base flex-shrink-0">{item.icon}</span>
-            {isOpen && <span className="truncate">{item.label}</span>}
-          </button>
+          <React.Fragment key={item.id}>
+            {item.divider && (
+              <div className={`border-t border-slate-800 my-2 ${isOpen ? '' : ''}`} />
+            )}
+            <button
+              onClick={() => setCurrentPage(item.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                currentPage === item.id
+                  ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <span className="text-base flex-shrink-0">{item.icon}</span>
+              {isOpen && <span className="truncate">{item.label}</span>}
+            </button>
+          </React.Fragment>
         ))}
       </nav>
 

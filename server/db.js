@@ -10,6 +10,42 @@ export async function initDb() {
   const client = await pool.connect()
   try {
     await client.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id SERIAL PRIMARY KEY,
+        key VARCHAR(255) UNIQUE NOT NULL,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS notion_projects (
+        id SERIAL PRIMARY KEY,
+        notion_id VARCHAR(255) UNIQUE NOT NULL,
+        notion_url TEXT,
+        name VARCHAR(500) NOT NULL,
+        status VARCHAR(50) DEFAULT 'not_started',
+        status_label VARCHAR(100),
+        priority VARCHAR(50),
+        start_date DATE,
+        due_date DATE,
+        total_tasks INTEGER DEFAULT 0,
+        last_synced TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS notion_tasks (
+        id SERIAL PRIMARY KEY,
+        notion_id VARCHAR(255) UNIQUE NOT NULL,
+        notion_url TEXT,
+        name VARCHAR(500) NOT NULL,
+        status VARCHAR(50) DEFAULT 'not_started',
+        status_label VARCHAR(100),
+        priority VARCHAR(50),
+        due_date DATE,
+        project_notion_id VARCHAR(255),
+        last_synced TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
