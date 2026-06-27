@@ -1,2 +1,3 @@
 - [Notion SDK compatibility](notion-sdk-compat.md) — this SDK version has no databases.query; sync must go through MCP notionQueryDataSources
 - [Notion sync architecture](notion-sync-arch.md) — REST API key can't access DBs directly (not shared); use MCP for reads, REST pages.update for writes
+- [Integrations hub architecture](integrations-arch.md) — unified /api/integrations route; secrets read from env first, DB settings as override; node --watch needs full restart to pick up new route imports

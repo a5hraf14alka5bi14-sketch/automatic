@@ -108,6 +108,25 @@ export async function initDb() {
         total_orders INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS github_repos (
+        id SERIAL PRIMARY KEY,
+        github_id BIGINT UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        full_name VARCHAR(500) NOT NULL,
+        description TEXT,
+        language VARCHAR(100),
+        html_url TEXT,
+        stars INTEGER DEFAULT 0,
+        forks INTEGER DEFAULT 0,
+        open_issues INTEGER DEFAULT 0,
+        is_private BOOLEAN DEFAULT false,
+        is_fork BOOLEAN DEFAULT false,
+        default_branch VARCHAR(100),
+        pushed_at TIMESTAMP,
+        last_synced TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `)
 
     // Seed admin user

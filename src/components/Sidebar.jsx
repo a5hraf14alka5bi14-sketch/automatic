@@ -8,7 +8,8 @@ const navItems = [
   { id: 'inventory', label: 'Inventory', icon: '📦' },
   { id: 'customers', label: 'Customers', icon: '👥' },
   { id: 'reports', label: 'Reports', icon: '📊' },
-  { id: 'notion', label: 'Notion', icon: '🔗', divider: true },
+  { id: 'integrations', label: 'Integrations', icon: '🔌', divider: true },
+  { id: 'notion', label: 'Notion Sync', icon: '📓' },
 ]
 
 export default function Sidebar({ currentPage, setCurrentPage, user, onLogout, isOpen, setIsOpen }) {

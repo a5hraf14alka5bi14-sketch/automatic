@@ -8,6 +8,7 @@ import customersRoutes from './routes/customers.js'
 import dashboardRoutes from './routes/dashboard.js'
 import reportsRoutes from './routes/reports.js'
 import notionRoutes from './routes/notion.js'
+import integrationsRoutes from './routes/integrations.js'
 import { initDb } from './db.js'
 
 const app = express()
@@ -24,6 +25,7 @@ app.use('/api/customers', customersRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/reports', reportsRoutes)
 app.use('/api/notion', notionRoutes)
+app.use('/api/integrations', integrationsRoutes)
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 
