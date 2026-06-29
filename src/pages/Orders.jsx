@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useCurrency } from '../utils/currency.js'
 
 const STATUS_STYLES = {
   pending:   'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
@@ -20,6 +21,7 @@ const STATUS_FLOW = {
 const PAYMENT_ICONS = { cash: '💵', card: '💳', other: '📱' }
 
 export default function Orders() {
+  const { fmt } = useCurrency()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -143,7 +145,7 @@ export default function Orders() {
                   )}
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-orange-400 font-bold text-lg">${parseFloat(order.total).toFixed(2)}</p>
+                  <p className="text-orange-400 font-bold text-lg">{fmt(order.total)}</p>
                   <p className="text-slate-500 text-xs">{order.items_count} items</p>
                 </div>
               </div>
@@ -185,7 +187,7 @@ export default function Orders() {
             <div className="p-5 space-y-4">
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-slate-400 text-sm">Total Amount</p>
-                <p className="text-orange-400 text-4xl font-bold mt-1">${parseFloat(payModal.total).toFixed(2)}</p>
+                <p className="text-orange-400 text-4xl font-bold mt-1">{fmt(payModal.total)}</p>
               </div>
               <div>
                 <p className="text-slate-400 text-sm mb-2 font-medium">Payment Method</p>

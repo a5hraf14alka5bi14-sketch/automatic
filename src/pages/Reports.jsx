@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api.js'
 
-const fmt = (val) => '$' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmt = (val) => 'OMR ' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 const fmtN = (val, dec = 0) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 
 const CAT_EMOJI = {

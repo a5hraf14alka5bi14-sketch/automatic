@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useCurrency } from '../utils/currency.js'
 
 function StatCard({ label, value, sub, color }) {
   return (
@@ -84,6 +85,7 @@ function CustomerModal({ customer, onClose, onSave }) {
 }
 
 function OrderHistoryDrawer({ customer, onClose }) {
+  const { fmt } = useCurrency()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -129,7 +131,7 @@ function OrderHistoryDrawer({ customer, onClose }) {
                     {o.status}
                   </span>
                 </div>
-                <span className="text-orange-400 font-bold text-sm">${parseFloat(o.total).toFixed(2)}</span>
+                <span className="text-orange-400 font-bold text-sm">{fmt(o.total)}</span>
               </div>
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span className="capitalize">{o.type}{o.table_number ? ` · Table ${o.table_number}` : ''}</span>
@@ -140,7 +142,7 @@ function OrderHistoryDrawer({ customer, onClose }) {
                   {o.items.slice(0, 3).map((item, i) => (
                     <div key={i} className="flex justify-between">
                       <span>{item.quantity}× {item.name}</span>
-                      <span>${(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
+                      <span>{fmt(parseFloat(item.price) * item.quantity)}</span>
                     </div>
                   ))}
                   {o.items.length > 3 && <p className="text-slate-600">+{o.items.length - 3} more</p>}
@@ -153,12 +155,12 @@ function OrderHistoryDrawer({ customer, onClose }) {
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <p className="text-slate-400 text-xs">Total Spent</p>
-              <p className="text-white font-bold text-sm">${parseFloat(customer.total_spent || 0).toFixed(2)}</p>
+              <p className="text-white font-bold text-sm">{fmt(customer.total_spent || 0)}</p>
             </div>
             <div>
               <p className="text-slate-400 text-xs">Avg Order</p>
               <p className="text-white font-bold text-sm">
-                ${orders.length > 0 ? (orders.reduce((s, o) => s + parseFloat(o.total), 0) / orders.length).toFixed(2) : '0.00'}
+                {fmt(orders.length > 0 ? orders.reduce((s, o) => s + parseFloat(o.total), 0) / orders.length : 0)}
               </p>
             </div>
             <div>
@@ -173,6 +175,7 @@ function OrderHistoryDrawer({ customer, onClose }) {
 }
 
 export default function Customers() {
+  const { fmt } = useCurrency()
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -228,8 +231,8 @@ export default function Customers() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatCard label="Total Customers" value={customers.length} />
         <StatCard label="Total Orders" value={totalOrders} sub="All time" />
-        <StatCard label="Total Revenue" value={`$${totalSpent.toFixed(0)}`} color="text-orange-400" sub="From loyalty customers" />
-        <StatCard label="Avg. Spend/Customer" value={`$${avgSpend.toFixed(2)}`} color="text-green-400" />
+        <StatCard label="Total Revenue" value={fmt(totalSpent)} color="text-orange-400" sub="From loyalty customers" />
+        <StatCard label="Avg. Spend/Customer" value={fmt(avgSpend)} color="text-green-400" />
       </div>
 
       {/* Search */}
@@ -285,7 +288,7 @@ export default function Customers() {
                     <p className="text-slate-500 text-xs">{c.phone || ''}</p>
                   </td>
                   <td className="px-4 py-3 text-right text-white text-sm font-medium">{c.total_orders || 0}</td>
-                  <td className="px-4 py-3 text-right text-sm font-semibold text-orange-400">${parseFloat(c.total_spent || 0).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-orange-400">{fmt(c.total_spent || 0)}</td>
                   <td className="px-4 py-3 text-right">
                     <span className={`text-sm font-medium ${c.loyalty_points > 0 ? 'text-orange-400' : 'text-slate-600'}`}>
                       {c.loyalty_points || 0} pts

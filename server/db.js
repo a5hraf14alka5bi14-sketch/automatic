@@ -203,7 +203,7 @@ export async function initDb() {
       ['restaurant_name', 'Automatic'],
       ['restaurant_tagline', 'Restaurant OS'],
       ['tax_rate', '11'],
-      ['currency_symbol', '$'],
+      ['currency_symbol', 'OMR'],
       ['tables_count', '10'],
       ['receipt_footer', 'Thank you for dining with us!'],
       ['loyalty_points_per_dollar', '1'],
@@ -214,6 +214,9 @@ export async function initDb() {
         [key, value]
       )
     }
+    await client.query(
+      `UPDATE settings SET value = 'OMR' WHERE key = 'currency_symbol' AND value = '$'`
+    )
 
     const userCheck = await client.query('SELECT id FROM users WHERE email = $1', ['admin@automatic.com'])
     if (userCheck.rows.length === 0) {

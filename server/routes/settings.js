@@ -8,7 +8,7 @@ const DEFAULTS = {
   restaurant_name: 'Automatic',
   restaurant_tagline: 'Restaurant OS',
   tax_rate: '11',
-  currency_symbol: '$',
+  currency_symbol: 'OMR',
   tables_count: '10',
   receipt_footer: 'Thank you for dining with us!',
   low_stock_alert_enabled: 'true',

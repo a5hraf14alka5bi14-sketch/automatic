@@ -39,7 +39,7 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  const fmt = (val) => '$' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })
+  const fmt = (val) => 'OMR ' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 
   const statusColor = (s) => {
     const map = { pending: 'text-yellow-400', preparing: 'text-blue-400', ready: 'text-green-400', completed: 'text-slate-400', cancelled: 'text-red-400' }

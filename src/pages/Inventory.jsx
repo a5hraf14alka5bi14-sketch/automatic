@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useCurrency } from '../utils/currency.js'
 
 const CATEGORIES = ['proteins', 'vegetables', 'grains', 'legumes', 'bread', 'dairy', 'fruits', 'pantry', 'spices', 'beverages', 'general']
 
@@ -210,6 +211,7 @@ function DeleteModal({ item, onClose, onConfirm }) {
 }
 
 export default function Inventory() {
+  const { fmt } = useCurrency()
   const [items, setItems] = useState([])
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -270,7 +272,7 @@ export default function Inventory() {
           <StatCard label="Total Items" value={stats.total} />
           <StatCard label="Low Stock" value={stats.low_stock} color={parseInt(stats.low_stock) > 0 ? 'text-red-400' : 'text-green-400'} sub={parseInt(stats.low_stock) > 0 ? 'Need attention' : 'All healthy'} />
           <StatCard label="Categories" value={stats.categories} />
-          <StatCard label="Total Value" value={`$${parseFloat(stats.total_value).toFixed(2)}`} color="text-orange-400" />
+          <StatCard label="Total Value" value={fmt(stats.total_value)} color="text-orange-400" />
         </div>
       )}
 
@@ -357,8 +359,8 @@ export default function Inventory() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-slate-500 text-sm">{item.min_quantity} {item.unit}</td>
-                    <td className="px-4 py-3 text-right text-slate-400 text-sm">{cost > 0 ? `$${cost.toFixed(2)}` : '—'}</td>
-                    <td className="px-4 py-3 text-right text-slate-400 text-sm">{totalVal > 0 ? `$${totalVal.toFixed(2)}` : '—'}</td>
+                    <td className="px-4 py-3 text-right text-slate-400 text-sm">{cost > 0 ? fmt(cost) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-slate-400 text-sm">{totalVal > 0 ? fmt(totalVal) : '—'}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${isEmpty ? 'bg-red-500/10 text-red-400 border-red-500/30' : isLow ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-green-500/10 text-green-400 border-green-500/30'}`}>
                         {isEmpty ? '🚫 Empty' : isLow ? '⚠️ Low' : '✓ OK'}

@@ -29,7 +29,7 @@ function PaymentModal({ order, currency, onConfirm, onClose }) {
         <div className="p-5 space-y-4">
           <div className="bg-slate-800 rounded-2xl p-5 text-center">
             <p className="text-slate-400 text-sm">Total Due</p>
-            <p className="text-orange-400 text-5xl font-bold mt-1">{currency}{parseFloat(order.total).toFixed(2)}</p>
+            <p className="text-orange-400 text-5xl font-bold mt-1">{currency} {parseFloat(order.total).toFixed(3)}</p>
           </div>
           <p className="text-slate-400 text-sm font-medium">Select Payment Method</p>
           <div className="grid grid-cols-3 gap-2">
@@ -55,7 +55,7 @@ function PaymentModal({ order, currency, onConfirm, onClose }) {
 export default function POS() {
   const [menu, setMenu] = useState([])
   const [customers, setCustomers] = useState([])
-  const [settings, setSettings] = useState({ tax_rate: '11', currency_symbol: '$', tables_count: '10' })
+  const [settings, setSettings] = useState({ tax_rate: '11', currency_symbol: 'OMR', tables_count: '10' })
   const [cart, setCart] = useState([])
   const [orderType, setOrderType] = useState('dine-in')
   const [tableNum, setTableNum] = useState(1)
@@ -87,7 +87,8 @@ export default function POS() {
 
   const taxRate = parseFloat(settings.tax_rate || '11') / 100
   const tablesCount = parseInt(settings.tables_count || '10')
-  const currency = settings.currency_symbol || '$'
+  const currency = settings.currency_symbol || 'OMR'
+  const fmtC = (amount) => `${currency} ${parseFloat(amount || 0).toFixed(3)}`
 
   const filtered = menu.filter(item => {
     if (selectedCategory !== 'all' && item.category !== selectedCategory) return false
@@ -208,7 +209,7 @@ export default function POS() {
                   <p className="text-white font-medium text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">{item.name}</p>
                   <p className="text-slate-500 text-xs mt-0.5 capitalize">{item.category}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-orange-400 font-bold text-sm">{currency}{parseFloat(item.price).toFixed(2)}</p>
+                    <p className="text-orange-400 font-bold text-sm">{fmtC(item.price)}</p>
                     {item.prep_time && <p className="text-slate-600 text-xs">⏱{item.prep_time}m</p>}
                   </div>
                 </button>
@@ -272,7 +273,7 @@ export default function POS() {
                 <div key={item.id} className="flex items-center gap-2 group">
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-medium truncate">{item.name}</p>
-                    <p className="text-orange-400 text-xs">{currency}{(parseFloat(item.price) * item.qty).toFixed(2)}</p>
+                    <p className="text-orange-400 text-xs">{fmtC(parseFloat(item.price) * item.qty)}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => updateQty(item.id, -1)} className="w-6 h-6 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-300 rounded text-sm transition-colors">−</button>
@@ -300,15 +301,15 @@ export default function POS() {
           <div className="space-y-1.5 mb-4">
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">Subtotal</span>
-              <span className="text-white">{currency}{subtotal.toFixed(2)}</span>
+              <span className="text-white">{fmtC(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">Tax ({parseFloat(settings.tax_rate || '11')}%)</span>
-              <span className="text-white">{currency}{tax.toFixed(2)}</span>
+              <span className="text-white">{fmtC(tax)}</span>
             </div>
             <div className="flex justify-between font-bold mt-2 pt-2 border-t border-slate-700">
               <span className="text-white text-base">Total</span>
-              <span className="text-orange-400 text-lg">{currency}{total.toFixed(2)}</span>
+              <span className="text-orange-400 text-lg">{fmtC(total)}</span>
             </div>
           </div>
 
@@ -326,7 +327,7 @@ export default function POS() {
               <span className="flex items-center justify-center gap-2">
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Placing…
               </span>
-            ) : cart.length === 0 ? 'Add items to order' : `Place Order · ${currency}${total.toFixed(2)}`}
+            ) : cart.length === 0 ? 'Add items to order' : `Place Order · ${fmtC(total)}`}
           </button>
         </div>
       </div>

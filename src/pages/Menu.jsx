@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useCurrency } from '../utils/currency.js'
 
 const CATEGORIES = [
   { id: 'all', label: 'All Items', emoji: '🍽️' },
@@ -54,6 +55,7 @@ function ImagePlaceholder({ category, name }) {
 }
 
 function MenuCard({ item, onEdit, onToggle, onDelete }) {
+  const { fmt } = useCurrency()
   const mgn = margin(item.price, item.food_cost)
   const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : []
 
@@ -86,7 +88,7 @@ function MenuCard({ item, onEdit, onToggle, onDelete }) {
       <div className="p-3 flex flex-col flex-1">
         <div className="flex items-start justify-between gap-2 mb-1">
           <h3 className="text-white font-semibold text-sm leading-tight">{item.name}</h3>
-          <span className="text-orange-400 font-bold text-sm flex-shrink-0">${parseFloat(item.price).toFixed(2)}</span>
+          <span className="text-orange-400 font-bold text-sm flex-shrink-0">{fmt(item.price)}</span>
         </div>
 
         <div className="flex items-center gap-1.5 mb-2">
@@ -104,7 +106,7 @@ function MenuCard({ item, onEdit, onToggle, onDelete }) {
         <div className="flex items-center gap-3 mb-2 mt-auto pt-2 border-t border-slate-800">
           <div>
             <p className="text-slate-500 text-xs">Food Cost</p>
-            <p className="text-slate-300 text-xs font-medium">${parseFloat(item.food_cost || 0).toFixed(2)}</p>
+            <p className="text-slate-300 text-xs font-medium">{fmt(item.food_cost || 0)}</p>
           </div>
           <div>
             <p className="text-slate-500 text-xs">Margin</p>
@@ -134,6 +136,7 @@ function MenuCard({ item, onEdit, onToggle, onDelete }) {
 }
 
 function MenuRow({ item, onEdit, onToggle, onDelete }) {
+  const { fmt } = useCurrency()
   const mgn = margin(item.price, item.food_cost)
   const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : []
   return (
@@ -156,8 +159,8 @@ function MenuRow({ item, onEdit, onToggle, onDelete }) {
           {(CAT_MAP[item.category] || { emoji: '🍽️' }).emoji} {item.category}
         </span>
       </td>
-      <td className="py-3 px-4 text-orange-400 font-bold">${parseFloat(item.price).toFixed(2)}</td>
-      <td className="py-3 px-4 text-slate-400 text-sm">${parseFloat(item.food_cost || 0).toFixed(2)}</td>
+      <td className="py-3 px-4 text-orange-400 font-bold">{fmt(item.price)}</td>
+      <td className="py-3 px-4 text-slate-400 text-sm">{fmt(item.food_cost || 0)}</td>
       <td className={`py-3 px-4 font-bold text-sm ${marginColor(mgn)}`}>{mgn}%</td>
       <td className="py-3 px-4 text-slate-500 text-sm">{item.prep_time || 15}m</td>
       <td className="py-3 px-4">
@@ -184,6 +187,7 @@ function MenuRow({ item, onEdit, onToggle, onDelete }) {
 // ── Add / Edit Modal ──────────────────────────────────────────────────────────
 
 function ItemModal({ item, inventory, onClose, onSave }) {
+  const { fmt } = useCurrency()
   const isEdit = !!item?.id
   const [form, setForm] = useState({
     name: item?.name || '',
@@ -376,11 +380,11 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                 <div className="bg-slate-800 rounded-xl p-4 grid grid-cols-3 gap-3 text-center">
                   <div>
                     <p className="text-slate-400 text-xs">Price</p>
-                    <p className="text-orange-400 font-bold">${parseFloat(form.price || 0).toFixed(2)}</p>
+                    <p className="text-orange-400 font-bold">{fmt(form.price || 0)}</p>
                   </div>
                   <div>
                     <p className="text-slate-400 text-xs">Food Cost</p>
-                    <p className="text-slate-300 font-bold">${parseFloat(form.food_cost || 0).toFixed(2)}</p>
+                    <p className="text-slate-300 font-bold">{fmt(form.food_cost || 0)}</p>
                   </div>
                   <div>
                     <p className="text-slate-400 text-xs">Margin</p>
@@ -412,7 +416,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                           <td className="py-2 px-3 text-slate-300">{r.ingredient_name}</td>
                           <td className="py-2 px-3 text-slate-400">{r.quantity}</td>
                           <td className="py-2 px-3 text-slate-400">{r.unit}</td>
-                          <td className="py-2 px-3 text-slate-400">${parseFloat(r.cost || 0).toFixed(2)}</td>
+                          <td className="py-2 px-3 text-slate-400">{fmt(r.cost || 0)}</td>
                           <td className="py-2 px-3">
                             <button onClick={() => removeIngredient(i)} className="text-red-400 hover:text-red-300 text-xs">Remove</button>
                           </td>
@@ -468,7 +472,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
               {recipe.length > 0 && (
                 <div className="text-right text-slate-400 text-sm">
                   Total food cost: <span className="text-orange-400 font-bold">
-                    ${recipe.reduce((s, r) => s + parseFloat(r.cost || 0) * parseFloat(r.quantity || 1), 0).toFixed(2)}
+                    {fmt(recipe.reduce((s, r) => s + parseFloat(r.cost || 0) * parseFloat(r.quantity || 1), 0))}
                   </span>
                 </div>
               )}

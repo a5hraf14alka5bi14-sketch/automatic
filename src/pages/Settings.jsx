@@ -191,7 +191,7 @@ export default function Settings({ user }) {
         <>
           <Section title="Pricing & Tax">
             <Field label="Currency Symbol" hint="Shown next to all prices">
-              <Input value={settings.currency_symbol || '$'} onChange={v => set('currency_symbol', v)} placeholder="$" />
+              <Input value={settings.currency_symbol || 'OMR'} onChange={v => set('currency_symbol', v)} placeholder="OMR" />
             </Field>
             <Field label="Tax Rate" hint="Applied to all orders (%)">
               <Input
@@ -219,7 +219,7 @@ export default function Settings({ user }) {
             </Field>
           </Section>
           <Section title="Loyalty Program">
-            <Field label="Points per Dollar" hint="Loyalty points awarded for each dollar spent">
+            <Field label="Points per OMR" hint="Loyalty points awarded for each Omani Rial spent">
               <Input
                 type="number"
                 value={settings.loyalty_points_per_dollar || '1'}
@@ -227,7 +227,7 @@ export default function Settings({ user }) {
                 min="0"
                 max="100"
                 step="1"
-                suffix="pts / $1"
+                suffix="pts / OMR 1"
               />
             </Field>
             {settings.loyalty_points_per_dollar === '0' && (
