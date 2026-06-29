@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 
-const API = 'http://localhost:3001'
+const API = ''
 
 function StatusDot({ ok, loading }) {
   if (loading) return <span className="w-2.5 h-2.5 rounded-full bg-slate-500 animate-pulse inline-block" />
