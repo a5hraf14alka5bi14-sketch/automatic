@@ -88,6 +88,9 @@ export async function initDb() {
         subtotal DECIMAL(10,2) DEFAULT 0,
         tax DECIMAL(10,2) DEFAULT 0,
         total DECIMAL(10,2) DEFAULT 0,
+        notes TEXT,
+        payment_method VARCHAR(50),
+        paid_at TIMESTAMP,
         customer_id INTEGER,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
@@ -99,7 +102,8 @@ export async function initDb() {
         menu_item_id INTEGER REFERENCES menu_items(id),
         quantity INTEGER NOT NULL DEFAULT 1,
         price DECIMAL(10,2) NOT NULL,
-        name VARCHAR(255)
+        name VARCHAR(255),
+        notes TEXT
       );
 
       CREATE TABLE IF NOT EXISTS inventory (
@@ -119,9 +123,13 @@ export async function initDb() {
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE,
         phone VARCHAR(50),
+        address TEXT,
+        notes TEXT,
         loyalty_points INTEGER DEFAULT 0,
         total_orders INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW()
+        total_spent DECIMAL(10,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS github_repos (
@@ -144,7 +152,44 @@ export async function initDb() {
       );
     `)
 
-    // Seed admin user
+    await client.query(`
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
+      ALTER TABLE order_items ADD COLUMN IF NOT EXISTS notes TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS notes TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_spent DECIMAL(10,2) DEFAULT 0;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+    `)
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+      CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
+      CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+      CREATE INDEX IF NOT EXISTS idx_order_items_menu_item_id ON order_items(menu_item_id);
+      CREATE INDEX IF NOT EXISTS idx_inventory_quantity ON inventory(quantity);
+      CREATE INDEX IF NOT EXISTS idx_recipe_ing_menu_item ON recipe_ingredients(menu_item_id);
+      CREATE INDEX IF NOT EXISTS idx_recipe_ing_inventory ON recipe_ingredients(inventory_item_id);
+    `)
+
+    const settingsDefaults = [
+      ['restaurant_name', 'Automatic'],
+      ['restaurant_tagline', 'Restaurant OS'],
+      ['tax_rate', '11'],
+      ['currency_symbol', '$'],
+      ['tables_count', '10'],
+      ['receipt_footer', 'Thank you for dining with us!'],
+      ['loyalty_points_per_dollar', '1'],
+    ]
+    for (const [key, value] of settingsDefaults) {
+      await client.query(
+        `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,
+        [key, value]
+      )
+    }
+
     const userCheck = await client.query('SELECT id FROM users WHERE email = $1', ['admin@automatic.com'])
     if (userCheck.rows.length === 0) {
       const bcrypt = await import('bcryptjs')
@@ -155,45 +200,64 @@ export async function initDb() {
       )
     }
 
-    // Seed menu items
     const menuCheck = await client.query('SELECT id FROM menu_items LIMIT 1')
     if (menuCheck.rows.length === 0) {
       const items = [
-        ['Grilled Chicken Shawarma', 'mains', 12.99, 'Tender grilled chicken with garlic sauce'],
-        ['Mixed Grill Platter', 'mains', 22.99, 'Assorted grilled meats with sides'],
-        ['Falafel Wrap', 'wraps', 8.99, 'Crispy falafel with tahini and veggies'],
-        ['Hummus & Pita', 'starters', 6.99, 'Creamy hummus with fresh pita bread'],
-        ['Lebanese Salad', 'salads', 7.49, 'Fresh fattoush or tabbouleh'],
-        ['Lamb Kofta', 'mains', 16.99, 'Spiced minced lamb skewers'],
-        ['Lemonade Mint', 'drinks', 3.99, 'Fresh lemon with mint leaves'],
-        ['Arabic Coffee', 'drinks', 2.99, 'Traditional cardamom coffee'],
-        ['Kunafa', 'desserts', 5.99, 'Sweet cheese pastry with syrup'],
-        ['Baklava Plate', 'desserts', 4.99, 'Assorted honey nut pastries'],
-        ['Cheese Manakish', 'breakfast', 7.99, 'Flatbread with akkawi cheese'],
-        ['Zaatar Manakish', 'breakfast', 5.99, 'Flatbread with zaatar and olive oil'],
+        ['Grilled Chicken Shawarma', 'shawarma', 12.99, 'Tender grilled chicken with garlic sauce', 30, '🌯,chicken,popular', 4.20],
+        ['Mixed Shawarma Plate', 'shawarma', 16.99, 'Chicken and meat shawarma with sides', 35, '🌯,mixed,popular', 5.50],
+        ['Mixed Grill Platter', 'grills', 22.99, 'Assorted grilled meats with sides', 40, '🔥,grill,popular', 7.80],
+        ['Shish Tawook', 'grills', 14.99, 'Marinated chicken skewers', 25, '🔥,chicken', 4.80],
+        ['Lamb Kofta', 'grills', 16.99, 'Spiced minced lamb skewers', 30, '🔥,lamb', 5.90],
+        ['Falafel Wrap', 'sandwiches', 8.99, 'Crispy falafel with tahini and veggies', 10, '🥪,vegetarian,falafel', 2.10],
+        ['Kafta Sandwich', 'sandwiches', 9.99, 'Spiced meat sandwich with veggies', 12, '🥪,meat', 3.20],
+        ['Hummus & Pita', 'appetizers', 6.99, 'Creamy hummus with fresh pita bread', 5, '🥙,vegetarian', 1.80],
+        ['Fattoush Salad', 'salads', 7.49, 'Fresh salad with crispy bread', 8, '🥗,vegetarian,fresh', 2.30],
+        ['Tabbouleh', 'salads', 7.49, 'Parsley, tomato and bulgur salad', 8, '🥗,vegetarian,fresh', 1.90],
+        ['Lebanese Salad', 'salads', 6.99, 'Fresh seasonal vegetables', 5, '🥗,vegetarian', 1.60],
+        ['Cheese Manakish', 'manakish', 7.99, 'Flatbread with akkawi cheese', 12, '🫓,cheese,breakfast', 2.50],
+        ['Zaatar Manakish', 'manakish', 5.99, 'Flatbread with zaatar and olive oil', 10, '🫓,zaatar,breakfast,vegetarian', 1.50],
+        ['Meat Manakish', 'manakish', 8.99, 'Flatbread with spiced minced meat', 15, '🫓,meat,breakfast', 3.00],
+        ['Kafta Meal', 'meals', 15.99, 'Kafta with rice and salad', 25, '🍱,meal,complete', 5.20],
+        ['Grilled Chicken Meal', 'meals', 14.99, 'Grilled chicken with rice and salad', 25, '🍱,meal,chicken', 4.90],
+        ['Lemonade Mint', 'drinks', 3.99, 'Fresh lemon with mint leaves', 3, '🥤,fresh,cold', 0.70],
+        ['Jallab Juice', 'drinks', 4.49, 'Rose water, grape juice and pine nuts', 3, '🥤,traditional', 0.90],
+        ['Arabic Coffee', 'drinks', 2.99, 'Traditional cardamom coffee', 5, '☕,hot,traditional', 0.60],
+        ['Lebanese Tea', 'drinks', 2.49, 'Herbal tea blend', 5, '☕,hot', 0.40],
+        ['Kunafa', 'desserts', 5.99, 'Sweet cheese pastry with syrup', 15, '🍮,sweet,hot', 2.00],
+        ['Baklava Plate', 'desserts', 4.99, 'Assorted honey nut pastries', 5, '🍮,sweet,cold', 1.80],
+        ['Maamoul', 'desserts', 3.99, 'Date-filled semolina cookies', 5, '🍮,traditional', 1.20],
       ]
-      for (const [name, category, price, description] of items) {
+      for (const [name, category, price, description, prep_time, tags, food_cost] of items) {
         await client.query(
-          'INSERT INTO menu_items (name, category, price, description) VALUES ($1,$2,$3,$4)',
-          [name, category, price, description]
+          'INSERT INTO menu_items (name, category, price, description, prep_time, tags, food_cost) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          [name, category, price, description, prep_time, tags, food_cost]
         )
       }
     }
 
-    // Seed inventory
     const invCheck = await client.query('SELECT id FROM inventory LIMIT 1')
     if (invCheck.rows.length === 0) {
       const items = [
         ['Chicken', 'proteins', 15, 'kg', 5, 4.50],
         ['Lamb', 'proteins', 8, 'kg', 3, 9.00],
+        ['Kafta Mix', 'proteins', 6, 'kg', 2, 7.00],
         ['Olive Oil', 'pantry', 10, 'L', 3, 6.00],
         ['Pita Bread', 'bread', 200, 'pcs', 50, 0.30],
         ['Tomatoes', 'vegetables', 12, 'kg', 4, 1.50],
         ['Lettuce', 'vegetables', 5, 'kg', 2, 2.00],
+        ['Parsley', 'vegetables', 3, 'kg', 1, 3.00],
+        ['Cucumber', 'vegetables', 4, 'kg', 2, 1.80],
+        ['Onions', 'vegetables', 8, 'kg', 3, 0.80],
         ['Tahini', 'pantry', 4, 'kg', 1, 5.00],
+        ['Zaatar Mix', 'pantry', 3, 'kg', 1, 8.00],
+        ['Akkawi Cheese', 'dairy', 4, 'kg', 2, 12.00],
         ['Rice', 'grains', 20, 'kg', 5, 1.20],
+        ['Bulgur', 'grains', 5, 'kg', 2, 1.50],
         ['Chickpeas', 'legumes', 3, 'kg', 2, 2.50],
         ['Lemons', 'fruits', 30, 'pcs', 10, 0.20],
+        ['Semolina', 'grains', 4, 'kg', 1, 2.00],
+        ['Kunafa Dough', 'pantry', 5, 'kg', 2, 6.00],
+        ['Sugar', 'pantry', 10, 'kg', 3, 1.00],
       ]
       for (const [name, category, quantity, unit, min_quantity, cost] of items) {
         await client.query(
@@ -203,20 +267,19 @@ export async function initDb() {
       }
     }
 
-    // Seed customers
     const custCheck = await client.query('SELECT id FROM customers LIMIT 1')
     if (custCheck.rows.length === 0) {
       const customers = [
-        ['Ahmed Al-Rashid', 'ahmed@example.com', '+961 70 123 456', 150, 12],
-        ['Fatima Hassan', 'fatima@example.com', '+961 71 234 567', 80, 6],
-        ['Karim Nasser', null, '+961 76 345 678', 30, 3],
-        ['Sara Mansour', 'sara@example.com', null, 200, 18],
-        ['Omar Khalil', 'omar@example.com', '+961 78 456 789', 0, 1],
+        ['Ahmed Al-Rashid', 'ahmed@example.com', '+961 70 123 456', 150, 12, 187.50],
+        ['Fatima Hassan', 'fatima@example.com', '+961 71 234 567', 80, 6, 94.80],
+        ['Karim Nasser', null, '+961 76 345 678', 30, 3, 42.00],
+        ['Sara Mansour', 'sara@example.com', null, 200, 18, 285.60],
+        ['Omar Khalil', 'omar@example.com', '+961 78 456 789', 0, 1, 14.99],
       ]
-      for (const [name, email, phone, points, orders] of customers) {
+      for (const [name, email, phone, points, orders, spent] of customers) {
         await client.query(
-          'INSERT INTO customers (name, email, phone, loyalty_points, total_orders) VALUES ($1,$2,$3,$4,$5)',
-          [name, email, phone, points, orders]
+          'INSERT INTO customers (name, email, phone, loyalty_points, total_orders, total_spent) VALUES ($1,$2,$3,$4,$5,$6)',
+          [name, email, phone, points, orders, spent]
         )
       }
     }

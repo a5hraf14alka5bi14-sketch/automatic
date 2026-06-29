@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { apiFetch } from '../utils/api.js'
 
 const API = '/api/notion'
 
@@ -58,7 +59,7 @@ function ConnectionStatus({ config, onTest }) {
   const test = async () => {
     setTesting(true); setResult(null)
     try {
-      const r = await fetch(`${API}/config/test`, { method: 'POST' })
+      const r = await apiFetch(`${API}/config/test`, { method: 'POST' })
       const d = await r.json()
       setResult(d)
     } catch (e) {
@@ -133,7 +134,7 @@ function SettingsPanel({ config, onSaved }) {
     try {
       const body = { projectsDb, tasksDb }
       if (apiKey.trim()) body.apiKey = apiKey.trim()
-      const r = await fetch(`${API}/config`, {
+      const r = await apiFetch(`${API}/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -249,7 +250,7 @@ function NewTaskForm({ projects, onCreated, onCancel }) {
     setSaving(true); setErr(null)
     try {
       const selected = projects.find(p => p.id === parseInt(projectId))
-      const r = await fetch(`${API}/tasks`, {
+      const r = await apiFetch(`${API}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -320,7 +321,7 @@ function NewProjectForm({ onCreated, onCancel }) {
     if (!name.trim()) return
     setSaving(true); setErr(null)
     try {
-      const r = await fetch(`${API}/projects`, {
+      const r = await apiFetch(`${API}/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), status: 'not_started', priority,
@@ -391,17 +392,17 @@ export default function NotionIntegration() {
   const [updatingId, setUpdatingId] = useState(null)
 
   const loadConfig = useCallback(async () => {
-    try { const r = await fetch(`${API}/config`); setConfig(await r.json()) } catch {}
+    try { const r = await apiFetch(`${API}/config`); setConfig(await r.json()) } catch {}
   }, [])
 
   const loadProjects = useCallback(async () => {
-    try { const r = await fetch(`${API}/projects`); setProjects(await r.json()) } catch {}
+    try { const r = await apiFetch(`${API}/projects`); setProjects(await r.json()) } catch {}
   }, [])
 
   const loadTasks = useCallback(async (projectFilter) => {
     try {
       const url = projectFilter ? `${API}/tasks?project_id=${projectFilter.id}` : `${API}/tasks`
-      const r = await fetch(url); setTasks(await r.json())
+      const r = await apiFetch(url); setTasks(await r.json())
     } catch {}
   }, [])
 
@@ -439,7 +440,7 @@ export default function NotionIntegration() {
   const updateTaskStatus = async (task, newStatus) => {
     setUpdatingId(task.id)
     try {
-      const r = await fetch(`${API}/tasks/${task.id}/status`, {
+      const r = await apiFetch(`${API}/tasks/${task.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -457,7 +458,7 @@ export default function NotionIntegration() {
   const updateProjectStatus = async (project, newStatus) => {
     setUpdatingId(project.id)
     try {
-      const r = await fetch(`${API}/projects/${project.id}/status`, {
+      const r = await apiFetch(`${API}/projects/${project.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })

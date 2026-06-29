@@ -10,6 +10,7 @@ import Reports from './pages/Reports.jsx'
 import NotionIntegration from './pages/NotionIntegration.jsx'
 import Integrations from './pages/Integrations.jsx'
 import Menu from './pages/Menu.jsx'
+import Settings from './pages/Settings.jsx'
 import Login from './pages/Login.jsx'
 
 export default function App() {
@@ -20,7 +21,7 @@ export default function App() {
   useEffect(() => {
     const stored = localStorage.getItem('auth_user')
     if (stored) {
-      setUser(JSON.parse(stored))
+      try { setUser(JSON.parse(stored)) } catch { localStorage.removeItem('auth_user') }
     }
   }, [])
 
@@ -35,24 +36,20 @@ export default function App() {
     setCurrentPage('dashboard')
   }
 
-  if (!user) {
-    return <Login onLogin={handleLogin} />
-  }
+  if (!user) return <Login onLogin={handleLogin} />
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard': return <Dashboard />
-      case 'pos': return <POS />
-      case 'orders': return <Orders />
-      case 'kitchen': return <Kitchen />
-      case 'inventory': return <Inventory />
-      case 'customers': return <Customers />
-      case 'reports': return <Reports />
-      case 'menu': return <Menu />
-      case 'integrations': return <Integrations />
-      case 'notion': return <NotionIntegration />
-      default: return <Dashboard />
-    }
+  const pages = {
+    dashboard:    <Dashboard />,
+    pos:          <POS />,
+    orders:       <Orders />,
+    kitchen:      <Kitchen />,
+    inventory:    <Inventory />,
+    customers:    <Customers />,
+    reports:      <Reports />,
+    menu:         <Menu />,
+    settings:     <Settings user={user} />,
+    integrations: <Integrations />,
+    notion:       <NotionIntegration />,
   }
 
   return (
@@ -65,8 +62,8 @@ export default function App() {
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
       />
-      <main className={`flex-1 overflow-auto transition-all duration-300 ${sidebarOpen ? 'ml-0' : 'ml-0'}`}>
-        {renderPage()}
+      <main className="flex-1 overflow-auto">
+        {pages[currentPage] || <Dashboard />}
       </main>
     </div>
   )

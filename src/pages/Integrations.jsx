@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-
-const API = ''
+import { apiFetch } from '../utils/api.js'
 
 function StatusDot({ ok, loading }) {
   if (loading) return <span className="w-2.5 h-2.5 rounded-full bg-slate-500 animate-pulse inline-block" />
@@ -74,7 +73,7 @@ function GitHubSection({ status, onRefresh }) {
     setSaving(true)
     setSaveMsg('')
     try {
-      await fetch(`${API}/api/integrations/github/config`, {
+      await apiFetch(`/api/integrations/github/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
@@ -93,7 +92,7 @@ function GitHubSection({ status, onRefresh }) {
     setTestResult(null)
     setTestError(null)
     try {
-      const res = await fetch(`${API}/api/integrations/github/test`, { method: 'POST' })
+      const res = await apiFetch(`/api/integrations/github/test`, { method: 'POST' })
       const data = await res.json()
       if (data.success) setTestResult({ login: data.login, name: data.name, public_repos: data.public_repos })
       else setTestError(data.error)
@@ -106,12 +105,12 @@ function GitHubSection({ status, onRefresh }) {
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const res = await fetch(`${API}/api/integrations/github/sync`, { method: 'POST' })
+      const res = await apiFetch(`/api/integrations/github/sync`, { method: 'POST' })
       const data = await res.json()
       if (data.synced !== undefined) {
         setSyncing(false)
         setShowRepos(true)
-        const r2 = await fetch(`${API}/api/integrations/github/repos`)
+        const r2 = await apiFetch(`/api/integrations/github/repos`)
         setRepos(await r2.json())
         onRefresh()
         return
@@ -121,7 +120,7 @@ function GitHubSection({ status, onRefresh }) {
   }
 
   const loadRepos = async () => {
-    const r = await fetch(`${API}/api/integrations/github/repos`)
+    const r = await apiFetch(`/api/integrations/github/repos`)
     setRepos(await r.json())
     setShowRepos(true)
   }
@@ -273,7 +272,7 @@ function NotionSection({ status, onRefresh }) {
     setSaving(true)
     setSaveMsg('')
     try {
-      await fetch(`${API}/api/integrations/notion/config`, {
+      await apiFetch(`/api/integrations/notion/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey, projectsDb, tasksDb })
@@ -292,7 +291,7 @@ function NotionSection({ status, onRefresh }) {
     setTestResult(null)
     setTestError(null)
     try {
-      const res = await fetch(`${API}/api/integrations/notion/test`, { method: 'POST' })
+      const res = await apiFetch(`/api/integrations/notion/test`, { method: 'POST' })
       const data = await res.json()
       if (data.success) setTestResult({ user: data.user, type: data.type })
       else setTestError(data.error)
@@ -434,7 +433,7 @@ function OpenAISection({ status, onRefresh }) {
     setSaving(true)
     setSaveMsg('')
     try {
-      await fetch(`${API}/api/integrations/openai/config`, {
+      await apiFetch(`/api/integrations/openai/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey })
@@ -453,7 +452,7 @@ function OpenAISection({ status, onRefresh }) {
     setTestResult(null)
     setTestError(null)
     try {
-      const res = await fetch(`${API}/api/integrations/openai/test`, { method: 'POST' })
+      const res = await apiFetch(`/api/integrations/openai/test`, { method: 'POST' })
       const data = await res.json()
       if (data.success) setTestResult({ models_available: data.models_available, gpt_models: data.gpt_models })
       else setTestError(data.error)
@@ -469,7 +468,7 @@ function OpenAISection({ status, onRefresh }) {
     setAiReply('')
     setAiError('')
     try {
-      const res = await fetch(`${API}/api/integrations/openai/chat`, {
+      const res = await apiFetch(`/api/integrations/openai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -617,7 +616,7 @@ export default function Integrations() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/integrations`)
+      const res = await apiFetch(`/api/integrations`)
       if (!res.ok) throw new Error('Failed to load integration status')
       setStatus(await res.json())
     } catch (e) {

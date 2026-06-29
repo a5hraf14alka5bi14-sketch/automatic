@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { apiFetch } from '../utils/api.js'
 
 const CATEGORIES = ['proteins', 'vegetables', 'grains', 'legumes', 'bread', 'dairy', 'fruits', 'pantry', 'spices', 'beverages', 'general']
 
@@ -12,7 +13,6 @@ function StatCard({ label, value, sub, color }) {
   )
 }
 
-// ── Add/Edit Modal ────────────────────────────────────────────────────────────
 function ItemModal({ item, onClose, onSave }) {
   const isEdit = !!item?.id
   const [form, setForm] = useState({
@@ -33,10 +33,8 @@ function ItemModal({ item, onClose, onSave }) {
     setSaving(true); setError('')
     try {
       const url = isEdit ? `/api/inventory/${item.id}` : '/api/inventory'
-      const method = isEdit ? 'PATCH' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
+      const res = await apiFetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
         body: JSON.stringify({
           ...form,
           quantity: parseFloat(form.quantity),
@@ -108,9 +106,8 @@ function ItemModal({ item, onClose, onSave }) {
   )
 }
 
-// ── Quick Adjust Modal ────────────────────────────────────────────────────────
 function AdjustModal({ item, onClose, onSave }) {
-  const [mode, setMode] = useState('set') // 'set' | 'add' | 'subtract'
+  const [mode, setMode] = useState('set')
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -122,9 +119,8 @@ function AdjustModal({ item, onClose, onSave }) {
       const body = mode === 'set'
         ? { quantity: parseFloat(value) }
         : { adjust: mode === 'add' ? parseFloat(value) : -parseFloat(value) }
-      const res = await fetch(`/api/inventory/${item.id}`, {
+      const res = await apiFetch(`/api/inventory/${item.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
       if (!res.ok) throw new Error((await res.json()).error)
@@ -153,16 +149,14 @@ function AdjustModal({ item, onClose, onSave }) {
             <span className="text-slate-400 text-sm">Current stock</span>
             <span className="text-white font-bold">{item.quantity} {item.unit}</span>
           </div>
-
           <div className="flex gap-1 bg-slate-800 rounded-lg p-1">
-            {[['set','Set to'],['add','Add'],['subtract','Remove']].map(([m, l]) => (
+            {[['set', 'Set to'], ['add', 'Add'], ['subtract', 'Remove']].map(([m, l]) => (
               <button key={m} onClick={() => setMode(m)}
                 className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === m ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>
                 {l}
               </button>
             ))}
           </div>
-
           <div>
             <label className="text-slate-400 text-xs mb-1 block">
               {mode === 'set' ? 'New quantity' : mode === 'add' ? 'Amount to add' : 'Amount to remove'} ({item.unit})
@@ -171,7 +165,6 @@ function AdjustModal({ item, onClose, onSave }) {
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
               placeholder={`Enter amount in ${item.unit}`} autoFocus />
           </div>
-
           {value && (
             <div className="bg-slate-800 rounded-xl p-3 flex items-center justify-between">
               <span className="text-slate-400 text-sm">Result</span>
@@ -194,7 +187,6 @@ function AdjustModal({ item, onClose, onSave }) {
   )
 }
 
-// ── Delete Modal ──────────────────────────────────────────────────────────────
 function DeleteModal({ item, onClose, onConfirm }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -202,7 +194,7 @@ function DeleteModal({ item, onClose, onConfirm }) {
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-sm w-full">
         <p className="text-white font-bold mb-2">Delete "{item.name}"?</p>
-        <p className="text-slate-400 text-sm mb-4">This cannot be undone. Items used in recipes cannot be deleted — remove them from recipes first.</p>
+        <p className="text-slate-400 text-sm mb-4">This cannot be undone. Items used in recipes cannot be deleted.</p>
         {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg transition-colors">Cancel</button>
@@ -217,7 +209,6 @@ function DeleteModal({ item, onClose, onConfirm }) {
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function Inventory() {
   const [items, setItems] = useState([])
   const [stats, setStats] = useState(null)
@@ -231,8 +222,8 @@ export default function Inventory() {
   const load = useCallback(async () => {
     try {
       const [itemsRes, statsRes] = await Promise.all([
-        fetch('/api/inventory'),
-        fetch('/api/inventory/stats'),
+        apiFetch('/api/inventory'),
+        apiFetch('/api/inventory/stats'),
       ])
       const [itemsData, statsData] = await Promise.all([itemsRes.json(), statsRes.json()])
       setItems(Array.isArray(itemsData) ? itemsData : [])
@@ -244,7 +235,7 @@ export default function Inventory() {
   useEffect(() => { load() }, [load])
 
   const handleDelete = async () => {
-    const res = await fetch(`/api/inventory/${deleteItem.id}`, { method: 'DELETE' })
+    const res = await apiFetch(`/api/inventory/${deleteItem.id}`, { method: 'DELETE' })
     if (!res.ok) {
       const data = await res.json()
       return data.error
@@ -263,7 +254,6 @@ export default function Inventory() {
 
   return (
     <div className="p-6 min-h-screen">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Inventory</h1>
@@ -275,7 +265,6 @@ export default function Inventory() {
         </button>
       </div>
 
-      {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatCard label="Total Items" value={stats.total} />
@@ -285,12 +274,11 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Low stock alert banner */}
       {lowStock.length > 0 && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-5 flex items-start gap-3">
           <span className="text-xl flex-shrink-0">⚠️</span>
           <div className="flex-1 min-w-0">
-            <p className="text-red-400 font-semibold text-sm mb-2">Low Stock Alert — {lowStock.length} item{lowStock.length > 1 ? 's' : ''} need restocking</p>
+            <p className="text-red-400 font-semibold text-sm mb-2">Low Stock — {lowStock.length} item{lowStock.length > 1 ? 's' : ''} need restocking</p>
             <div className="flex flex-wrap gap-2">
               {lowStock.map(item => (
                 <button key={item.id} onClick={() => setAdjustItem(item)}
@@ -303,7 +291,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Toolbar */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
@@ -321,7 +308,6 @@ export default function Inventory() {
         <span className="text-slate-500 text-sm ml-auto">{filtered.length} items</span>
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="space-y-2">
           {[...Array(6)].map((_, i) => <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl p-4 animate-pulse h-14" />)}
@@ -360,7 +346,6 @@ export default function Inventory() {
                   <tr key={item.id} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors group">
                     <td className="px-4 py-3">
                       <p className="text-white text-sm font-medium">{item.name}</p>
-                      {/* Mini stock bar */}
                       <div className="w-20 bg-slate-800 rounded-full h-1 mt-1">
                         <div className={`h-1 rounded-full ${isEmpty ? 'bg-red-500' : isLow ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${pct}%` }} />
                       </div>
@@ -394,7 +379,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Modals */}
       {editItem !== null && <ItemModal item={editItem} onClose={() => setEditItem(null)} onSave={load} />}
       {adjustItem && <AdjustModal item={adjustItem} onClose={() => setAdjustItem(null)} onSave={load} />}
       {deleteItem && <DeleteModal item={deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} />}

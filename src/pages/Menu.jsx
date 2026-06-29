@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { apiFetch } from '../utils/api.js'
 
 const CATEGORIES = [
   { id: 'all', label: 'All Items', emoji: '🍽️' },
@@ -240,9 +241,8 @@ function ItemModal({ item, inventory, onClose, onSave }) {
     try {
       const url = isEdit ? `/api/menu/${item.id}` : '/api/menu'
       const method = isEdit ? 'PATCH' : 'POST'
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, price: parseFloat(form.price), food_cost: parseFloat(form.food_cost || 0) })
       })
       if (!res.ok) throw new Error((await res.json()).error)
@@ -253,22 +253,14 @@ function ItemModal({ item, inventory, onClose, onSave }) {
         const existingIds = (item.recipe || []).map(r => r.id)
         const keptIds = recipe.filter(r => existingIds.includes(r.id)).map(r => r.id)
         for (const id of existingIds) {
-          if (!keptIds.includes(id)) await fetch(`/api/menu/${item.id}/recipe/${id}`, { method: 'DELETE' })
+          if (!keptIds.includes(id)) await apiFetch(`/api/menu/${item.id}/recipe/${id}`, { method: 'DELETE' })
         }
         for (const ing of recipe.filter(r => !existingIds.includes(r.id))) {
-          await fetch(`/api/menu/${item.id}/recipe`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ing)
-          })
+          await apiFetch(`/api/menu/${item.id}/recipe`, { method: 'POST', body: JSON.stringify(ing) })
         }
       } else {
         for (const ing of recipe) {
-          await fetch(`/api/menu/${saved.id}/recipe`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ing)
-          })
+          await apiFetch(`/api/menu/${saved.id}/recipe`, { method: 'POST', body: JSON.stringify(ing) })
         }
       }
 
@@ -535,9 +527,9 @@ export default function Menu() {
   const load = useCallback(async () => {
     try {
       const [itemsRes, invRes, statsRes] = await Promise.all([
-        fetch('/api/menu/all'),
-        fetch('/api/inventory'),
-        fetch('/api/menu/stats'),
+        apiFetch('/api/menu/all'),
+        apiFetch('/api/inventory'),
+        apiFetch('/api/menu/stats'),
       ])
       const [itemsData, invData, statsData] = await Promise.all([
         itemsRes.json(), invRes.json(), statsRes.json()
@@ -552,24 +544,22 @@ export default function Menu() {
   useEffect(() => { load() }, [load])
 
   const handleToggle = async (item) => {
-    await fetch(`/api/menu/${item.id}`, {
+    await apiFetch(`/api/menu/${item.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ available: !item.available })
     })
     load()
   }
 
   const handleDelete = async () => {
-    await fetch(`/api/menu/${deleteItem.id}/hard`, { method: 'DELETE' })
+    await apiFetch(`/api/menu/${deleteItem.id}/hard`, { method: 'DELETE' })
     setDeleteItem(null)
     load()
   }
 
   const handleEdit = async (item) => {
-    // Fetch full item with recipe
     try {
-      const res = await fetch(`/api/menu/${item.id}`)
+      const res = await apiFetch(`/api/menu/${item.id}`)
       const full = await res.json()
       setEditItem(full)
     } catch { setEditItem(item) }
