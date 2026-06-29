@@ -5,6 +5,7 @@ const navItems = [
   { id: 'pos', label: 'Point of Sale', icon: '🛒' },
   { id: 'orders', label: 'Orders', icon: '📋' },
   { id: 'kitchen', label: 'Kitchen', icon: '👨‍🍳' },
+  { id: 'menu', label: 'Menu & Recipes', icon: '🍽️' },
   { id: 'inventory', label: 'Inventory', icon: '📦' },
   { id: 'customers', label: 'Customers', icon: '👥' },
   { id: 'reports', label: 'Reports', icon: '📊' },

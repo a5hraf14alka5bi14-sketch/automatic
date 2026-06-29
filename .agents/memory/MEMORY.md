@@ -1,3 +1,5 @@
 - [Notion SDK compatibility](notion-sdk-compat.md) — this SDK version has no databases.query; sync must go through MCP notionQueryDataSources
 - [Notion sync architecture](notion-sync-arch.md) — REST API key can't access DBs directly (not shared); use MCP for reads, REST pages.update for writes
 - [Integrations hub architecture](integrations-arch.md) — unified /api/integrations route; secrets read from env first, DB settings as override; node --watch needs full restart to pick up new route imports
+- [DB migration pattern](db-migration-pattern.md) — existing tables need ALTER TABLE ADD COLUMN IF NOT EXISTS; CREATE TABLE IF NOT EXISTS only adds new tables, not columns
+- [Inventory deduction pattern](inventory-deduction.md) — orders route PATCH /:id/status checks prev status before deducting; prevents double-deduction; cancelling completed order re-stocks

@@ -6,6 +6,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.0-beta] — 2026-06-29
+
+### Added — Menu & Recipes Module
+- Full Lebanese restaurant menu management page (41 items, 9 categories)
+- Lebanese categories: Shawarma 🌯, Grills 🔥, Appetizers 🥙, Salads 🥗, Sandwiches 🥪, Meals 🍱, Manakish 🫓, Desserts 🍮, Drinks 🥤
+- Item images (URL), preparation time, tags, food cost fields
+- Recipe ingredients system — link menu items to inventory for automatic cost calculation
+- Grid and list views with search, category filter, availability filter
+- Per-item margin % display with color coding (green ≥70%, yellow ≥50%, red <50%)
+- Add/Edit modal with three tabs: Basic Info, Details, Recipe
+
+### Added — Inventory Integration
+- **Automatic stock deduction**: completing an order deducts recipe ingredients from inventory
+- Re-stock logic: cancelling a previously-completed order restores deducted quantities
+- `recipe_ingredients` table with full CRUD API
+- Inventory full PATCH (all fields), DELETE, and `PATCH ?adjust=` for relative stock changes
+- `GET /api/inventory/stats` and `GET /api/inventory/low-stock` endpoints
+- Inventory page: edit modal, delete with FK guard, quick stock-adjust modal, mini stock bars per row
+
+### Added — Profitability Reports
+- Food cost tracking per completed order (via recipe → inventory cost chain)
+- Gross profit and gross margin % calculations
+- Profitability tab: P&L summary, margin gauge, category profitability table
+- Menu Performance tab: best sellers by quantity and revenue, category revenue bars
+- Stock Alerts tab: low-stock items with percentage-of-minimum indicator
+- `categoryPerf`, `topByRevenue`, `lowStock` fields added to reports API
+
+### Improved — POS
+- Lebanese category emoji pills (🌯🔥🥙🥗🥪🍱🫓🍮🥤)
+- In-cart item count badge on menu cards
+- Order type icons (🍴 dine-in, 🥡 takeaway, 🛵 delivery)
+- Cart hover-to-remove, clear-order button, animated place-order spinner
+
+---
+
 ## [1.0.0] — 2026-06-27
 
 ### Added

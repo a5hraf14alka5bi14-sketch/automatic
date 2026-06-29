@@ -62,6 +62,21 @@ export async function initDb() {
         price DECIMAL(10,2) NOT NULL,
         description TEXT,
         available BOOLEAN DEFAULT true,
+        image_url TEXT,
+        prep_time INTEGER DEFAULT 15,
+        tags TEXT DEFAULT '',
+        food_cost DECIMAL(10,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS recipe_ingredients (
+        id SERIAL PRIMARY KEY,
+        menu_item_id INTEGER REFERENCES menu_items(id) ON DELETE CASCADE,
+        inventory_item_id INTEGER REFERENCES inventory(id) ON DELETE SET NULL,
+        ingredient_name VARCHAR(255) NOT NULL,
+        quantity DECIMAL(10,3) NOT NULL DEFAULT 1,
+        unit VARCHAR(50) DEFAULT 'pcs',
+        cost DECIMAL(10,2) DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
 

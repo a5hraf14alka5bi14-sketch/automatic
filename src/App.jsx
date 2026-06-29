@@ -9,6 +9,7 @@ import Customers from './pages/Customers.jsx'
 import Reports from './pages/Reports.jsx'
 import NotionIntegration from './pages/NotionIntegration.jsx'
 import Integrations from './pages/Integrations.jsx'
+import Menu from './pages/Menu.jsx'
 import Login from './pages/Login.jsx'
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
       case 'inventory': return <Inventory />
       case 'customers': return <Customers />
       case 'reports': return <Reports />
+      case 'menu': return <Menu />
       case 'integrations': return <Integrations />
       case 'notion': return <NotionIntegration />
       default: return <Dashboard />
