@@ -1,438 +1,199 @@
 <div align="center">
 
-# 🍽️ Automatic
+# 🍽️ Automatic Restaurant OS
 
-### Smart Restaurant Management System
+### AI-Powered Restaurant Management Platform
 
-A modern, scalable, and AI-ready restaurant management platform built to simplify restaurant operations, improve customer experience, and increase business efficiency.
+[![CI](https://github.com/a5hraf14alka5bi14-sketch/Automatic-/actions/workflows/ci.yml/badge.svg)](https://github.com/a5hraf14alka5bi14-sketch/Automatic-/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Version](https://img.shields.io/badge/Version-1.0.0-informational)](./CHANGELOG.md)
+[![Platform](https://img.shields.io/badge/Platform-Replit-orange)](https://replit.com)
 
-![Status](https://img.shields.io/badge/Status-Development-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Platform](https://img.shields.io/badge/Platform-Web-blue)
-![Version](https://img.shields.io/badge/Version-1.0-informational)
+Manage your restaurant operations — POS, kitchen, inventory, customers, reporting, and AI automation — from one integrated dashboard.
 
 </div>
 
 ---
 
-# 📖 Overview
+## ✨ Features
 
-Automatic is an all-in-one restaurant management platform designed for Lebanese restaurants and food businesses.
-
-The system combines POS operations, kitchen management, inventory tracking, reporting, customer management, and AI-powered automation into one integrated platform.
-
----
-
-# ✨ Features
-
-## 🍽 Restaurant Operations
-
-- Menu Management
-- Categories
-- Product Variations
-- Pricing Control
-- Availability Management
-
-## 🛒 Order Management
-
-- Dine-In
-- Takeaway
-- Delivery
-- Online Orders
-- Order Tracking
-- Order History
-
-## 💳 Point of Sale (POS)
-
-- Fast Checkout
-- Multiple Payment Methods
-- Split Bills
-- Discounts
-- Tax Calculation
-- Receipt Printing
-
-## 👨‍🍳 Kitchen Display System
-
-- Live Orders
-- Kitchen Queue
-- Preparation Status
-- Completed Orders
-- Priority Management
-
-## 📦 Inventory
-
-- Ingredient Tracking
-- Low Stock Alerts
-- Purchase Orders
-- Supplier Management
-- Cost Analysis
-
-## 👥 Customer Management
-
-- Customer Profiles
-- Loyalty Program
-- Reward Points
-- Customer History
-- Marketing Campaigns
-
-## 📊 Reports
-
-- Daily Sales
-- Monthly Revenue
-- Best Selling Items
-- Staff Performance
-- Inventory Reports
-- Financial Dashboard
-
-## 🤖 AI Features (Roadmap)
-
-- Sales Forecasting
-- Inventory Prediction
-- Smart Recommendations
-- Customer Insights
-- Automated Reports
-- AI Chat Assistant
+| Module | Description |
+|---|---|
+| 🛒 **Point of Sale** | Fast checkout, split bills, tax calculation |
+| 📋 **Orders** | Dine-in, takeaway, delivery tracking |
+| 👨‍🍳 **Kitchen Display** | Live order queue, prep status, priority management |
+| 📦 **Inventory** | Ingredient tracking, low-stock alerts, cost analysis |
+| 👥 **Customers** | Profiles, loyalty points, order history |
+| 📊 **Reports** | Daily sales, revenue trends, best-sellers |
+| 🔌 **Integrations** | GitHub, Notion, and OpenAI — all connected |
+| 🤖 **AI Assistant** | GPT-powered suggestions via OpenAI integration |
 
 ---
 
-# 🏗 Architecture
+## 🏗 Architecture
 
 ```
-Frontend
-│
-├── Dashboard
-├── POS
-├── Kitchen
-├── Reports
-└── Admin Panel
+Browser (React 18 + Vite)   →   port 5000
+        ↕ REST API
+Express Backend              →   port 3001
+        ↕
+PostgreSQL Database          ←   DATABASE_URL secret
 
-Backend
-│
-├── Authentication
-├── API
-├── Business Logic
-└── Database
-
-Database
-│
-├── Products
-├── Orders
-├── Customers
-├── Inventory
-└── Reports
+External services (server-side only, keys never reach browser):
+  GitHub API  ←  GITHUB_TOKEN
+  Notion API  ←  NOTION_API_KEY
+  OpenAI API  ←  OPENAI_API_KEY
 ```
 
 ---
 
-# 🛠 Technology Stack
+## 🛠 Tech Stack
 
-### Frontend
-
-- React
-- TypeScript
-- Tailwind CSS
-
-### Backend
-
-- Node.js
-- Express
-
-### Database
-
-- PostgreSQL
-
-### Authentication
-
-- JWT
-
-### Deployment
-
-- Replit
-- GitHub
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, Tailwind CSS |
+| Backend | Node.js, Express (ESM) |
+| Database | PostgreSQL |
+| Auth | JWT + bcryptjs |
+| AI | OpenAI GPT-4o-mini |
+| Project mgmt | Notion (bidirectional sync) |
+| Source control | GitHub |
+| Hosting | Replit |
 
 ---
 
-# 📂 Project Structure
+## 🚀 Getting Started
 
-```
-Automatic/
+### Prerequisites
+- Node.js 18+
+- PostgreSQL database
+- API keys for GitHub, Notion, OpenAI (optional but recommended)
 
-src/
-│
-├── components/
-├── pages/
-├── layouts/
-├── hooks/
-├── services/
-├── api/
-├── utils/
-└── assets/
-
-server/
-
-database/
-
-public/
-
-README.md
-```
-
----
-
-# 🚀 Installation
-
-Clone the repository
+### 1. Clone
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Automatic.git
+git clone https://github.com/a5hraf14alka5bi14-sketch/Automatic-.git
+cd Automatic-
 ```
 
-Enter the project
-
-```bash
-cd Automatic
-```
-
-Install dependencies
+### 2. Install dependencies
 
 ```bash
 npm install
 ```
 
-Run development server
+### 3. Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env and fill in your secrets (see .env.example for guidance)
+```
+
+### 4. Run
 
 ```bash
 npm run dev
+# Frontend → http://localhost:5000
+# Backend  → http://localhost:3001
+```
+
+### Demo credentials
+```
+Email:    admin@automatic.com
+Password: admin123
 ```
 
 ---
 
-# 📈 Roadmap
+## 🔌 Integrations
 
-- [x] Basic Dashboard
-- [x] Authentication
-- [x] POS System
-- [ ] Inventory Module
-- [ ] Kitchen Display
-- [ ] QR Menu
-- [ ] Customer Loyalty
-- [ ] Mobile Application
-- [ ] AI Analytics
-- [ ] Multi-Branch Support
+See [`docs/integrations.md`](./docs/integrations.md) for full setup instructions.
 
----
+| Integration | Purpose | Secret |
+|---|---|---|
+| GitHub | Repository metadata sync | `GITHUB_TOKEN` |
+| Notion | Project & task sync (bidirectional) | `NOTION_API_KEY` |
+| OpenAI | AI chat, suggestions, forecasting | `OPENAI_API_KEY` |
 
-# 🔐 Security
-
-- JWT Authentication
-- Password Encryption
-- Role-Based Access Control
-- Secure API Endpoints
-- Activity Logging
+All keys are stored as environment secrets and **never exposed to the browser**.
 
 ---
 
-# 📸 Screenshots
+## 📂 Project Structure
 
-Coming Soon...
-
----
-
-# 🤝 Contributing
-
-Contributions are welcome.
-
-Please fork the repository and submit a Pull Request.
-
----
-
-# 📄 License
-
-This project is licensed under the MIT License.
-
----
-
-# 👨‍💻 Author
-
-**Ashraf Saif Alkasbi**
-
-Restaurant Technology & Automation Project
-
----
-
-<div align="center">
-
-### ⭐ If you like this project, give it a Star ⭐
-
-</div>
-* 🖼️ صورة Banner في أعلى الصفحة.
-* 📸 لقطات شاشة فعلية للواجهة (Dashboard، POS، Kitchen).
-* 🔗 رابط النسخة التجريبية (Live Demo).
-* ⚡ جدول يوضح المزايا مقارنة بالأنظمة التقليدية.
-* 🗺️ Roadmap مفصل للإصدارات (v1.0، v1.1، v2.0).
-* 📊 شارات إضافية مثل:
-    * Build Status
-    * Last Commit
-    * Stars
-    * Forks
-    * Issues
-* 🧪 قسم للتشغيل والاختبارات (Testing).
-* 📝 سجل التغييرات (CHANGELOG.md).
-* 🛡️ سياسة الأمان (SECURITY.md).
-* 📜 رخصة LICENSE.
-* 🤝 CODE_OF_CONDUCT.md.
-* 👥 CONTRIBUTING.md.
-🚀 Automatic Restaurant OS
-
-<div align="center">
-
-Automatic Restaurant OS
-
-An AI-Powered Restaurant Management Platform
-
-Manage your restaurant operations from a single intelligent dashboard.
-
-⸻
-
-</div>
-
-⸻
-
-📖 Overview
-
-Automatic Restaurant OS is a modern restaurant management system designed to simplify daily operations through automation, analytics, and AI.
-
-The platform combines POS, inventory management, kitchen operations, finance, employee management, and executive reporting into a single dashboard.
-
-⸻
-
-✨ Features
-
-* 🍽 Restaurant Dashboard
-* 💰 Sales Analytics
-* 📦 Inventory Management
-* 👨‍🍳 Kitchen Display System (KDS)
-* 🛒 Purchase Management
-* 👥 Staff Management
-* 📈 Executive KPIs
-* 🤖 AI Assistant
-* 📊 Business Reports
-* 🔔 Real-time Notifications
-* 📱 Responsive Design
-* 🔒 Secure Authentication
-
-⸻
-
-📸 Screenshots
-
-Coming Soon…
-
-⸻
-
-🏗 Architecture
-
-Frontend
-   │
-   ▼
-React + TypeScript
-   │
-REST API
-   ▼
-Node.js Backend
-   │
-Database
-   ▼
-PostgreSQL
-
-⸻
-
-🛠 Tech Stack
-
-Layer	Technology
-Frontend	React
-Language	TypeScript
-Backend	Node.js
-Database	PostgreSQL
-Styling	Tailwind CSS
-Deployment	Replit
-
-⸻
-
-📂 Project Structure
-
-Automatic/
-├── client/
-├── server/
-├── shared/
-├── public/
-├── components/
-├── hooks/
-├── styles/
+```
+Automatic-/
+├── src/                    # React frontend
+│   ├── pages/              # One file per page/module
+│   ├── components/         # Shared UI components
+│   ├── App.jsx
+│   └── main.jsx
+├── server/                 # Express backend
+│   ├── index.js            # Entry point (port 3001)
+│   ├── db.js               # DB pool + schema init
+│   ├── notion.js           # Notion client + helpers
+│   ├── integrations/       # GitHub & OpenAI clients
+│   └── routes/             # API route handlers
+├── docs/                   # Technical documentation
+├── .github/                # CI workflows & issue templates
+├── .env.example            # Environment variable reference
 └── README.md
+```
 
-⸻
+---
 
-🚀 Getting Started
+## 📈 Roadmap
 
-Clone Repository
+- [x] Authentication (JWT)
+- [x] Dashboard with live stats
+- [x] Point of Sale
+- [x] Order management
+- [x] Kitchen Display System
+- [x] Inventory tracking
+- [x] Customer management & loyalty
+- [x] Reports & analytics
+- [x] GitHub integration (repo sync)
+- [x] Notion integration (bidirectional project/task sync)
+- [x] OpenAI integration (AI chat)
+- [ ] QR code menu
+- [ ] Mobile application
+- [ ] Multi-branch support
+- [ ] AI sales forecasting
+- [ ] Customer-facing online ordering
 
-git clone https://github.com/USERNAME/Automatic.git
+---
 
-Install
+## 🔐 Security
 
-npm install
+- JWT authentication with signed tokens
+- Passwords hashed with bcryptjs (salt rounds: 10)
+- All third-party API keys stored as server-side environment secrets
+- API keys masked in the UI (first 6 + last 4 characters only)
+- Role-based access control (admin / staff)
 
-Run
+See [`SECURITY.md`](./SECURITY.md) for vulnerability reporting.
 
-npm run dev
+---
 
-⸻
+## 🤝 Contributing
 
-📊 Roadmap
+Contributions are welcome. Please read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before submitting a pull request.
 
-* Authentication
-* Dashboard
-* POS
-* Inventory
-* Kitchen Display
-* Supplier Portal
-* Mobile App
-* AI Forecasting
-* Multi-Branch Support
-* Customer Loyalty
-* Online Ordering
+---
 
-⸻
+## 📄 License
 
-🎯 Vision
+MIT — see [`LICENSE`](./LICENSE).
 
-To become one of the leading AI-powered restaurant operating systems for restaurants across the Middle East.
+---
 
-⸻
+## 👨‍💻 Author
 
-🤝 Contributing
-
-Contributions, feature requests, and pull requests are welcome.
-
-⸻
-
-📄 License
-
-This project is licensed under the MIT License.
-
-⸻
-
-👨‍💻 Author
-
-Ashraf Saif Alkasbi
-
-Restaurant Technology • Automation • AI • Digital Transformation
-
-⸻
+**Ashraf Saif Alkasbi** — Restaurant Technology · Automation · AI · Digital Transformation
 
 <div align="center">
 
-⭐ If you like this project, please give it a Star!
+⭐ If you find this useful, give it a star!
 
 Made with ❤️ for modern restaurants.
 
