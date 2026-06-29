@@ -164,6 +164,31 @@ export async function initDb() {
     `)
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS sync_log (
+        id SERIAL PRIMARY KEY,
+        service VARCHAR(50) NOT NULL DEFAULT 'notion',
+        direction VARCHAR(20) NOT NULL DEFAULT 'pull',
+        status VARCHAR(20) NOT NULL DEFAULT 'success',
+        items_synced INTEGER DEFAULT 0,
+        items_total INTEGER DEFAULT 0,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS notion_github_links (
+        id SERIAL PRIMARY KEY,
+        github_repo_id INTEGER REFERENCES github_repos(id) ON DELETE CASCADE,
+        notion_project_id INTEGER REFERENCES notion_projects(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(github_repo_id, notion_project_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_sync_log_service ON sync_log(service);
+      CREATE INDEX IF NOT EXISTS idx_sync_log_created_at ON sync_log(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_notion_github_links_repo ON notion_github_links(github_repo_id);
+    `)
+
+    await client.query(`
       CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
       CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);

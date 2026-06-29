@@ -3,6 +3,20 @@ import { pool } from '../db.js'
 import { getGitHubToken, testGitHubConnection, fetchGitHubRepos } from '../integrations/github.js'
 import { getOpenAIKey, testOpenAIConnection } from '../integrations/openai.js'
 import { getNotionConfig, getNotionClient } from '../notion.js'
+import {
+  testNotionConnection,
+  syncAll,
+  syncProjectsFromNotion,
+  syncTasksFromNotion
+} from '../integrations/notion.js'
+import {
+  runSync,
+  startAutoSync,
+  stopAutoSync,
+  getSyncEngineStatus,
+  getRecentLogs,
+  getLastSyncTime
+} from '../integrations/sync-engine.js'
 
 const router = express.Router()
 
@@ -27,7 +41,7 @@ async function setSetting(key, value) {
   )
 }
 
-// ── GET /api/integrations — status of all three ───────────────────────────────
+// ── GET /api/integrations — status of all services ───────────────────────────
 
 router.get('/', async (req, res) => {
   try {
@@ -37,11 +51,14 @@ router.get('/', async (req, res) => {
       getNotionConfig()
     ])
 
-    // GitHub repo count from DB
-    const ghRepos = await pool.query('SELECT COUNT(*) FROM github_repos')
-    // Notion project/task counts
-    const npCount = await pool.query('SELECT COUNT(*) FROM notion_projects')
-    const ntCount = await pool.query('SELECT COUNT(*) FROM notion_tasks')
+    const [ghRepos, npCount, ntCount, lastNotionSync] = await Promise.all([
+      pool.query('SELECT COUNT(*) FROM github_repos'),
+      pool.query('SELECT COUNT(*) FROM notion_projects'),
+      pool.query('SELECT COUNT(*) FROM notion_tasks'),
+      getLastSyncTime('notion')
+    ])
+
+    const engineStatus = getSyncEngineStatus()
 
     res.json({
       github: {
@@ -57,7 +74,9 @@ router.get('/', async (req, res) => {
         projects_db: notionCfg.projectsDb,
         tasks_db: notionCfg.tasksDb,
         synced_projects: parseInt(npCount.rows[0].count),
-        synced_tasks: parseInt(ntCount.rows[0].count)
+        synced_tasks: parseInt(ntCount.rows[0].count),
+        last_sync: lastNotionSync,
+        auto_sync: engineStatus
       },
       openai: {
         configured: !!oaiKey,
@@ -106,9 +125,8 @@ router.post('/:service/test', async (req, res) => {
       const result = await testGitHubConnection()
       res.json({ success: true, ...result })
     } else if (service === 'notion') {
-      const client = await getNotionClient()
-      const me = await client.users.me()
-      res.json({ success: true, user: me.name || me.id, type: me.type })
+      const result = await testNotionConnection()
+      res.json({ success: true, ...result })
     } else if (service === 'openai') {
       const result = await testOpenAIConnection()
       res.json({ success: true, ...result })
@@ -117,6 +135,98 @@ router.post('/:service/test', async (req, res) => {
     }
   } catch (err) {
     res.status(400).json({ success: false, error: err.message })
+  }
+})
+
+// ── POST /api/integrations/notion/sync — pull all from Notion ────────────────
+
+router.post('/notion/sync', async (req, res) => {
+  try {
+    const { type } = req.body
+    let result
+    if (type === 'projects') {
+      const r = await syncProjectsFromNotion()
+      result = { projects: r }
+    } else if (type === 'tasks') {
+      const r = await syncTasksFromNotion()
+      result = { tasks: r }
+    } else {
+      result = await syncAll()
+    }
+
+    const totalSynced = (result.projects?.synced || 0) + (result.tasks?.synced || 0)
+    const totalItems = (result.projects?.total || 0) + (result.tasks?.total || 0)
+
+    await pool.query(
+      `INSERT INTO sync_log (service, direction, status, items_synced, items_total)
+       VALUES ('notion', 'pull', 'success', $1, $2)`,
+      [totalSynced, totalItems]
+    )
+
+    res.json({ success: true, ...result })
+  } catch (err) {
+    await pool.query(
+      `INSERT INTO sync_log (service, direction, status, error_message)
+       VALUES ('notion', 'pull', 'error', $1)`,
+      [err.message]
+    ).catch(() => {})
+    console.error('[notion/sync]', err)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+// ── GET /api/integrations/notion/sync/status ─────────────────────────────────
+
+router.get('/notion/sync/status', async (req, res) => {
+  try {
+    const [logs, lastSuccess, engineStatus] = await Promise.all([
+      getRecentLogs('notion', 15),
+      getLastSyncTime('notion'),
+      Promise.resolve(getSyncEngineStatus())
+    ])
+    res.json({ logs, last_success: lastSuccess, engine: engineStatus })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── PUT /api/integrations/notion/auto-sync ───────────────────────────────────
+
+router.put('/notion/auto-sync', async (req, res) => {
+  const { enabled, interval_minutes } = req.body
+  try {
+    const mins = Math.max(5, Math.min(1440, parseInt(interval_minutes) || 15))
+
+    if (enabled) {
+      startAutoSync('notion', mins * 60 * 1000)
+      await setSetting('notion_auto_sync_enabled', 'true')
+      await setSetting('notion_auto_sync_interval', String(mins))
+    } else {
+      stopAutoSync()
+      await setSetting('notion_auto_sync_enabled', 'false')
+    }
+
+    res.json({ success: true, ...getSyncEngineStatus() })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── GET /api/integrations/notion/auto-sync ───────────────────────────────────
+
+router.get('/notion/auto-sync', async (req, res) => {
+  try {
+    const [enabled, interval] = await Promise.all([
+      getSetting('notion_auto_sync_enabled'),
+      getSetting('notion_auto_sync_interval')
+    ])
+    res.json({
+      enabled: enabled === 'true',
+      interval_minutes: parseInt(interval) || 15,
+      ...getSyncEngineStatus()
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 
@@ -154,9 +264,36 @@ router.post('/github/sync', async (req, res) => {
 router.get('/github/repos', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM github_repos ORDER BY pushed_at DESC NULLS LAST'
+      `SELECT gr.*, ngl.notion_project_id,
+              np.name as linked_project_name, np.notion_url as linked_project_url
+       FROM github_repos gr
+       LEFT JOIN notion_github_links ngl ON ngl.github_repo_id = gr.id
+       LEFT JOIN notion_projects np ON np.id = ngl.notion_project_id
+       ORDER BY gr.pushed_at DESC NULLS LAST`
     )
     res.json(result.rows)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── POST /api/integrations/github/link-notion — link repo to project ─────────
+
+router.post('/github/link-notion', async (req, res) => {
+  const { github_repo_id, notion_project_id } = req.body
+  if (!github_repo_id) return res.status(400).json({ error: 'github_repo_id required' })
+  try {
+    if (notion_project_id === null) {
+      await pool.query('DELETE FROM notion_github_links WHERE github_repo_id=$1', [github_repo_id])
+      return res.json({ success: true, unlinked: true })
+    }
+    await pool.query(
+      `INSERT INTO notion_github_links (github_repo_id, notion_project_id)
+       VALUES ($1, $2)
+       ON CONFLICT (github_repo_id, notion_project_id) DO NOTHING`,
+      [github_repo_id, notion_project_id]
+    )
+    res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

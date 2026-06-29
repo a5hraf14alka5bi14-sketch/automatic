@@ -6,3 +6,5 @@
 - [Auth token flow](auth-token-flow.md) — token in localStorage as JSON {id,name,email,role,token}; apiFetch in src/utils/api.js adds Bearer header; Login.jsx keeps plain fetch (no token yet).
 - [POS order + payment flow](pos-order-flow.md) — POST /api/orders → PaymentModal → PATCH /:id/status {status:'completed',payment_method}; tax/tables from /api/settings.
 - [Settings API shape](settings-api.md) — GET /api/settings returns flat {key:value} object; PUT accepts partial updates; keys: tax_rate, tables_count, currency_symbol, restaurant_name, loyalty_points_per_dollar.
+- [Notion REST sync module](notion-rest-sync.md) — server/integrations/notion.js uses native fetch to api.notion.com/v1 (bypasses SDK); queryDatabase() paginates; maps Arabic+English status names.
+- [Sync engine pattern](sync-engine-pattern.md) — server/integrations/sync-engine.js: registerAdapter(service,fn), startAutoSync(), stopAutoSync(); logs to sync_log table; timer.unref() so it won't block exit.

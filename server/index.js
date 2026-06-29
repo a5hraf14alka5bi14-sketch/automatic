@@ -12,7 +12,9 @@ import notionRoutes from './routes/notion.js'
 import integrationsRoutes from './routes/integrations.js'
 import settingsRoutes from './routes/settings.js'
 import usersRoutes from './routes/users.js'
-import { initDb } from './db.js'
+import { initDb, pool } from './db.js'
+import { registerAdapter, startAutoSync } from './integrations/sync-engine.js'
+import { syncAll } from './integrations/notion.js'
 
 const app = express()
 const PORT = 3001
@@ -39,7 +41,28 @@ app.use('/api/integrations', integrationsRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/users', usersRoutes)
 
-initDb().then(() => {
+async function initSyncEngine() {
+  try {
+    registerAdapter('notion', syncAll)
+
+    const r = await pool.query(
+      "SELECT value FROM settings WHERE key IN ('notion_auto_sync_enabled','notion_auto_sync_interval')"
+    )
+    const cfg = {}
+    for (const row of r.rows) cfg[row.key] = row.value
+
+    if (cfg['notion_auto_sync_enabled'] === 'true') {
+      const mins = parseInt(cfg['notion_auto_sync_interval']) || 15
+      startAutoSync('notion', mins * 60 * 1000)
+      console.log(`[sync-engine] Restored auto-sync for notion (${mins} min)`)
+    }
+  } catch (e) {
+    console.warn('[sync-engine] Init skipped:', e.message)
+  }
+}
+
+initDb().then(async () => {
+  await initSyncEngine()
   app.listen(PORT, 'localhost', () => {
     console.log(`API server running on http://localhost:${PORT}`)
   })

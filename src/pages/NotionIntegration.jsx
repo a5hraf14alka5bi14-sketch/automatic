@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch } from '../utils/api.js'
 
 const API = '/api/notion'
+const INT_API = '/api/integrations'
 
 const STATUS_META = {
   not_started: { label: 'Not Started', ar: 'لم تبدأ', dot: 'bg-slate-400', badge: 'bg-slate-500/15 text-slate-300 border-slate-500/30' },
@@ -14,6 +15,18 @@ const PRIORITY_META = {
   Medium: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
   Low:    'text-green-400 bg-green-500/10 border-green-500/20'
 }
+
+function fmt(dateStr) {
+  if (!dateStr) return null
+  return new Date(dateStr).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtDate(d) {
+  if (!d) return null
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// ── Small atoms ───────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
   const m = STATUS_META[status] || STATUS_META.not_started
@@ -50,7 +63,7 @@ function StatusSelect({ value, onChange, disabled }) {
   )
 }
 
-// ── Connection Status Card ────────────────────────────────────────────────────
+// ── Connection Status Card ─────────────────────────────────────────────────────
 
 function ConnectionStatus({ config, onTest }) {
   const [testing, setTesting] = useState(false)
@@ -59,9 +72,10 @@ function ConnectionStatus({ config, onTest }) {
   const test = async () => {
     setTesting(true); setResult(null)
     try {
-      const r = await apiFetch(`${API}/config/test`, { method: 'POST' })
+      const r = await apiFetch(`${INT_API}/notion/test`, { method: 'POST' })
       const d = await r.json()
       setResult(d)
+      if (onTest) onTest(d)
     } catch (e) {
       setResult({ success: false, error: e.message })
     } finally {
@@ -70,9 +84,6 @@ function ConnectionStatus({ config, onTest }) {
   }
 
   const connected = config?.configured || config?.envKeyPresent
-  const statusColor = connected ? 'bg-green-500' : 'bg-red-500'
-  const statusText = connected ? 'Connected' : 'Not connected'
-
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex items-start justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -84,12 +95,12 @@ function ConnectionStatus({ config, onTest }) {
               <path d="M25.813 19.497c-5.243.36-6.437.447-9.417-1.99L8.927 11.3c-.777-.78-.39-1.75 1.167-1.943l53.193-3.89c4.467-.387 6.793 1.167 8.54 2.527l9.123 6.61c.39.197 1.363 1.363.193 1.363l-54.943 3.7-.39-.17zM22.753 88.48V30.833c0-2.52.777-3.7 3.107-3.893l61.443-3.507c2.14-.193 3.107 1.167 3.107 3.7v57.26c0 2.527-.97 3.89-3.107 4.083l-61.44 3.703c-2.333.193-3.11-1.167-3.11-3.7zm58.53-55.08c.387 1.75 0 3.5-1.75 3.7l-2.91.577v42.773c-2.527 1.36-4.853 2.14-6.797 2.14-3.107 0-3.883-.97-6.21-3.883l-19.03-29.94v28.97l6.02 1.363s0 3.5-4.857 3.5l-13.39.777c-.39-.777 0-2.72 1.357-3.11l3.497-.97V37.24l-4.853-.387c-.387-1.75.583-4.277 3.3-4.473l14.367-.387 19.8 30.327v-26.83l-5.047-.58c-.387-2.143 1.167-3.7 3.107-3.89l13.393-.81z" fill="white"/>
             </svg>
           </div>
-          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-900 ${statusColor}`} />
+          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-900 ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
         </div>
         <div>
           <h3 className="text-white font-semibold text-sm">Notion Workspace</h3>
           <p className={`text-xs font-medium mt-0.5 ${connected ? 'text-green-400' : 'text-slate-500'}`}>
-            {statusText}
+            {connected ? 'Connected' : 'Not connected'}
             {config?.apiKeyMasked && <span className="text-slate-500 font-normal ml-1">· {config.apiKeyMasked}</span>}
           </p>
           {config?.envKeyPresent && (
@@ -115,6 +126,130 @@ function ConnectionStatus({ config, onTest }) {
   )
 }
 
+// ── Sync Panel ────────────────────────────────────────────────────────────────
+
+function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, onAutoSyncChange }) {
+  const [intervalMin, setIntervalMin] = useState(autoSync?.interval_minutes || 15)
+  const [savingAuto, setSavingAuto] = useState(false)
+
+  const lastSuccess = syncStatus?.last_success
+  const logs = syncStatus?.logs || []
+
+  const toggleAutoSync = async (enable) => {
+    setSavingAuto(true)
+    try {
+      const r = await apiFetch(`${INT_API}/notion/auto-sync`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled: enable, interval_minutes: intervalMin })
+      })
+      const d = await r.json()
+      if (onAutoSyncChange) onAutoSyncChange(d)
+    } catch {}
+    setSavingAuto(false)
+  }
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-5">
+      {/* Sync now row */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${syncing ? 'bg-orange-400 animate-pulse' : lastSuccess ? 'bg-green-500' : 'bg-slate-600'}`} />
+            Notion ↔ Database Sync
+          </h3>
+          {lastSuccess ? (
+            <p className="text-slate-500 text-xs mt-0.5">
+              Last sync: <span className="text-slate-300">{fmt(lastSuccess.created_at)}</span>
+              <span className="ml-2 text-green-500/70">· {lastSuccess.items_synced} items</span>
+            </p>
+          ) : (
+            <p className="text-slate-600 text-xs mt-0.5">Never synced</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onSyncNow('projects')}
+            disabled={syncing}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+          >
+            {syncing === 'projects' ? <span className="animate-spin inline-block">↻</span> : '↻'} Projects
+          </button>
+          <button
+            onClick={() => onSyncNow('tasks')}
+            disabled={syncing}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+          >
+            {syncing === 'tasks' ? <span className="animate-spin inline-block">↻</span> : '↻'} Tasks
+          </button>
+          <button
+            onClick={() => onSyncNow('all')}
+            disabled={syncing}
+            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
+          >
+            <span className={syncing === 'all' ? 'animate-spin inline-block' : ''}>⟳</span>
+            Sync All
+          </button>
+        </div>
+      </div>
+
+      {/* Auto-sync row */}
+      <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+        <div>
+          <p className="text-white text-xs font-medium">Auto-Sync</p>
+          <p className="text-slate-500 text-xs mt-0.5">
+            {autoSync?.running
+              ? `Running — every ${autoSync.interval_min} min`
+              : 'Disabled'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={intervalMin}
+            onChange={e => setIntervalMin(parseInt(e.target.value))}
+            disabled={autoSync?.running || savingAuto}
+            className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-40"
+          >
+            {[5, 10, 15, 30, 60, 120, 360, 720, 1440].map(m => (
+              <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60}h`}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => toggleAutoSync(!autoSync?.running)}
+            disabled={savingAuto}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              autoSync?.running
+                ? 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                : 'bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25'
+            }`}
+          >
+            {savingAuto ? '…' : autoSync?.running ? 'Stop' : 'Enable'}
+          </button>
+        </div>
+      </div>
+
+      {/* Recent log */}
+      {logs.length > 0 && (
+        <div className="pt-4 border-t border-slate-800">
+          <p className="text-slate-500 text-xs font-medium mb-2">Recent sync history</p>
+          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+            {logs.slice(0, 8).map(log => (
+              <div key={log.id} className="flex items-center gap-3 text-xs">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${log.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className="text-slate-500 w-32 flex-shrink-0">{fmt(log.created_at)}</span>
+                <span className="text-slate-400">
+                  {log.status === 'success'
+                    ? `${log.items_synced}/${log.items_total} items`
+                    : <span className="text-red-400 truncate">{log.error_message}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Settings Panel ────────────────────────────────────────────────────────────
 
 function SettingsPanel({ config, onSaved }) {
@@ -136,7 +271,6 @@ function SettingsPanel({ config, onSaved }) {
       if (apiKey.trim()) body.apiKey = apiKey.trim()
       const r = await apiFetch(`${API}/config`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
       if (!r.ok) throw new Error('Save failed')
@@ -151,55 +285,87 @@ function SettingsPanel({ config, onSaved }) {
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-      <h3 className="text-white font-semibold text-sm">Connection Settings</h3>
-      <div className="space-y-3">
-        <div>
-          <label className="block text-xs text-slate-400 mb-1">API Key</label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            placeholder={config?.configured ? 'Enter new key to replace current…' : 'secret_xxxxxxxx…'}
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 placeholder-slate-600"
-          />
-          <p className="text-slate-600 text-xs mt-1">
-            Get yours at <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">notion.so/my-integrations</a>. Leave blank to keep current.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+        <h3 className="text-white font-semibold text-sm">Connection Settings</h3>
+        <div className="space-y-3">
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Projects Database ID</label>
+            <label className="block text-xs text-slate-400 mb-1">API Key</label>
             <input
-              type="text"
-              value={projectsDb}
-              onChange={e => setProjectsDb(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder={config?.configured ? 'Enter new key to replace current…' : 'secret_xxxxxxxx…'}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 placeholder-slate-600"
             />
+            <p className="text-slate-600 text-xs mt-1">
+              Get yours at{' '}
+              <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer"
+                className="text-orange-400 hover:text-orange-300">
+                notion.so/my-integrations
+              </a>. Leave blank to keep current.
+            </p>
           </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Tasks Database ID</label>
-            <input
-              type="text"
-              value={tasksDb}
-              onChange={e => setTasksDb(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Projects Database ID</label>
+              <input
+                type="text"
+                value={projectsDb}
+                onChange={e => setProjectsDb(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                placeholder="bea6bf0f-16f9-455c-…"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Tasks Database ID</label>
+              <input
+                type="text"
+                value={tasksDb}
+                onChange={e => setTasksDb(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                placeholder="2ea23851-9271-456c-…"
+              />
+            </div>
           </div>
         </div>
+        {msg && (
+          <div className={`text-xs px-3 py-2 rounded-lg ${msg.ok ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+            {msg.text}
+          </div>
+        )}
+        <button
+          onClick={save}
+          disabled={saving}
+          className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          {saving ? 'Saving…' : 'Save Settings'}
+        </button>
       </div>
-      {msg && (
-        <div className={`text-xs px-3 py-2 rounded-lg ${msg.ok ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-          {msg.text}
-        </div>
-      )}
-      <button
-        onClick={save}
-        disabled={saving}
-        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
-      >
-        {saving ? 'Saving…' : 'Save Settings'}
-      </button>
+
+      {/* How-to guide */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h3 className="text-white font-semibold text-sm mb-3">Setup Guide</h3>
+        <ol className="space-y-3 text-sm">
+          {[
+            { n: 1, title: 'Create a Notion Integration', desc: 'Go to notion.so/my-integrations → New Integration. Choose your workspace and enable Read/Update capabilities.' },
+            { n: 2, title: 'Copy the API Key', desc: 'Copy the "Internal Integration Token" (starts with secret_…) and paste it in the API Key field above.' },
+            { n: 3, title: 'Share Databases with the Integration', desc: 'Open each Notion database → ··· menu → Add connections → select your integration. Do this for both Projects and Tasks databases.' },
+            { n: 4, title: 'Copy Database IDs', desc: 'Each database has a UUID in its URL. Copy it and paste in the fields above. Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.' },
+            { n: 5, title: 'Test and Sync', desc: 'Click "Test Connection", then go to the Status tab and click "Sync All" to pull your data.' },
+          ].map(step => (
+            <li key={step.n} className="flex gap-3">
+              <span className="w-5 h-5 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                {step.n}
+              </span>
+              <div>
+                <p className="text-white text-xs font-medium">{step.title}</p>
+                <p className="text-slate-500 text-xs mt-0.5">{step.desc}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   )
 }
@@ -207,18 +373,18 @@ function SettingsPanel({ config, onSaved }) {
 // ── Stats Row ─────────────────────────────────────────────────────────────────
 
 function StatsRow({ projects, tasks }) {
-  const projectsByStatus = { not_started: 0, in_progress: 0, done: 0 }
-  projects.forEach(p => { if (projectsByStatus[p.status] !== undefined) projectsByStatus[p.status]++ })
-  const tasksByStatus = { not_started: 0, in_progress: 0, done: 0 }
-  tasks.forEach(t => { if (tasksByStatus[t.status] !== undefined) tasksByStatus[t.status]++ })
+  const pStatus = { not_started: 0, in_progress: 0, done: 0 }
+  projects.forEach(p => { if (pStatus[p.status] !== undefined) pStatus[p.status]++ })
+  const tStatus = { not_started: 0, in_progress: 0, done: 0 }
+  tasks.forEach(t => { if (tStatus[t.status] !== undefined) tStatus[t.status]++ })
 
   const stats = [
-    { label: 'Total Projects', value: projects.length, icon: '📁' },
-    { label: 'In Progress', value: projectsByStatus.in_progress, icon: '🔄', color: 'text-blue-400' },
-    { label: 'Completed Projects', value: projectsByStatus.done, icon: '✅', color: 'text-green-400' },
+    { label: 'Projects', value: projects.length, icon: '📁' },
+    { label: 'In Progress', value: pStatus.in_progress, icon: '🔄', color: 'text-blue-400' },
+    { label: 'Completed', value: pStatus.done, icon: '✅', color: 'text-green-400' },
     { label: 'Total Tasks', value: tasks.length, icon: '📋' },
-    { label: 'Tasks Done', value: tasksByStatus.done, icon: '✓', color: 'text-green-400' },
-    { label: 'Tasks Pending', value: tasksByStatus.not_started, icon: '⏳', color: 'text-slate-400' },
+    { label: 'Tasks Done', value: tStatus.done, icon: '✓', color: 'text-green-400' },
+    { label: 'Pending', value: tStatus.not_started, icon: '⏳', color: 'text-slate-400' },
   ]
 
   return (
@@ -252,7 +418,6 @@ function NewTaskForm({ projects, onCreated, onCancel }) {
       const selected = projects.find(p => p.id === parseInt(projectId))
       const r = await apiFetch(`${API}/tasks`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(), status: 'not_started', priority,
           due_date: dueDate || undefined,
@@ -323,7 +488,6 @@ function NewProjectForm({ onCreated, onCancel }) {
     try {
       const r = await apiFetch(`${API}/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), status: 'not_started', priority,
           start_date: startDate || undefined, due_date: dueDate || undefined })
       })
@@ -376,6 +540,101 @@ function NewProjectForm({ onCreated, onCancel }) {
   )
 }
 
+// ── GitHub Link Tab ───────────────────────────────────────────────────────────
+
+function GitHubLinkTab({ projects }) {
+  const [repos, setRepos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [linking, setLinking] = useState(null)
+  const [msg, setMsg] = useState(null)
+
+  const loadRepos = useCallback(async () => {
+    try {
+      const r = await apiFetch(`${INT_API}/github/repos`)
+      setRepos(await r.json())
+    } catch {} finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { loadRepos() }, [loadRepos])
+
+  const linkRepo = async (repoId, notionProjectId) => {
+    setLinking(repoId)
+    try {
+      const r = await apiFetch(`${INT_API}/github/link-notion`, {
+        method: 'POST',
+        body: JSON.stringify({ github_repo_id: repoId, notion_project_id: notionProjectId || null })
+      })
+      if (!r.ok) throw new Error((await r.json()).error)
+      setMsg({ ok: true, text: 'Link updated.' })
+      await loadRepos()
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setLinking(null)
+    }
+  }
+
+  if (loading) return <div className="py-16 text-center text-slate-500 text-sm">Loading repositories…</div>
+
+  if (!repos.length) return (
+    <div className="py-16 text-center text-slate-500">
+      <p className="text-4xl mb-3">🐙</p>
+      <p className="font-medium">No GitHub repos synced yet</p>
+      <p className="text-sm mt-1">Go to the Integrations page and sync your GitHub account first.</p>
+    </div>
+  )
+
+  return (
+    <div className="space-y-3">
+      {msg && (
+        <div className={`text-xs px-3 py-2 rounded-lg ${msg.ok ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+          {msg.text}
+          <button onClick={() => setMsg(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
+        </div>
+      )}
+      <p className="text-slate-500 text-xs">Link each GitHub repository to a Notion project to track development alongside tasks.</p>
+      {repos.map(repo => (
+        <div key={repo.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <a href={repo.html_url} target="_blank" rel="noopener noreferrer"
+                className="text-white font-medium text-sm hover:text-orange-400 transition-colors truncate">
+                {repo.full_name}
+              </a>
+              {repo.language && (
+                <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full border border-slate-700">{repo.language}</span>
+              )}
+              {repo.is_private && (
+                <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-500 rounded-full border border-slate-700">Private</span>
+              )}
+            </div>
+            {repo.description && <p className="text-slate-500 text-xs mt-1 truncate">{repo.description}</p>}
+            <div className="flex items-center gap-3 text-xs text-slate-600 mt-1.5">
+              <span>⭐ {repo.stars}</span>
+              <span>🍴 {repo.forks}</span>
+              {repo.pushed_at && <span>Pushed {fmt(repo.pushed_at)}</span>}
+            </div>
+          </div>
+          <div className="flex-shrink-0 min-w-[200px]">
+            <select
+              value={repo.notion_project_id || ''}
+              onChange={e => linkRepo(repo.id, e.target.value ? parseInt(e.target.value) : null)}
+              disabled={linking === repo.id}
+              className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-40"
+            >
+              <option value="">— No Notion project —</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            {repo.linked_project_name && (
+              <p className="text-orange-400/70 text-xs mt-1 truncate">→ {repo.linked_project_name}</p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NotionIntegration() {
@@ -386,6 +645,8 @@ export default function NotionIntegration() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(null)
   const [syncMsg, setSyncMsg] = useState(null)
+  const [syncStatus, setSyncStatus] = useState(null)
+  const [autoSync, setAutoSync] = useState(null)
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [selectedProject, setSelectedProject] = useState(null)
@@ -406,9 +667,21 @@ export default function NotionIntegration() {
     } catch {}
   }, [])
 
+  const loadSyncStatus = useCallback(async () => {
+    try {
+      const [statusRes, autoRes] = await Promise.all([
+        apiFetch(`${INT_API}/notion/sync/status`),
+        apiFetch(`${INT_API}/notion/auto-sync`)
+      ])
+      setSyncStatus(await statusRes.json())
+      setAutoSync(await autoRes.json())
+    } catch {}
+  }, [])
+
   useEffect(() => {
-    Promise.all([loadConfig(), loadProjects(), loadTasks()]).finally(() => setLoading(false))
-  }, [loadConfig, loadProjects, loadTasks])
+    Promise.all([loadConfig(), loadProjects(), loadTasks(), loadSyncStatus()])
+      .finally(() => setLoading(false))
+  }, [loadConfig, loadProjects, loadTasks, loadSyncStatus])
 
   const handleProjectFilter = (project) => {
     const next = selectedProject?.id === project.id ? null : project
@@ -417,19 +690,29 @@ export default function NotionIntegration() {
     setTab('tasks')
   }
 
-  // Sync triggers the agent-side MCP sync, which POSTs to /ingest
-  // For now, it calls a backend endpoint that returns a "sync via agent" instruction
+  // Real sync — calls POST /api/integrations/notion/sync
   const sync = async (type) => {
     setSyncing(type); setSyncMsg(null)
     try {
-      // Call the ingest endpoint directly with a ping to trigger agent-side sync
-      // The data was loaded by the agent on demand; for live re-sync the user triggers it
-      setSyncMsg({
-        ok: true,
-        text: `Data is live from Notion. ${type === 'projects' ? projects.length : tasks.length} ${type} loaded.`
+      const r = await apiFetch(`${INT_API}/notion/sync`, {
+        method: 'POST',
+        body: JSON.stringify({ type })
       })
-      if (type === 'projects') loadProjects()
-      if (type === 'tasks') loadTasks(selectedProject)
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Sync failed')
+
+      const p = d.projects || {}
+      const t = d.tasks || {}
+      const synced = (p.synced || 0) + (t.synced || 0)
+      const total = (p.total || 0) + (t.total || 0)
+      setSyncMsg({ ok: true, text: `Sync complete — ${synced}/${total} items updated from Notion` })
+
+      // Reload relevant data
+      await Promise.all([
+        loadProjects(),
+        loadTasks(selectedProject),
+        loadSyncStatus()
+      ])
     } catch (e) {
       setSyncMsg({ ok: false, text: e.message })
     } finally {
@@ -442,12 +725,11 @@ export default function NotionIntegration() {
     try {
       const r = await apiFetch(`${API}/tasks/${task.id}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       })
       if (!r.ok) throw new Error((await r.json()).error)
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t))
-      setSyncMsg({ ok: true, text: `Task status updated in Notion → ${STATUS_META[newStatus]?.label}` })
+      setSyncMsg({ ok: true, text: `Task status → ${STATUS_META[newStatus]?.label} (updated in Notion)` })
     } catch (e) {
       setSyncMsg({ ok: false, text: 'Status update failed: ' + e.message })
     } finally {
@@ -460,12 +742,11 @@ export default function NotionIntegration() {
     try {
       const r = await apiFetch(`${API}/projects/${project.id}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       })
       if (!r.ok) throw new Error((await r.json()).error)
       setProjects(prev => prev.map(p => p.id === project.id ? { ...p, status: newStatus } : p))
-      setSyncMsg({ ok: true, text: `Project status updated in Notion → ${STATUS_META[newStatus]?.label}` })
+      setSyncMsg({ ok: true, text: `Project status → ${STATUS_META[newStatus]?.label} (updated in Notion)` })
     } catch (e) {
       setSyncMsg({ ok: false, text: 'Status update failed: ' + e.message })
     } finally {
@@ -484,9 +765,10 @@ export default function NotionIntegration() {
 
   const connected = config?.configured || config?.envKeyPresent
   const tabs = [
-    { id: 'status', label: 'Status' },
+    { id: 'status',   label: 'Status' },
     { id: 'projects', label: `Projects (${projects.length})` },
-    { id: 'tasks', label: `Tasks (${tasks.length})` },
+    { id: 'tasks',    label: `Tasks (${tasks.length})` },
+    { id: 'github',   label: 'GitHub Links' },
     { id: 'settings', label: 'Settings' },
   ]
 
@@ -497,12 +779,14 @@ export default function NotionIntegration() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Notion Integration</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Sync Projects and Tasks with مساحة عمل Ashraf Alkasbi</p>
+          <p className="text-slate-400 text-sm mt-0.5">Sync Projects and Tasks with your Notion workspace</p>
         </div>
         {connected && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-green-400 text-xs font-medium">Live</span>
+            <div className={`w-2 h-2 rounded-full ${syncing ? 'bg-orange-400 animate-pulse' : 'bg-green-400 animate-pulse'}`} />
+            <span className={`text-xs font-medium ${syncing ? 'text-orange-400' : 'text-green-400'}`}>
+              {syncing ? 'Syncing…' : 'Live'}
+            </span>
           </div>
         )}
       </div>
@@ -528,7 +812,7 @@ export default function NotionIntegration() {
           <p className="text-5xl mb-4">🔗</p>
           <p className="text-white font-semibold text-lg">Connect to Notion</p>
           <p className="text-slate-400 text-sm mt-2 max-w-sm mx-auto">
-            Add your Notion API key in the Settings tab to start syncing Projects and Tasks with your workspace.
+            Add your Notion API key in Settings to start syncing Projects and Tasks.
           </p>
           <button onClick={() => setTab('settings')}
             className="mt-4 px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors">
@@ -564,10 +848,10 @@ export default function NotionIntegration() {
                   </button>
                   <button
                     onClick={() => sync('projects')}
-                    disabled={syncing === 'projects'}
+                    disabled={!!syncing}
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5">
                     <span className={syncing === 'projects' ? 'inline-block animate-spin' : ''}>↻</span>
-                    Refresh
+                    Sync
                   </button>
                 </>
               )}
@@ -586,10 +870,10 @@ export default function NotionIntegration() {
                   </button>
                   <button
                     onClick={() => sync('tasks')}
-                    disabled={syncing === 'tasks'}
+                    disabled={!!syncing}
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5">
                     <span className={syncing === 'tasks' ? 'inline-block animate-spin' : ''}>↻</span>
-                    Refresh
+                    Sync
                   </button>
                 </>
               )}
@@ -599,8 +883,16 @@ export default function NotionIntegration() {
           {/* ── Status Tab ── */}
           {tab === 'status' && (
             <div className="space-y-4">
+              {/* Sync engine panel */}
+              <SyncPanel
+                syncStatus={syncStatus}
+                autoSync={autoSync}
+                syncing={syncing}
+                onSyncNow={sync}
+                onAutoSyncChange={d => setAutoSync(d)}
+              />
+
               <div className="grid grid-cols-2 gap-4">
-                {/* Projects breakdown */}
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
                   <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
                     <span>📁</span> Projects by Status
@@ -615,16 +907,13 @@ export default function NotionIntegration() {
                           <span className="text-white font-medium">{count}</span>
                         </div>
                         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${meta.dot}`}
-                            style={{ width: `${pct}%`, transition: 'width 0.4s ease' }}
-                          />
+                          <div className={`h-full rounded-full ${meta.dot}`}
+                            style={{ width: `${pct}%`, transition: 'width 0.4s ease' }} />
                         </div>
                       </div>
                     )
                   })}
                 </div>
-                {/* Tasks breakdown */}
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
                   <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
                     <span>📋</span> Tasks by Status
@@ -639,10 +928,8 @@ export default function NotionIntegration() {
                           <span className="text-white font-medium">{count}</span>
                         </div>
                         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${meta.dot}`}
-                            style={{ width: `${pct}%`, transition: 'width 0.4s ease' }}
-                          />
+                          <div className={`h-full rounded-full ${meta.dot}`}
+                            style={{ width: `${pct}%`, transition: 'width 0.4s ease' }} />
                         </div>
                       </div>
                     )
@@ -650,7 +937,6 @@ export default function NotionIntegration() {
                 </div>
               </div>
 
-              {/* DB Info */}
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
                 <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-2">
                   <span>🔌</span> Connected Databases
@@ -663,14 +949,12 @@ export default function NotionIntegration() {
                     <div key={db.label} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                       <div>
                         <p className="text-white text-xs font-medium">{db.label}</p>
-                        <p className="text-slate-600 text-xs font-mono mt-0.5">{db.id}</p>
+                        <p className="text-slate-600 text-xs font-mono mt-0.5 break-all">{db.id || 'Not configured'}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex-shrink-0 ml-4">
                         <p className="text-slate-300 text-xs font-medium">{db.count} records</p>
                         {db.lastSync && (
-                          <p className="text-slate-600 text-xs mt-0.5">
-                            Synced {new Date(db.lastSync).toLocaleTimeString()}
-                          </p>
+                          <p className="text-slate-600 text-xs mt-0.5">Synced {fmt(db.lastSync)}</p>
                         )}
                       </div>
                     </div>
@@ -693,7 +977,7 @@ export default function NotionIntegration() {
                 <div className="text-center py-16 text-slate-500">
                   <p className="text-4xl mb-3">📁</p>
                   <p className="font-medium">No projects yet</p>
-                  <p className="text-sm mt-1">Create a project or wait for the next sync</p>
+                  <p className="text-sm mt-1">Click "Sync" to pull projects from Notion, or create one here.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -713,9 +997,9 @@ export default function NotionIntegration() {
                             <PriorityBadge priority={project.priority} />
                           </div>
                           <div className="flex items-center gap-4 text-xs text-slate-500 mt-1.5">
-                            {project.start_date && <span>Start {new Date(project.start_date + 'T00:00:00').toLocaleDateString()}</span>}
-                            {project.due_date && <span>Due {new Date(project.due_date + 'T00:00:00').toLocaleDateString()}</span>}
-                            {project.last_synced && <span>Synced {new Date(project.last_synced).toLocaleTimeString()}</span>}
+                            {project.start_date && <span>Start {fmtDate(project.start_date)}</span>}
+                            {project.due_date && <span>Due {fmtDate(project.due_date)}</span>}
+                            {project.total_tasks > 0 && <span className="text-slate-400">{project.total_tasks} tasks</span>}
                             <span className="text-blue-400/60 text-xs">Click to filter tasks →</span>
                           </div>
                         </div>
@@ -754,7 +1038,7 @@ export default function NotionIntegration() {
                 <div className="text-center py-16 text-slate-500">
                   <p className="text-4xl mb-3">📋</p>
                   <p className="font-medium">{selectedProject ? `No tasks for "${selectedProject.name}"` : 'No tasks yet'}</p>
-                  <p className="text-sm mt-1">Create a task or select a project from the Projects tab</p>
+                  <p className="text-sm mt-1">Click "Sync" to pull tasks from Notion, or create a new one here.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -768,10 +1052,8 @@ export default function NotionIntegration() {
                             <PriorityBadge priority={task.priority} />
                           </div>
                           <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5">
-                            {task.project_name && (
-                              <span className="text-blue-400/70">📁 {task.project_name}</span>
-                            )}
-                            {task.due_date && <span>Due {new Date(task.due_date + 'T00:00:00').toLocaleDateString()}</span>}
+                            {task.project_name && <span className="text-blue-400/70">📁 {task.project_name}</span>}
+                            {task.due_date && <span>Due {fmtDate(task.due_date)}</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
@@ -794,6 +1076,9 @@ export default function NotionIntegration() {
               )}
             </div>
           )}
+
+          {/* ── GitHub Links Tab ── */}
+          {tab === 'github' && <GitHubLinkTab projects={projects} />}
 
           {/* ── Settings Tab ── */}
           {tab === 'settings' && (
