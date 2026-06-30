@@ -8,3 +8,4 @@
 - [Settings API shape](settings-api.md) — GET /api/settings returns flat {key:value} object; PUT accepts partial updates; keys: tax_rate, tables_count, currency_symbol, restaurant_name, loyalty_points_per_dollar.
 - [Notion REST sync module](notion-rest-sync.md) — server/integrations/notion.js uses native fetch to api.notion.com/v1 (bypasses SDK); queryDatabase() paginates; maps Arabic+English status names.
 - [Sync engine pattern](sync-engine-pattern.md) — server/integrations/sync-engine.js: registerAdapter(service,fn), startAutoSync(), stopAutoSync(); logs to sync_log table; timer.unref() so it won't block exit.
+- [Notion Main Page Update Strategy](notion-main-page-update.md) — use replace_content (not update_content) for main page; include all embedded DB/page tags in new_str
