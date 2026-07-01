@@ -164,9 +164,39 @@ export async function initDb() {
       ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
       ALTER TABLE inventory ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
+      ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
     `)
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS staff (
+        id SERIAL PRIMARY KEY,
+        notion_id VARCHAR(255) UNIQUE,
+        name VARCHAR(255) NOT NULL,
+        role VARCHAR(100),
+        email VARCHAR(255),
+        phone VARCHAR(50),
+        department VARCHAR(100),
+        salary DECIMAL(10,2),
+        hire_date DATE,
+        status VARCHAR(50) DEFAULT 'active',
+        last_synced TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS finance_entries (
+        id SERIAL PRIMARY KEY,
+        notion_id VARCHAR(255) UNIQUE,
+        date DATE NOT NULL DEFAULT CURRENT_DATE,
+        type VARCHAR(50) NOT NULL DEFAULT 'income',
+        category VARCHAR(100),
+        description TEXT,
+        amount DECIMAL(10,3) NOT NULL DEFAULT 0,
+        reference VARCHAR(255),
+        last_synced TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS sync_log (
         id SERIAL PRIMARY KEY,
         service VARCHAR(50) NOT NULL DEFAULT 'notion',

@@ -11,9 +11,19 @@ import {
   syncMenuFromNotion,
   syncInventoryFromNotion,
   syncCustomersFromNotion,
+  syncRecipeIngredientsFromNotion,
+  syncSalesFromNotion,
+  syncFinanceFromNotion,
+  syncStaffFromNotion,
   pushMenuToNotion,
   pushInventoryToNotion,
-  pushCustomersToNotion
+  pushCustomersToNotion,
+  pushRecipeIngredientsToNotion,
+  pushSalesToNotion,
+  pushFinanceToNotion,
+  pushStaffToNotion,
+  pushMenuUpdatesToNotion,
+  pushInventoryUpdatesToNotion
 } from '../integrations/notion.js'
 import {
   runSync,
@@ -172,13 +182,25 @@ router.post('/notion/sync', async (req, res) => {
     } else if (type === 'customers') {
       const r = await syncCustomersFromNotion()
       result = { customers: r }
+    } else if (type === 'recipe_ingredients') {
+      const r = await syncRecipeIngredientsFromNotion()
+      result = { recipe_ingredients: r }
+    } else if (type === 'sales') {
+      const r = await syncSalesFromNotion()
+      result = { sales: r }
+    } else if (type === 'finance') {
+      const r = await syncFinanceFromNotion()
+      result = { finance: r }
+    } else if (type === 'staff') {
+      const r = await syncStaffFromNotion()
+      result = { staff: r }
     } else {
       result = await syncAll()
     }
 
-    const totalSynced = ['projects','tasks','menu','inventory','customers']
-      .reduce((s, k) => s + (result[k]?.synced || 0), 0)
-    const totalItems = ['projects','tasks','menu','inventory','customers']
+    const ALL_SYNC_KEYS = ['projects','tasks','menu','inventory','customers','recipe_ingredients','sales','finance','staff']
+    const totalSynced = ALL_SYNC_KEYS.reduce((s, k) => s + (result[k]?.synced || 0), 0)
+    const totalItems = ALL_SYNC_KEYS
       .reduce((s, k) => s + (result[k]?.total || 0), 0)
 
     await pool.query(
@@ -336,17 +358,31 @@ router.post('/notion/push', async (req, res) => {
     let result
     if (type === 'menu') {
       result = await pushMenuToNotion()
+    } else if (type === 'menu_updates') {
+      result = await pushMenuUpdatesToNotion()
     } else if (type === 'inventory') {
       result = await pushInventoryToNotion()
+    } else if (type === 'inventory_updates') {
+      result = await pushInventoryUpdatesToNotion()
     } else if (type === 'customers') {
       result = await pushCustomersToNotion()
+    } else if (type === 'recipe_ingredients') {
+      result = await pushRecipeIngredientsToNotion()
+    } else if (type === 'sales') {
+      result = await pushSalesToNotion()
+    } else if (type === 'finance') {
+      result = await pushFinanceToNotion()
+    } else if (type === 'staff') {
+      result = await pushStaffToNotion()
     } else {
-      const [menu, inventory, customers] = await Promise.all([
+      const [menu, inventory, customers, recipe_ingredients, sales] = await Promise.all([
         pushMenuToNotion(),
         pushInventoryToNotion(),
-        pushCustomersToNotion()
+        pushCustomersToNotion(),
+        pushRecipeIngredientsToNotion(),
+        pushSalesToNotion()
       ])
-      result = { menu, inventory, customers }
+      result = { menu, inventory, customers, recipe_ingredients, sales }
     }
     res.json({ success: true, ...result })
   } catch (err) {

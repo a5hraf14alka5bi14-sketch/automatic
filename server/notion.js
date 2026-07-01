@@ -24,6 +24,8 @@ const DEFAULT_PURCHASE_ORDERS_DS = '1976152b-9da3-43df-9d8a-af56818067ef'
 const DEFAULT_STAFF_DS = '7bdb3187-d6e4-425c-aea1-ca16d97474e3'
 const DEFAULT_FINANCE_DS = 'd3de7e73-bef6-430a-9da7-b8451379d436'
 const DEFAULT_ORDER_ITEMS_DS = 'e3e3a62a-e550-40b5-909f-3fa053597bc3'
+const DEFAULT_SALES_DS = 'ed84c1af-01a7-4a33-8f8e-835997a04094'
+const DEFAULT_RECIPE_INGREDIENTS_DS = '8a2c31ac-5244-43ac-b721-d94338e8ded4'
 
 export async function getNotionConfig() {
   const rows = await pool.query(
@@ -43,7 +45,8 @@ export async function getExtendedNotionConfig() {
     'notion_api_key', 'notion_projects_db', 'notion_tasks_db',
     'notion_menu_db', 'notion_inventory_db', 'notion_customers_db',
     'notion_suppliers_db', 'notion_purchase_orders_db', 'notion_staff_db',
-    'notion_finance_db', 'notion_order_items_db', 'notion_recipe_ingredients_db'
+    'notion_finance_db', 'notion_order_items_db', 'notion_recipe_ingredients_db',
+    'notion_sales_db'
   ]
   const rows = await pool.query(
     `SELECT key, value FROM settings WHERE key = ANY($1)`,
@@ -63,7 +66,8 @@ export async function getExtendedNotionConfig() {
     staffDb: cfg.notion_staff_db || DEFAULT_STAFF_DS,
     financeDb: cfg.notion_finance_db || DEFAULT_FINANCE_DS,
     orderItemsDb: cfg.notion_order_items_db || DEFAULT_ORDER_ITEMS_DS,
-    recipeIngredientsDb: cfg.notion_recipe_ingredients_db || null
+    salesDb: cfg.notion_sales_db || DEFAULT_SALES_DS,
+    recipeIngredientsDb: cfg.notion_recipe_ingredients_db || DEFAULT_RECIPE_INGREDIENTS_DS
   }
 }
 

@@ -549,21 +549,487 @@ export async function pushCustomersToNotion() {
   return { pushed, total: customers.rows.length }
 }
 
+// ── Mappers: Recipe Ingredients, Sales, Finance, Staff ────────────────────────
+
+export function mapNotionPageToRecipeIngredient(page) {
+  const props = page.properties || {}
+  const name = getTitle(props['Ingredient'] || props['المكون'] || props['Name'] || props['Item'])
+  const quantity = getNumber(props['Quantity'] || props['الكمية']) || 1
+  const unit = getSelect(props['Unit'] || props['الوحدة']) || 'pcs'
+  const cost = getNumber(props['Cost per Unit'] || props['التكلفة'] || props['Cost']) || 0
+  const menuItemRelId = getRelationId(props['Menu Item'] || props['Recipe'] || props['الوصفة'])
+  const invItemRelId = getRelationId(props['Inventory Item'] || props['Inventory'] || props['المخزون'])
+  return {
+    notion_id: page.id,
+    ingredient_name: name || '(مكون)',
+    quantity,
+    unit,
+    cost,
+    menu_item_notion_id: menuItemRelId,
+    inventory_item_notion_id: invItemRelId,
+    last_synced: new Date().toISOString()
+  }
+}
+
+export function mapNotionPageToSaleEntry(page) {
+  const props = page.properties || {}
+  const title = getTitle(props['Sales'] || props['Order'] || props['Name'] || props['المبيعات'])
+  const total = getNumber(props['Total'] || props['الإجمالي'] || props['Revenue']) || 0
+  const tax = getNumber(props['Tax'] || props['الضريبة']) || 0
+  const date = getDate(props['Date'] || props['التاريخ'] || props['Order Date'])
+  const paymentMethod = getSelect(props['Payment Method'] || props['طريقة الدفع'])
+  const customerRelId = getRelationId(props['Customer'] || props['العميل'])
+  return {
+    notion_id: page.id,
+    notion_title: title || '(مبيعة)',
+    total: parseFloat(total) || 0,
+    tax: parseFloat(tax) || 0,
+    payment_method: paymentMethod,
+    order_date: date,
+    customer_notion_id: customerRelId,
+    last_synced: new Date().toISOString()
+  }
+}
+
+export function mapNotionPageToFinanceEntry(page) {
+  const props = page.properties || {}
+  const description = getTitle(props['Entry'] || props['Description'] || props['الوصف'] || props['Name'])
+  const date = getDate(props['Date'] || props['التاريخ'])
+  const rawType = getSelect(props['Type'] || props['النوع']) || 'income'
+  const category = getSelect(props['Category'] || props['الفئة'])
+  const amount = getNumber(props['Amount'] || props['المبلغ']) || 0
+  const reference = getRichText(props['Reference'] || props['المرجع'])
+  return {
+    notion_id: page.id,
+    date: date || new Date().toISOString().slice(0, 10),
+    type: rawType.toLowerCase().replace(/\s+/g, '_'),
+    category: category || null,
+    description: description || '(قيد مالي)',
+    amount: parseFloat(amount) || 0,
+    reference: reference || null,
+    last_synced: new Date().toISOString()
+  }
+}
+
+export function mapNotionPageToStaffMember(page) {
+  const props = page.properties || {}
+  const name = getTitle(props['Staff'] || props['Name'] || props['الموظف'])
+  const role = getSelect(props['Role'] || props['الدور'] || props['Job Title'])
+  const email = props['Email']?.email || null
+  const phone = props['Phone']?.phone_number || null
+  const department = getSelect(props['Department'] || props['القسم'])
+  const salary = getNumber(props['Salary'] || props['الراتب'])
+  const hireDate = getDate(props['Hire Date'] || props['تاريخ التعيين'] || props['Start Date'])
+  const statusRaw = getStatus(props['Status'] || props['الحالة'])
+  const isActive = !statusRaw || !['تم', 'Done', 'Resigned'].includes(statusRaw)
+  return {
+    notion_id: page.id,
+    name: name || '(موظف)',
+    role: role || null,
+    email,
+    phone,
+    department: department || null,
+    salary: salary != null ? parseFloat(salary) : null,
+    hire_date: hireDate,
+    status: isActive ? 'active' : 'inactive',
+    last_synced: new Date().toISOString()
+  }
+}
+
+// ── Upsert helpers: Recipe Ingredients, Sales, Finance, Staff ─────────────────
+
+async function upsertRecipeIngredient(item) {
+  let menuItemId = null
+  let inventoryItemId = null
+  if (item.menu_item_notion_id) {
+    const r = await pool.query('SELECT id FROM menu_items WHERE notion_id=$1', [item.menu_item_notion_id])
+    menuItemId = r.rows[0]?.id || null
+  }
+  if (item.inventory_item_notion_id) {
+    const r = await pool.query('SELECT id FROM inventory WHERE notion_id=$1', [item.inventory_item_notion_id])
+    inventoryItemId = r.rows[0]?.id || null
+  }
+  if (!menuItemId) return // orphan — skip
+  await pool.query(
+    `INSERT INTO recipe_ingredients
+       (notion_id, menu_item_id, inventory_item_id, ingredient_name, quantity, unit, cost)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (notion_id) DO UPDATE SET
+       menu_item_id=$2, inventory_item_id=$3, ingredient_name=$4,
+       quantity=$5, unit=$6, cost=$7`,
+    [item.notion_id, menuItemId, inventoryItemId,
+     item.ingredient_name, item.quantity, item.unit, item.cost]
+  )
+}
+
+async function upsertSaleEntry(entry) {
+  await pool.query(
+    `INSERT INTO finance_entries
+       (notion_id, date, type, category, description, amount, reference)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (notion_id) DO UPDATE SET
+       date=$2, type=$3, category=$4, description=$5, amount=$6, reference=$7`,
+    [entry.notion_id,
+     entry.order_date || new Date().toISOString().slice(0, 10),
+     'income', 'sales',
+     entry.notion_title,
+     entry.total,
+     entry.payment_method || null]
+  )
+}
+
+async function upsertFinanceEntry(entry) {
+  await pool.query(
+    `INSERT INTO finance_entries
+       (notion_id, date, type, category, description, amount, reference)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (notion_id) DO UPDATE SET
+       date=$2, type=$3, category=$4, description=$5, amount=$6, reference=$7`,
+    [entry.notion_id, entry.date, entry.type, entry.category,
+     entry.description, entry.amount, entry.reference]
+  )
+}
+
+async function upsertStaffMember(member) {
+  await pool.query(
+    `INSERT INTO staff
+       (notion_id, name, role, email, phone, department, salary, hire_date, status, last_synced)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     ON CONFLICT (notion_id) DO UPDATE SET
+       name=$2, role=$3, email=$4, phone=$5, department=$6,
+       salary=$7, hire_date=$8, status=$9, last_synced=$10`,
+    [member.notion_id, member.name, member.role, member.email, member.phone,
+     member.department, member.salary, member.hire_date, member.status, member.last_synced]
+  )
+}
+
+// ── Pull sync: Recipe Ingredients ────────────────────────────────────────────
+
+export async function syncRecipeIngredientsFromNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.recipeIngredientsDb) {
+    return { synced: 0, total: 0, skipped: true, reason: 'Recipe Ingredients DB not configured' }
+  }
+  const pages = await queryDatabase(cfg.recipeIngredientsDb)
+  if (!pages.length) return { synced: 0, total: 0, skipped: true, reason: 'No records in Recipe Ingredients DB' }
+  let synced = 0
+  const errors = []
+  for (const page of pages) {
+    try {
+      await upsertRecipeIngredient(mapNotionPageToRecipeIngredient(page))
+      synced++
+    } catch (e) {
+      errors.push({ id: page.id, error: e.message })
+    }
+  }
+  // Recalculate food costs for all menu items with synced recipe ingredients
+  await pool.query(`
+    UPDATE menu_items SET food_cost = (
+      SELECT COALESCE(SUM(cost * quantity), 0)
+      FROM recipe_ingredients WHERE menu_item_id = menu_items.id
+    )
+    WHERE id IN (SELECT DISTINCT menu_item_id FROM recipe_ingredients WHERE notion_id IS NOT NULL)
+  `).catch(() => {})
+  return { synced, total: pages.length, errors }
+}
+
+// ── Pull sync: Sales ──────────────────────────────────────────────────────────
+
+export async function syncSalesFromNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.salesDb) {
+    return { synced: 0, total: 0, skipped: true, reason: 'Sales DB not configured' }
+  }
+  const pages = await queryDatabase(cfg.salesDb)
+  if (!pages.length) return { synced: 0, total: 0, skipped: true, reason: 'No records in Notion Sales DB' }
+  let synced = 0
+  const errors = []
+  for (const page of pages) {
+    try {
+      await upsertSaleEntry(mapNotionPageToSaleEntry(page))
+      synced++
+    } catch (e) {
+      errors.push({ id: page.id, error: e.message })
+    }
+  }
+  return { synced, total: pages.length, errors }
+}
+
+// ── Pull sync: Finance ────────────────────────────────────────────────────────
+
+export async function syncFinanceFromNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.financeDb) {
+    return { synced: 0, total: 0, skipped: true, reason: 'Finance DB not configured' }
+  }
+  const pages = await queryDatabase(cfg.financeDb)
+  if (!pages.length) return { synced: 0, total: 0, skipped: true, reason: 'No records in Notion Finance DB' }
+  let synced = 0
+  const errors = []
+  for (const page of pages) {
+    try {
+      await upsertFinanceEntry(mapNotionPageToFinanceEntry(page))
+      synced++
+    } catch (e) {
+      errors.push({ id: page.id, error: e.message })
+    }
+  }
+  return { synced, total: pages.length, errors }
+}
+
+// ── Pull sync: Staff ──────────────────────────────────────────────────────────
+
+export async function syncStaffFromNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.staffDb) {
+    return { synced: 0, total: 0, skipped: true, reason: 'Staff DB not configured' }
+  }
+  const pages = await queryDatabase(cfg.staffDb)
+  if (!pages.length) return { synced: 0, total: 0, skipped: true, reason: 'No records in Notion Staff DB' }
+  let synced = 0
+  const errors = []
+  for (const page of pages) {
+    try {
+      await upsertStaffMember(mapNotionPageToStaffMember(page))
+      synced++
+    } catch (e) {
+      errors.push({ id: page.id, error: e.message })
+    }
+  }
+  return { synced, total: pages.length, errors }
+}
+
+// ── Push sync: Recipe Ingredients → Notion ────────────────────────────────────
+
+export async function pushRecipeIngredientsToNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.recipeIngredientsDb || !cfg.apiKey) {
+    return { pushed: 0, skipped: true, reason: 'Recipe Ingredients DB or API key not configured' }
+  }
+  const items = await pool.query(`
+    SELECT ri.*, mi.notion_id AS menu_notion_id, inv.notion_id AS inv_notion_id
+    FROM recipe_ingredients ri
+    LEFT JOIN menu_items mi ON mi.id = ri.menu_item_id
+    LEFT JOIN inventory inv ON inv.id = ri.inventory_item_id
+    WHERE ri.notion_id IS NULL AND mi.notion_id IS NOT NULL
+    ORDER BY ri.created_at LIMIT 100
+  `)
+  let pushed = 0
+  for (const item of items.rows) {
+    try {
+      const body = {
+        parent: { database_id: cfg.recipeIngredientsDb },
+        properties: {
+          Ingredient: { title: [{ text: { content: item.ingredient_name } }] },
+          Quantity: { number: parseFloat(item.quantity) },
+          'Cost per Unit': { number: parseFloat(item.cost || 0) }
+        }
+      }
+      if (item.unit) body.properties.Unit = { select: { name: item.unit } }
+      if (item.menu_notion_id) body.properties['Menu Item'] = { relation: [{ id: item.menu_notion_id }] }
+      if (item.inv_notion_id) body.properties['Inventory Item'] = { relation: [{ id: item.inv_notion_id }] }
+      const page = await notionPost(cfg.apiKey, body)
+      await pool.query('UPDATE recipe_ingredients SET notion_id=$1 WHERE id=$2', [page.id, item.id])
+      pushed++
+    } catch (e) {
+      console.error('[push-recipe-ingredients]', item.id, e.message)
+    }
+  }
+  return { pushed, total: items.rows.length }
+}
+
+// ── Push sync: Completed Orders → Notion Sales ────────────────────────────────
+
+export async function pushSalesToNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.salesDb || !cfg.apiKey) {
+    return { pushed: 0, skipped: true, reason: 'Sales DB or API key not configured' }
+  }
+  const orders = await pool.query(`
+    SELECT o.*, c.notion_id AS customer_notion_id
+    FROM orders o
+    LEFT JOIN customers c ON c.id = o.customer_id
+    WHERE o.notion_id IS NULL AND o.status = 'completed'
+    ORDER BY o.created_at DESC LIMIT 50
+  `)
+  let pushed = 0
+  for (const order of orders.rows) {
+    try {
+      const dateStr = (order.paid_at || order.created_at)?.toISOString?.()?.slice(0, 10)
+      const label = order.type === 'dine-in'
+        ? `Table ${order.table_number || '-'} — ${dateStr}`
+        : `${order.type} — ${dateStr}`
+      const body = {
+        parent: { database_id: cfg.salesDb },
+        properties: {
+          Sales: { title: [{ text: { content: label } }] },
+          Total: { number: parseFloat(order.total) },
+          Tax: { number: parseFloat(order.tax || 0) },
+          Status: { status: { name: 'تم' } }
+        }
+      }
+      if (order.payment_method) body.properties['Payment Method'] = { select: { name: order.payment_method } }
+      if (dateStr) body.properties['Date'] = { date: { start: dateStr } }
+      if (order.customer_notion_id) body.properties['Customer'] = { relation: [{ id: order.customer_notion_id }] }
+      const page = await notionPost(cfg.apiKey, body)
+      await pool.query('UPDATE orders SET notion_id=$1 WHERE id=$2', [page.id, order.id])
+      pushed++
+    } catch (e) {
+      console.error('[push-sales]', order.id, e.message)
+    }
+  }
+  return { pushed, total: orders.rows.length }
+}
+
+// ── Push sync: Finance Entries → Notion Finance ───────────────────────────────
+
+export async function pushFinanceToNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.financeDb || !cfg.apiKey) {
+    return { pushed: 0, skipped: true, reason: 'Finance DB or API key not configured' }
+  }
+  const entries = await pool.query(
+    `SELECT * FROM finance_entries WHERE notion_id IS NULL ORDER BY date DESC LIMIT 50`
+  )
+  let pushed = 0
+  for (const entry of entries.rows) {
+    try {
+      const dateStr = entry.date?.toISOString?.()?.slice(0, 10) || String(entry.date)
+      const body = {
+        parent: { database_id: cfg.financeDb },
+        properties: {
+          Entry: { title: [{ text: { content: entry.description || '(قيد مالي)' } }] },
+          Amount: { number: parseFloat(entry.amount) },
+          Date: { date: { start: dateStr } }
+        }
+      }
+      if (entry.type) body.properties.Type = { select: { name: entry.type } }
+      if (entry.category) body.properties.Category = { select: { name: entry.category } }
+      if (entry.reference) body.properties.Reference = { rich_text: [{ text: { content: entry.reference } }] }
+      const page = await notionPost(cfg.apiKey, body)
+      await pool.query('UPDATE finance_entries SET notion_id=$1 WHERE id=$2', [page.id, entry.id])
+      pushed++
+    } catch (e) {
+      console.error('[push-finance]', entry.id, e.message)
+    }
+  }
+  return { pushed, total: entries.rows.length }
+}
+
+// ── Push sync: Staff → Notion Staff DB ────────────────────────────────────────
+
+export async function pushStaffToNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.staffDb || !cfg.apiKey) {
+    return { pushed: 0, skipped: true, reason: 'Staff DB or API key not configured' }
+  }
+  const members = await pool.query(
+    `SELECT * FROM staff WHERE notion_id IS NULL AND status='active' ORDER BY created_at LIMIT 50`
+  )
+  let pushed = 0
+  for (const member of members.rows) {
+    try {
+      const body = {
+        parent: { database_id: cfg.staffDb },
+        properties: {
+          Staff: { title: [{ text: { content: member.name } }] },
+          Status: { status: { name: 'قيد التنفيذ' } }
+        }
+      }
+      if (member.email) body.properties.Email = { email: member.email }
+      if (member.phone) body.properties.Phone = { phone_number: member.phone }
+      if (member.role) body.properties.Role = { select: { name: member.role } }
+      if (member.department) body.properties.Department = { select: { name: member.department } }
+      if (member.salary) body.properties.Salary = { number: parseFloat(member.salary) }
+      if (member.hire_date) {
+        const d = member.hire_date?.toISOString?.()?.slice(0, 10) || String(member.hire_date)
+        body.properties['Hire Date'] = { date: { start: d } }
+      }
+      const page = await notionPost(cfg.apiKey, body)
+      await pool.query('UPDATE staff SET notion_id=$1 WHERE id=$2', [page.id, member.id])
+      pushed++
+    } catch (e) {
+      console.error('[push-staff]', member.id, e.message)
+    }
+  }
+  return { pushed, total: members.rows.length }
+}
+
+// ── Update push functions: sync existing records (not just new) ───────────────
+
+export async function pushMenuUpdatesToNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.menuDb || !cfg.apiKey) {
+    return { updated: 0, skipped: true, reason: 'Menu DB or API key not configured' }
+  }
+  const items = await pool.query(
+    `SELECT * FROM menu_items WHERE notion_id IS NOT NULL ORDER BY updated_at DESC LIMIT 50`
+  )
+  let updated = 0
+  for (const item of items.rows) {
+    try {
+      await notionFetch(`/pages/${item.notion_id}`, 'PATCH', {
+        properties: {
+          'Selling Price': { number: parseFloat(item.price) },
+          'Food Cost': { number: parseFloat(item.food_cost || 0) },
+          Available: { checkbox: !!item.available },
+          'Preparation Time': { number: item.prep_time || 15 }
+        }
+      })
+      updated++
+    } catch (e) {
+      console.error('[push-menu-update]', item.id, e.message)
+    }
+  }
+  return { updated, total: items.rows.length }
+}
+
+export async function pushInventoryUpdatesToNotion() {
+  const cfg = await getExtendedNotionConfig()
+  if (!cfg.inventoryDb || !cfg.apiKey) {
+    return { updated: 0, skipped: true, reason: 'Inventory DB or API key not configured' }
+  }
+  const items = await pool.query(
+    `SELECT * FROM inventory WHERE notion_id IS NOT NULL ORDER BY updated_at DESC LIMIT 50`
+  )
+  let updated = 0
+  for (const item of items.rows) {
+    try {
+      await notionFetch(`/pages/${item.notion_id}`, 'PATCH', {
+        properties: {
+          'Current Stock': { number: parseFloat(item.quantity || 0) },
+          'Minimum Stock': { number: parseFloat(item.min_quantity || 0) },
+          'Unit Cost': { number: parseFloat(item.cost || 0) }
+        }
+      })
+      updated++
+    } catch (e) {
+      console.error('[push-inventory-update]', item.id, e.message)
+    }
+  }
+  return { updated, total: items.rows.length }
+}
+
 // ── syncAll ────────────────────────────────────────────────────────────────────
 
 export async function syncAll() {
   const results = {
     projects: null, tasks: null,
     menu: null, inventory: null, customers: null,
+    recipe_ingredients: null, sales: null, finance: null, staff: null,
     errors: []
   }
 
   const steps = [
-    ['projects', syncProjectsFromNotion],
-    ['tasks', syncTasksFromNotion],
-    ['menu', syncMenuFromNotion],
-    ['inventory', syncInventoryFromNotion],
-    ['customers', syncCustomersFromNotion],
+    ['projects',            syncProjectsFromNotion],
+    ['tasks',               syncTasksFromNotion],
+    ['menu',                syncMenuFromNotion],
+    ['inventory',           syncInventoryFromNotion],
+    ['customers',           syncCustomersFromNotion],
+    ['recipe_ingredients',  syncRecipeIngredientsFromNotion],
+    ['sales',               syncSalesFromNotion],
+    ['finance',             syncFinanceFromNotion],
+    ['staff',               syncStaffFromNotion],
   ]
 
   for (const [key, fn] of steps) {

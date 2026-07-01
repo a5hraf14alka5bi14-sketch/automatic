@@ -43,10 +43,9 @@ export async function runSync(service = 'notion') {
     const result = await fn()
     const ms = Date.now() - started
 
-    const projectCounts = result.projects || {}
-    const taskCounts = result.tasks || {}
-    const totalSynced = (projectCounts.synced || 0) + (taskCounts.synced || 0)
-    const totalItems = (projectCounts.total || 0) + (taskCounts.total || 0)
+    const ALL_KEYS = ['projects','tasks','menu','inventory','customers','recipe_ingredients','sales','finance','staff']
+    const totalSynced = ALL_KEYS.reduce((s, k) => s + (result[k]?.synced || 0), 0)
+    const totalItems  = ALL_KEYS.reduce((s, k) => s + (result[k]?.total  || 0), 0)
 
     await logSync(service, 'pull', 'success',
       { synced: totalSynced, total: totalItems })
