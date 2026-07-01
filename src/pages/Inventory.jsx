@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
+import { useSettings } from '../context/SettingsContext.jsx'
 
 const CATEGORIES = ['proteins', 'vegetables', 'grains', 'legumes', 'bread', 'dairy', 'fruits', 'pantry', 'spices', 'beverages', 'general']
 
@@ -294,6 +295,7 @@ function StockMovementsView() {
 
 export default function Inventory() {
   const { fmt } = useCurrency()
+  const { refreshLowStock } = useSettings()
   const [view, setView] = useState('items')
   const [items, setItems] = useState([])
   const [stats, setStats] = useState(null)
@@ -313,9 +315,10 @@ export default function Inventory() {
       const [itemsData, statsData] = await Promise.all([itemsRes.json(), statsRes.json()])
       setItems(Array.isArray(itemsData) ? itemsData : [])
       setStats(statsData)
+      refreshLowStock()
     } catch (e) { console.error(e) }
     setLoading(false)
-  }, [])
+  }, [refreshLowStock])
 
   useEffect(() => { load() }, [load])
 

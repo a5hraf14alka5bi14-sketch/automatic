@@ -1,4 +1,5 @@
 import React from 'react'
+import { useSettings } from '../context/SettingsContext.jsx'
 
 const NAV_ITEMS = [
   { id: 'dashboard',    label: 'Dashboard',      icon: '◉' },
@@ -23,6 +24,8 @@ const ROLE_COLORS = {
 }
 
 export default function Sidebar({ currentPage, setCurrentPage, user, onLogout, isOpen, setIsOpen }) {
+  const { lowStockCount, lowStockEnabled } = useSettings()
+  const showLowStock = lowStockEnabled && lowStockCount > 0
   return (
     <aside className={`${isOpen ? 'w-64' : 'w-16'} bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 flex-shrink-0`}>
       <div className="p-4 border-b border-slate-800 flex items-center gap-3">
@@ -57,9 +60,22 @@ export default function Sidebar({ currentPage, setCurrentPage, user, onLogout, i
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent'
               }`}
             >
-              <span className="text-base flex-shrink-0 leading-none">{item.icon}</span>
+              <span className="relative text-base flex-shrink-0 leading-none">
+                {item.icon}
+                {item.id === 'inventory' && showLowStock && !isOpen && (
+                  <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-slate-900" />
+                )}
+              </span>
               {isOpen && <span className="truncate">{item.label}</span>}
-              {isOpen && currentPage === item.id && (
+              {item.id === 'inventory' && showLowStock && isOpen && (
+                <span
+                  className="ml-auto min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500/90 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0"
+                  title={`${lowStockCount} item${lowStockCount === 1 ? '' : 's'} low on stock`}
+                >
+                  {lowStockCount > 99 ? '99+' : lowStockCount}
+                </span>
+              )}
+              {isOpen && currentPage === item.id && !(item.id === 'inventory' && showLowStock) && (
                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
               )}
             </button>

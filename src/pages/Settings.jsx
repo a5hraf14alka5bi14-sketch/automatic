@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useSettings } from '../context/SettingsContext.jsx'
 
 const TABS = [
   { id: 'general', label: '🏪 General', adminOnly: false },
@@ -59,6 +60,7 @@ function Input({ value, onChange, type = 'text', min, max, step, placeholder, di
 
 export default function Settings({ user }) {
   const isAdmin = user?.role === 'admin'
+  const { refresh: refreshGlobalSettings, refreshLowStock } = useSettings()
   const [tab, setTab] = useState('general')
   const [settings, setSettings] = useState({})
   const [dirty, setDirty] = useState({})
@@ -103,6 +105,8 @@ export default function Settings({ user }) {
         setDirty({})
         setSaveMsg('Saved successfully')
         loadSettings()
+        await refreshGlobalSettings()
+        refreshLowStock()
       } else {
         const d = await r.json()
         setSaveMsg('Error: ' + (d.error || 'Unknown'))

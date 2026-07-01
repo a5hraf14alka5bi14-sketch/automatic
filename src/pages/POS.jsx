@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useToast } from '../context/ToastContext.jsx'
+import { useSettings } from '../context/SettingsContext.jsx'
 import ReceiptModal from '../components/ReceiptModal.jsx'
 
 const CATS = [
@@ -193,6 +194,7 @@ function PaymentModal({ order, currency, onConfirm, onClose }) {
 // ── Main POS Page ─────────────────────────────────────────────────────────────
 export default function POS() {
   const showToast = useToast()
+  const { refreshLowStock } = useSettings()
   const [menu, setMenu] = useState([])
   const [customers, setCustomers] = useState([])
   const [settings, setSettings] = useState({ tax_rate: '11', currency_symbol: 'OMR', tables_count: '10' })
@@ -355,6 +357,7 @@ export default function POS() {
       setPayModal(null)
       showToast('Payment confirmed! 🎉', 'success')
       setReceiptData(receipt)
+      refreshLowStock()
     } catch (err) {
       showToast(err.message, 'error')
     }

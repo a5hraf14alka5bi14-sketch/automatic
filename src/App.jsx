@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
+import { SettingsProvider } from './context/SettingsContext.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import POS from './pages/POS.jsx'
 import Orders from './pages/Orders.jsx'
@@ -79,21 +80,23 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <div className="flex h-screen bg-slate-950 overflow-hidden">
-        <Sidebar
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          user={user}
-          onLogout={handleLogout}
-          isOpen={sidebarOpen}
-          setIsOpen={setSidebarOpen}
-        />
-        <main className="flex-1 overflow-auto">
-          <ErrorBoundary key={currentPage}>
-            {pages[currentPage] || <Dashboard />}
-          </ErrorBoundary>
-        </main>
-      </div>
+      <SettingsProvider>
+        <div className="flex h-screen bg-slate-950 overflow-hidden">
+          <Sidebar
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            user={user}
+            onLogout={handleLogout}
+            isOpen={sidebarOpen}
+            setIsOpen={setSidebarOpen}
+          />
+          <main className="flex-1 overflow-auto">
+            <ErrorBoundary key={currentPage}>
+              {pages[currentPage] || <Dashboard />}
+            </ErrorBoundary>
+          </main>
+        </div>
+      </SettingsProvider>
     </ToastProvider>
   )
 }
