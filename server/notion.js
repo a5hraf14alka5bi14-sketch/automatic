@@ -16,6 +16,14 @@ export const STATUS_TO_ARABIC = {
 
 const DEFAULT_PROJECTS_DS = 'bea6bf0f-16f9-455c-b887-dee7b7cba587'
 const DEFAULT_TASKS_DS = '2ea23851-9271-456c-bad7-cfa25fa2683d'
+const DEFAULT_MENU_DS = '6f3cf08f-3cdf-472b-807d-b4edc27cc13f'
+const DEFAULT_INVENTORY_DS = 'fb57f374-c7dd-4c18-ad3c-c601c96b1f91'
+const DEFAULT_CUSTOMERS_DS = 'ff5b19de-d827-4818-9bee-cea05375fb21'
+const DEFAULT_SUPPLIERS_DS = '918d94de-97d9-4422-ac00-3cc41874d3a5'
+const DEFAULT_PURCHASE_ORDERS_DS = '1976152b-9da3-43df-9d8a-af56818067ef'
+const DEFAULT_STAFF_DS = '7bdb3187-d6e4-425c-aea1-ca16d97474e3'
+const DEFAULT_FINANCE_DS = 'd3de7e73-bef6-430a-9da7-b8451379d436'
+const DEFAULT_ORDER_ITEMS_DS = 'e3e3a62a-e550-40b5-909f-3fa053597bc3'
 
 export async function getNotionConfig() {
   const rows = await pool.query(
@@ -27,6 +35,35 @@ export async function getNotionConfig() {
     apiKey: cfg.notion_api_key || process.env.NOTION_API_KEY || '',
     projectsDb: cfg.notion_projects_db || DEFAULT_PROJECTS_DS,
     tasksDb: cfg.notion_tasks_db || DEFAULT_TASKS_DS
+  }
+}
+
+export async function getExtendedNotionConfig() {
+  const keys = [
+    'notion_api_key', 'notion_projects_db', 'notion_tasks_db',
+    'notion_menu_db', 'notion_inventory_db', 'notion_customers_db',
+    'notion_suppliers_db', 'notion_purchase_orders_db', 'notion_staff_db',
+    'notion_finance_db', 'notion_order_items_db', 'notion_recipe_ingredients_db'
+  ]
+  const rows = await pool.query(
+    `SELECT key, value FROM settings WHERE key = ANY($1)`,
+    [keys]
+  )
+  const cfg = {}
+  for (const r of rows.rows) cfg[r.key] = r.value
+  return {
+    apiKey: cfg.notion_api_key || process.env.NOTION_API_KEY || '',
+    projectsDb: cfg.notion_projects_db || DEFAULT_PROJECTS_DS,
+    tasksDb: cfg.notion_tasks_db || DEFAULT_TASKS_DS,
+    menuDb: cfg.notion_menu_db || DEFAULT_MENU_DS,
+    inventoryDb: cfg.notion_inventory_db || DEFAULT_INVENTORY_DS,
+    customersDb: cfg.notion_customers_db || DEFAULT_CUSTOMERS_DS,
+    suppliersDb: cfg.notion_suppliers_db || DEFAULT_SUPPLIERS_DS,
+    purchaseOrdersDb: cfg.notion_purchase_orders_db || DEFAULT_PURCHASE_ORDERS_DS,
+    staffDb: cfg.notion_staff_db || DEFAULT_STAFF_DS,
+    financeDb: cfg.notion_finance_db || DEFAULT_FINANCE_DS,
+    orderItemsDb: cfg.notion_order_items_db || DEFAULT_ORDER_ITEMS_DS,
+    recipeIngredientsDb: cfg.notion_recipe_ingredients_db || null
   }
 }
 

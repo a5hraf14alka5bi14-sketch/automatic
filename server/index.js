@@ -1,5 +1,7 @@
 import express from 'express'
 import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { verifyToken } from './middleware/auth.js'
 import authRoutes from './routes/auth.js'
 import menuRoutes from './routes/menu.js'
@@ -16,8 +18,10 @@ import { initDb, pool } from './db.js'
 import { registerAdapter, startAutoSync } from './integrations/sync-engine.js'
 import { syncAll } from './integrations/notion.js'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = 3001
+const IS_PROD = process.env.NODE_ENV === 'production'
 
 app.use(cors({
   origin: true,
@@ -41,6 +45,16 @@ app.use('/api/integrations', integrationsRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/users', usersRoutes)
 
+if (IS_PROD) {
+  const distPath = path.join(__dirname, '../dist')
+  app.use(express.static(distPath))
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.join(distPath, 'index.html'))
+    }
+  })
+}
+
 async function initSyncEngine() {
   try {
     registerAdapter('notion', syncAll)
@@ -63,8 +77,8 @@ async function initSyncEngine() {
 
 initDb().then(async () => {
   await initSyncEngine()
-  app.listen(PORT, 'localhost', () => {
-    console.log(`API server running on http://localhost:${PORT}`)
+  app.listen(PORT, IS_PROD ? '0.0.0.0' : 'localhost', () => {
+    console.log(`API server running on port ${PORT} (${IS_PROD ? 'production' : 'development'})`)
   })
 }).catch(err => {
   console.error('Failed to initialize database:', err)

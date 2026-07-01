@@ -9,3 +9,4 @@
 - [Notion REST sync module](notion-rest-sync.md) — server/integrations/notion.js uses native fetch to api.notion.com/v1 (bypasses SDK); queryDatabase() paginates; maps Arabic+English status names.
 - [Sync engine pattern](sync-engine-pattern.md) — server/integrations/sync-engine.js: registerAdapter(service,fn), startAutoSync(), stopAutoSync(); logs to sync_log table; timer.unref() so it won't block exit.
 - [Notion Main Page Update Strategy](notion-main-page-update.md) — use replace_content (not update_content) for main page; include all embedded DB/page tags in new_str
+- [Notion full sync architecture](notion-sync-architecture.md) — all 12 DS IDs, bi-directional sync (pull+push), notion_id columns on menu_items/inventory/customers, all P1 schema fixes applied

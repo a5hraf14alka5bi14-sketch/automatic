@@ -161,6 +161,9 @@ export async function initDb() {
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS notes TEXT;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_spent DECIMAL(10,2) DEFAULT 0;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+      ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
+      ALTER TABLE inventory ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
     `)
 
     await client.query(`

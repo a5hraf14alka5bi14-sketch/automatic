@@ -7,7 +7,13 @@ import {
   testNotionConnection,
   syncAll,
   syncProjectsFromNotion,
-  syncTasksFromNotion
+  syncTasksFromNotion,
+  syncMenuFromNotion,
+  syncInventoryFromNotion,
+  syncCustomersFromNotion,
+  pushMenuToNotion,
+  pushInventoryToNotion,
+  pushCustomersToNotion
 } from '../integrations/notion.js'
 import {
   runSync,
@@ -51,10 +57,13 @@ router.get('/', async (req, res) => {
       getNotionConfig()
     ])
 
-    const [ghRepos, npCount, ntCount, lastNotionSync] = await Promise.all([
+    const [ghRepos, npCount, ntCount, menuCount, invCount, custCount, lastNotionSync] = await Promise.all([
       pool.query('SELECT COUNT(*) FROM github_repos'),
       pool.query('SELECT COUNT(*) FROM notion_projects'),
       pool.query('SELECT COUNT(*) FROM notion_tasks'),
+      pool.query('SELECT COUNT(*) FROM menu_items WHERE notion_id IS NOT NULL'),
+      pool.query('SELECT COUNT(*) FROM inventory WHERE notion_id IS NOT NULL'),
+      pool.query('SELECT COUNT(*) FROM customers WHERE notion_id IS NOT NULL'),
       getLastSyncTime('notion')
     ])
 
@@ -75,6 +84,9 @@ router.get('/', async (req, res) => {
         tasks_db: notionCfg.tasksDb,
         synced_projects: parseInt(npCount.rows[0].count),
         synced_tasks: parseInt(ntCount.rows[0].count),
+        synced_menu: parseInt(menuCount.rows[0].count),
+        synced_inventory: parseInt(invCount.rows[0].count),
+        synced_customers: parseInt(custCount.rows[0].count),
         last_sync: lastNotionSync,
         auto_sync: engineStatus
       },
@@ -150,12 +162,23 @@ router.post('/notion/sync', async (req, res) => {
     } else if (type === 'tasks') {
       const r = await syncTasksFromNotion()
       result = { tasks: r }
+    } else if (type === 'menu') {
+      const r = await syncMenuFromNotion()
+      result = { menu: r }
+    } else if (type === 'inventory') {
+      const r = await syncInventoryFromNotion()
+      result = { inventory: r }
+    } else if (type === 'customers') {
+      const r = await syncCustomersFromNotion()
+      result = { customers: r }
     } else {
       result = await syncAll()
     }
 
-    const totalSynced = (result.projects?.synced || 0) + (result.tasks?.synced || 0)
-    const totalItems = (result.projects?.total || 0) + (result.tasks?.total || 0)
+    const totalSynced = ['projects','tasks','menu','inventory','customers']
+      .reduce((s, k) => s + (result[k]?.synced || 0), 0)
+    const totalItems = ['projects','tasks','menu','inventory','customers']
+      .reduce((s, k) => s + (result[k]?.total || 0), 0)
 
     await pool.query(
       `INSERT INTO sync_log (service, direction, status, items_synced, items_total)
@@ -296,6 +319,33 @@ router.post('/github/link-notion', async (req, res) => {
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
+  }
+})
+
+// ── POST /api/integrations/notion/push — push PG records without notion_id ──
+
+router.post('/notion/push', async (req, res) => {
+  const { type } = req.body
+  try {
+    let result
+    if (type === 'menu') {
+      result = await pushMenuToNotion()
+    } else if (type === 'inventory') {
+      result = await pushInventoryToNotion()
+    } else if (type === 'customers') {
+      result = await pushCustomersToNotion()
+    } else {
+      const [menu, inventory, customers] = await Promise.all([
+        pushMenuToNotion(),
+        pushInventoryToNotion(),
+        pushCustomersToNotion()
+      ])
+      result = { menu, inventory, customers }
+    }
+    res.json({ success: true, ...result })
+  } catch (err) {
+    console.error('[notion/push]', err)
+    res.status(500).json({ success: false, error: err.message })
   }
 })
 
