@@ -241,6 +241,20 @@ export async function initDb() {
     `)
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS stock_movements (
+        id SERIAL PRIMARY KEY,
+        inventory_item_id INTEGER REFERENCES inventory(id) ON DELETE CASCADE,
+        change DECIMAL(12,3) NOT NULL,
+        quantity_after DECIMAL(12,3),
+        movement_type VARCHAR(30) NOT NULL,
+        reference_type VARCHAR(30),
+        reference_id INTEGER,
+        note TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `)
+
+    await client.query(`
       CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
       CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
@@ -251,6 +265,8 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_recipe_ing_inventory ON recipe_ingredients(inventory_item_id);
       CREATE INDEX IF NOT EXISTS idx_modifier_groups_item ON modifier_groups(menu_item_id);
       CREATE INDEX IF NOT EXISTS idx_modifiers_group ON modifiers(group_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_mov_item ON stock_movements(inventory_item_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_mov_created ON stock_movements(created_at DESC);
     `)
 
     const settingsDefaults = [
@@ -370,4 +386,20 @@ export async function initDb() {
   } finally {
     client.release()
   }
+}
+
+// Record a stock movement. Pass a transaction client (or pool) as `db` so the
+// log is written atomically with the inventory change. `change` is signed:
+// negative = stock out (sale), positive = stock in (restock/adjustment).
+export async function recordStockMovement(db, {
+  inventoryItemId, change, quantityAfter = null,
+  movementType, referenceType = null, referenceId = null, note = null
+}) {
+  if (!inventoryItemId || !change) return
+  await db.query(
+    `INSERT INTO stock_movements
+       (inventory_item_id, change, quantity_after, movement_type, reference_type, reference_id, note)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [inventoryItemId, change, quantityAfter, movementType, referenceType, referenceId, note]
+  )
 }

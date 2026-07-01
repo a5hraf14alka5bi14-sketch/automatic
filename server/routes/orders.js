@@ -1,5 +1,5 @@
 import express from 'express'
-import { pool } from '../db.js'
+import { pool, recordStockMovement } from '../db.js'
 import { broadcast } from '../events.js'
 
 const router = express.Router()
@@ -143,10 +143,25 @@ router.patch('/:id/status', async (req, res) => {
         )
         for (const ri of recipe.rows) {
           const deduct = parseFloat(ri.ing_qty) * parseInt(oi.quantity)
-          await client.query(
-            'UPDATE inventory SET quantity = GREATEST(0, quantity - $1), updated_at=NOW() WHERE id=$2',
+          const upd = await client.query(
+            `WITH prev AS (SELECT quantity AS q FROM inventory WHERE id=$2)
+             UPDATE inventory SET quantity = GREATEST(0, quantity - $1), updated_at=NOW()
+             WHERE id=$2
+             RETURNING quantity AS new_q, (SELECT q FROM prev) AS old_q`,
             [deduct, ri.inventory_item_id]
           )
+          const row = upd.rows[0]
+          const actualDelta = row ? parseFloat(row.new_q) - parseFloat(row.old_q) : 0
+          if (actualDelta !== 0) {
+            await recordStockMovement(client, {
+              inventoryItemId: ri.inventory_item_id,
+              change: actualDelta,
+              quantityAfter: row.new_q,
+              movementType: 'sale',
+              referenceType: 'order',
+              referenceId: parseInt(req.params.id)
+            })
+          }
         }
       }
 
@@ -179,10 +194,25 @@ router.patch('/:id/status', async (req, res) => {
         )
         for (const ri of recipe.rows) {
           const restock = parseFloat(ri.ing_qty) * parseInt(oi.quantity)
-          await client.query(
-            'UPDATE inventory SET quantity = quantity + $1, updated_at=NOW() WHERE id=$2',
+          const upd = await client.query(
+            `WITH prev AS (SELECT quantity AS q FROM inventory WHERE id=$2)
+             UPDATE inventory SET quantity = quantity + $1, updated_at=NOW()
+             WHERE id=$2
+             RETURNING quantity AS new_q, (SELECT q FROM prev) AS old_q`,
             [restock, ri.inventory_item_id]
           )
+          const row = upd.rows[0]
+          const actualDelta = row ? parseFloat(row.new_q) - parseFloat(row.old_q) : 0
+          if (actualDelta !== 0) {
+            await recordStockMovement(client, {
+              inventoryItemId: ri.inventory_item_id,
+              change: actualDelta,
+              quantityAfter: row.new_q,
+              movementType: 'cancellation',
+              referenceType: 'order',
+              referenceId: parseInt(req.params.id)
+            })
+          }
         }
       }
 

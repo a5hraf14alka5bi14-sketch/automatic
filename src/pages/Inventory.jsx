@@ -210,8 +210,91 @@ function DeleteModal({ item, onClose, onConfirm }) {
   )
 }
 
+const MOVEMENT_META = {
+  sale:         { label: 'Sale',        icon: '🧾', tone: 'text-red-400' },
+  cancellation: { label: 'Cancel restock', icon: '↩️', tone: 'text-green-400' },
+  restock:      { label: 'Restock',     icon: '📥', tone: 'text-green-400' },
+  adjustment:   { label: 'Adjustment',  icon: '⚖️', tone: 'text-blue-400' },
+  manual_edit:  { label: 'Manual edit', icon: '✏️', tone: 'text-blue-400' },
+  initial:      { label: 'Initial',     icon: '🆕', tone: 'text-slate-400' },
+}
+
+function fmtWhen(ts) {
+  const d = new Date(ts)
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function StockMovementsView() {
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    apiFetch('/api/inventory/movements?limit=200')
+      .then(r => { if (!r.ok) throw new Error('Failed to load stock movements'); return r.json() })
+      .then(d => { if (alive) setRows(d) })
+      .catch(e => { if (alive) setErr(e.message) })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [])
+
+  if (loading) return (
+    <div className="space-y-2">
+      {[...Array(6)].map((_, i) => <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl p-4 animate-pulse h-12" />)}
+    </div>
+  )
+  if (err) return <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">{err}</div>
+  if (rows.length === 0) return (
+    <div className="text-center py-20">
+      <p className="text-4xl mb-3">📋</p>
+      <p className="text-slate-400 text-sm">No stock movements yet</p>
+      <p className="text-slate-500 text-xs mt-1">Movements are logged automatically on sales, adjustments and edits.</p>
+    </div>
+  )
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-slate-800 bg-slate-800/50">
+            <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">When</th>
+            <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">Item</th>
+            <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">Type</th>
+            <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Change</th>
+            <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Stock After</th>
+            <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(m => {
+            const meta = MOVEMENT_META[m.movement_type] || { label: m.movement_type, icon: '•', tone: 'text-slate-400' }
+            const change = parseFloat(m.change)
+            const positive = change > 0
+            return (
+              <tr key={m.id} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors">
+                <td className="px-4 py-3 text-slate-400 text-sm whitespace-nowrap">{fmtWhen(m.created_at)}</td>
+                <td className="px-4 py-3 text-white text-sm font-medium">{m.item_name || '—'}</td>
+                <td className="px-4 py-3 text-sm"><span className={meta.tone}>{meta.icon} {meta.label}</span></td>
+                <td className={`px-4 py-3 text-right text-sm font-semibold ${positive ? 'text-green-400' : 'text-red-400'}`}>
+                  {positive ? '+' : ''}{change} {m.unit || ''}
+                </td>
+                <td className="px-4 py-3 text-right text-slate-300 text-sm">{m.quantity_after != null ? `${parseFloat(m.quantity_after)} ${m.unit || ''}` : '—'}</td>
+                <td className="px-4 py-3 text-slate-500 text-sm">
+                  {m.reference_type === 'order' && m.reference_id ? `Order #${m.reference_id}` : (m.note || m.reference_type || '—')}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function Inventory() {
   const { fmt } = useCurrency()
+  const [view, setView] = useState('items')
   const [items, setItems] = useState([])
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -261,11 +344,29 @@ export default function Inventory() {
           <h1 className="text-2xl font-bold text-white">Inventory</h1>
           <p className="text-slate-400 text-sm mt-0.5">Track ingredients and stock levels</p>
         </div>
-        <button onClick={() => setEditItem({})}
-          className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-orange-500/20">
-          + Add Item
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-0.5">
+            <button onClick={() => setView('items')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'items' ? 'bg-orange-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+              Items
+            </button>
+            <button onClick={() => setView('movements')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'movements' ? 'bg-orange-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+              Movements
+            </button>
+          </div>
+          {view === 'items' && (
+            <button onClick={() => setEditItem({})}
+              className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-orange-500/20">
+              + Add Item
+            </button>
+          )}
+        </div>
       </div>
+
+      {view === 'movements' ? <StockMovementsView /> : (
+      <>
+      {/* items view */}
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -379,6 +480,8 @@ export default function Inventory() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
 
       {editItem !== null && <ItemModal item={editItem} onClose={() => setEditItem(null)} onSave={load} />}
