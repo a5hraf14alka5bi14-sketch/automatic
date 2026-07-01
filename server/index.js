@@ -1,6 +1,7 @@
 import http from 'node:http'
 import express from 'express'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import path from 'path'
@@ -28,15 +29,6 @@ const server = http.createServer(app)
 const PORT = 3001
 const IS_PROD = process.env.NODE_ENV === 'production'
 
-// ── Fail fast if SESSION_SECRET is missing in production ──────────────────────
-if (IS_PROD && !process.env.SESSION_SECRET) {
-  console.error('FATAL: SESSION_SECRET environment variable must be set in production.')
-  process.exit(1)
-}
-if (!process.env.SESSION_SECRET) {
-  console.warn('[security] SESSION_SECRET is not set — using insecure fallback. Set this before deploying.')
-}
-
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -44,13 +36,20 @@ app.use(helmet({
 }))
 
 // ── CORS — restrict to ALLOWED_ORIGIN in production ───────────────────────────
+if (IS_PROD && !process.env.ALLOWED_ORIGIN) {
+  console.error('FATAL: ALLOWED_ORIGIN must be set in production (credentialed CORS cannot reflect arbitrary origins).')
+  process.exit(1)
+}
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || true,
+  origin: IS_PROD ? process.env.ALLOWED_ORIGIN : true,
   credentials: true,
 }))
 
 // ── Request body size limit (DoS prevention) ──────────────────────────────────
 app.use(express.json({ limit: '1mb' }))
+
+// ── Parse cookies (httpOnly auth tokens) ──────────────────────────────────────
+app.use(cookieParser())
 
 // ── Rate limiting: max 10 login attempts per minute per IP ────────────────────
 const authLimiter = rateLimit({
@@ -86,6 +85,14 @@ if (IS_PROD) {
     }
   })
 }
+
+// ── Global error handler — hide internal details from clients ─────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error('[error]', req.method, req.path, '—', err?.stack || err?.message || err)
+  if (res.headersSent) return
+  res.status(err?.status || 500).json({ error: 'An unexpected error occurred. Please try again.' })
+})
 
 async function initSyncEngine() {
   try {

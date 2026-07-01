@@ -26,6 +26,20 @@ export default function App() {
     if (stored) {
       try { setUser(JSON.parse(stored)) } catch { localStorage.removeItem('auth_user') }
     }
+    // Validate the httpOnly-cookie session against the server
+    ;(async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json()
+          setUser(data.user)
+          localStorage.setItem('auth_user', JSON.stringify(data.user))
+        } else {
+          setUser(null)
+          localStorage.removeItem('auth_user')
+        }
+      } catch { /* offline — keep cached user */ }
+    })()
   }, [])
 
   const handleLogin = (userData) => {
@@ -33,7 +47,10 @@ export default function App() {
     localStorage.setItem('auth_user', JSON.stringify(userData))
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    } catch { /* ignore */ }
     setUser(null)
     localStorage.removeItem('auth_user')
     setCurrentPage('dashboard')

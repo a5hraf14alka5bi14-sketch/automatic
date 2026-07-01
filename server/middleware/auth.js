@@ -1,17 +1,23 @@
 import jwt from 'jsonwebtoken'
+import { SECRET, ACCESS_COOKIE } from '../config/secret.js'
 
-const SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET || 'automatic-restaurant-secret-key'
+function extractToken(req) {
+  if (req.cookies?.[ACCESS_COOKIE]) return req.cookies[ACCESS_COOKIE]
+  const auth = req.headers.authorization
+  if (auth?.startsWith('Bearer ')) return auth.slice(7)
+  return null
+}
 
 export function verifyToken(req, res, next) {
-  const auth = req.headers.authorization
-  if (!auth?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized — token required' })
+  const token = extractToken(req)
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized — authentication required' })
   }
   try {
-    req.user = jwt.verify(auth.slice(7), SECRET)
+    req.user = jwt.verify(token, SECRET)
     next()
   } catch {
-    return res.status(401).json({ error: 'Invalid or expired token' })
+    return res.status(401).json({ error: 'Invalid or expired session' })
   }
 }
 
