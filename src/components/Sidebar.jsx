@@ -69,32 +69,54 @@ export default function Sidebar({ currentPage, setCurrentPage, user, onLogout, i
 
       <div className="p-3 border-t border-slate-800">
         {isOpen ? (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-orange-500/20 border border-orange-500/30 rounded-full flex items-center justify-center text-orange-300 text-xs font-bold flex-shrink-0">
-              {user?.name?.[0]?.toUpperCase() || 'A'}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-white text-xs font-semibold truncate">{user?.name || 'Admin'}</p>
-              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${ROLE_COLORS[user?.role] || ROLE_COLORS.staff}`}>
-                {user?.role || 'staff'}
-              </span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-orange-500/20 border border-orange-500/30 rounded-full flex items-center justify-center text-orange-300 text-xs font-bold flex-shrink-0">
+                {user?.name?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-white text-xs font-semibold truncate">{user?.name || 'Admin'}</p>
+                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${ROLE_COLORS[user?.role] || ROLE_COLORS.staff}`}>
+                  {user?.role || 'staff'}
+                </span>
+              </div>
+              <button
+                onClick={onLogout}
+                className="text-slate-500 hover:text-red-400 transition-colors flex-shrink-0 p-1 rounded hover:bg-red-500/10"
+                title="Sign out"
+              >
+                ⏻
+              </button>
             </div>
             <button
+              onClick={() => setCurrentPage('change-password')}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${
+                currentPage === 'change-password'
+                  ? 'text-orange-400 bg-orange-500/10'
+                  : 'text-slate-600 hover:text-slate-300 hover:bg-slate-800/50'
+              }`}
+            >
+              <span>🔐</span>
+              <span>Change Password</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => setCurrentPage('change-password')}
+              className="w-full flex justify-center text-slate-600 hover:text-orange-400 transition-colors py-1 rounded hover:bg-orange-500/10"
+              title="Change Password"
+            >
+              🔐
+            </button>
+            <button
               onClick={onLogout}
-              className="text-slate-500 hover:text-red-400 transition-colors flex-shrink-0 p-1 rounded hover:bg-red-500/10"
+              className="w-full flex justify-center text-slate-500 hover:text-red-400 transition-colors py-1.5 rounded hover:bg-red-500/10"
               title="Sign out"
             >
               ⏻
             </button>
           </div>
-        ) : (
-          <button
-            onClick={onLogout}
-            className="w-full flex justify-center text-slate-500 hover:text-red-400 transition-colors py-1.5 rounded hover:bg-red-500/10"
-            title="Sign out"
-          >
-            ⏻
-          </button>
         )}
       </div>
     </aside>

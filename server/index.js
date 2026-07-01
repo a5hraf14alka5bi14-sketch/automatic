@@ -1,3 +1,4 @@
+import http from 'node:http'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -19,9 +20,11 @@ import usersRoutes from './routes/users.js'
 import { initDb, pool } from './db.js'
 import { registerAdapter, startAutoSync } from './integrations/sync-engine.js'
 import { syncAll } from './integrations/notion.js'
+import { initWebSocketServer } from './events.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
+const server = http.createServer(app)
 const PORT = 3001
 const IS_PROD = process.env.NODE_ENV === 'production'
 
@@ -115,7 +118,8 @@ process.on('unhandledRejection', (reason) => {
 
 initDb().then(async () => {
   await initSyncEngine()
-  app.listen(PORT, IS_PROD ? '0.0.0.0' : 'localhost', () => {
+  server.listen(PORT, IS_PROD ? '0.0.0.0' : 'localhost', () => {
+    initWebSocketServer(server)
     console.log(`API server running on port ${PORT} (${IS_PROD ? 'production' : 'development'})`)
   })
 }).catch(err => {

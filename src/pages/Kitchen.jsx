@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
 
 function elapsed(date) {
@@ -89,26 +89,81 @@ function KitchenCard({ order, actions, onAction }) {
 export default function Kitchen() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [wsStatus, setWsStatus] = useState('connecting')
   const [lastUpdate, setLastUpdate] = useState(null)
+  const wsRef = useRef(null)
+  const pollRef = useRef(null)
+  const reconnectRef = useRef(null)
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const res = await apiFetch('/api/orders?status=pending,preparing,ready')
       const data = await res.json()
       setOrders(Array.isArray(data) ? data : [])
       setLastUpdate(new Date())
     } catch (err) {
-      console.error(err)
+      console.error('[kitchen] fetch error:', err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  const startPolling = useCallback(() => {
+    if (pollRef.current) return
+    pollRef.current = setInterval(fetchOrders, 10000)
+    setWsStatus('polling')
+  }, [fetchOrders])
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+  }, [])
 
   useEffect(() => {
     fetchOrders()
-    const interval = setInterval(fetchOrders, 10000)
-    return () => clearInterval(interval)
-  }, [])
+
+    function connect() {
+      try {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const ws = new WebSocket(`${proto}//${location.host}/ws`)
+        wsRef.current = ws
+
+        ws.onopen = () => {
+          setWsStatus('live')
+          stopPolling()
+          console.log('[kitchen] WebSocket connected ✓')
+        }
+
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data)
+            if (msg.type === 'order_created' || msg.type === 'order_updated') {
+              fetchOrders()
+            }
+          } catch {}
+        }
+
+        ws.onclose = () => {
+          wsRef.current = null
+          startPolling()
+          reconnectRef.current = setTimeout(connect, 5000)
+        }
+
+        ws.onerror = () => {
+          ws.close()
+        }
+      } catch {
+        startPolling()
+      }
+    }
+
+    connect()
+
+    return () => {
+      if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close() }
+      if (pollRef.current) clearInterval(pollRef.current)
+      if (reconnectRef.current) clearTimeout(reconnectRef.current)
+    }
+  }, [fetchOrders, startPolling, stopPolling])
 
   const updateStatus = async (id, status) => {
     try {
@@ -116,17 +171,28 @@ export default function Kitchen() {
         method: 'PATCH',
         body: JSON.stringify({ status })
       })
-      fetchOrders()
+      if (wsStatus !== 'live') fetchOrders()
     } catch (err) { console.error(err) }
   }
 
   const byStatus = {
-    pending: orders.filter(o => o.status === 'pending'),
+    pending:   orders.filter(o => o.status === 'pending'),
     preparing: orders.filter(o => o.status === 'preparing'),
-    ready: orders.filter(o => o.status === 'ready'),
+    ready:     orders.filter(o => o.status === 'ready'),
   }
 
   const totalActive = orders.length
+
+  const StatusDot = () => (
+    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+      wsStatus === 'live'       ? 'bg-green-500/15 text-green-400' :
+      wsStatus === 'polling'    ? 'bg-yellow-500/15 text-yellow-400' :
+                                  'bg-slate-700 text-slate-400'
+    }`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${wsStatus === 'live' ? 'bg-green-400 animate-pulse' : wsStatus === 'polling' ? 'bg-yellow-400' : 'bg-slate-500'}`} />
+      {wsStatus === 'live' ? 'Live' : wsStatus === 'polling' ? 'Polling' : 'Connecting'}
+    </span>
+  )
 
   if (loading) return (
     <div className="p-6">
@@ -144,10 +210,13 @@ export default function Kitchen() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Kitchen Display</h1>
-          <p className="text-slate-400 text-sm mt-1">
-            {totalActive} active order{totalActive !== 1 ? 's' : ''} · auto-refreshes every 10s
-            {lastUpdate && <span className="ml-2 text-slate-600">· {lastUpdate.toLocaleTimeString()}</span>}
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-slate-400 text-sm">
+              {totalActive} active order{totalActive !== 1 ? 's' : ''}
+            </p>
+            <StatusDot />
+            {lastUpdate && <span className="text-slate-600 text-xs">· {lastUpdate.toLocaleTimeString()}</span>}
+          </div>
         </div>
         <button onClick={fetchOrders} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors">
           ↻ Refresh

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Sidebar from './components/Sidebar.jsx'
+import { ToastProvider } from './context/ToastContext.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import POS from './pages/POS.jsx'
 import Orders from './pages/Orders.jsx'
@@ -12,6 +13,7 @@ import NotionIntegration from './pages/NotionIntegration.jsx'
 import Integrations from './pages/Integrations.jsx'
 import Menu from './pages/Menu.jsx'
 import Settings from './pages/Settings.jsx'
+import ChangePassword from './pages/ChangePassword.jsx'
 import Login from './pages/Login.jsx'
 
 export default function App() {
@@ -37,37 +39,44 @@ export default function App() {
     setCurrentPage('dashboard')
   }
 
-  if (!user) return <Login onLogin={handleLogin} />
+  if (!user) return (
+    <ToastProvider>
+      <Login onLogin={handleLogin} />
+    </ToastProvider>
+  )
 
   const pages = {
-    dashboard:    <Dashboard />,
-    pos:          <POS />,
-    orders:       <Orders />,
-    kitchen:      <Kitchen />,
-    inventory:    <Inventory />,
-    customers:    <Customers />,
-    reports:      <Reports />,
-    menu:         <Menu />,
-    settings:     <Settings user={user} />,
-    integrations: <Integrations />,
-    notion:       <NotionIntegration />,
+    dashboard:       <Dashboard />,
+    pos:             <POS />,
+    orders:          <Orders />,
+    kitchen:         <Kitchen />,
+    inventory:       <Inventory />,
+    customers:       <Customers />,
+    reports:         <Reports />,
+    menu:            <Menu />,
+    settings:        <Settings user={user} />,
+    integrations:    <Integrations />,
+    notion:          <NotionIntegration />,
+    'change-password': <ChangePassword />,
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden">
-      <Sidebar
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        user={user}
-        onLogout={handleLogout}
-        isOpen={sidebarOpen}
-        setIsOpen={setSidebarOpen}
-      />
-      <main className="flex-1 overflow-auto">
-        <ErrorBoundary key={currentPage}>
-          {pages[currentPage] || <Dashboard />}
-        </ErrorBoundary>
-      </main>
-    </div>
+    <ToastProvider>
+      <div className="flex h-screen bg-slate-950 overflow-hidden">
+        <Sidebar
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          user={user}
+          onLogout={handleLogout}
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+        />
+        <main className="flex-1 overflow-auto">
+          <ErrorBoundary key={currentPage}>
+            {pages[currentPage] || <Dashboard />}
+          </ErrorBoundary>
+        </main>
+      </div>
+    </ToastProvider>
   )
 }

@@ -50,7 +50,7 @@ server/
 
 ### Demo credentials
 - Email: `admin@automatic.com`
-- Password: `admin123`
+- Password: `Admin123`
 
 ---
 

@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useToast } from '../context/ToastContext.jsx'
+import ReceiptModal from '../components/ReceiptModal.jsx'
 
 const CATS = [
-  { id: 'all', label: 'All', emoji: '🍽️' },
-  { id: 'shawarma', label: 'Shawarma', emoji: '🌯' },
-  { id: 'grills', label: 'Grills', emoji: '🔥' },
+  { id: 'all',        label: 'All',        emoji: '🍽️' },
+  { id: 'shawarma',   label: 'Shawarma',   emoji: '🌯' },
+  { id: 'grills',     label: 'Grills',     emoji: '🔥' },
   { id: 'appetizers', label: 'Appetizers', emoji: '🥙' },
-  { id: 'salads', label: 'Salads', emoji: '🥗' },
+  { id: 'salads',     label: 'Salads',     emoji: '🥗' },
   { id: 'sandwiches', label: 'Sandwiches', emoji: '🥪' },
-  { id: 'meals', label: 'Meals', emoji: '🍱' },
-  { id: 'manakish', label: 'Manakish', emoji: '🫓' },
-  { id: 'desserts', label: 'Desserts', emoji: '🍮' },
-  { id: 'drinks', label: 'Drinks', emoji: '🥤' },
+  { id: 'meals',      label: 'Meals',      emoji: '🍱' },
+  { id: 'manakish',   label: 'Manakish',   emoji: '🫓' },
+  { id: 'desserts',   label: 'Desserts',   emoji: '🍮' },
+  { id: 'drinks',     label: 'Drinks',     emoji: '🥤' },
 ]
 const CAT_EMOJI = Object.fromEntries(CATS.map(c => [c.id, c.emoji]))
 
@@ -53,6 +55,7 @@ function PaymentModal({ order, currency, onConfirm, onClose }) {
 }
 
 export default function POS() {
+  const showToast = useToast()
   const [menu, setMenu] = useState([])
   const [customers, setCustomers] = useState([])
   const [settings, setSettings] = useState({ tax_rate: '11', currency_symbol: 'OMR', tables_count: '10' })
@@ -63,6 +66,7 @@ export default function POS() {
   const [loading, setLoading] = useState(true)
   const [placing, setPlacing] = useState(false)
   const [payModal, setPayModal] = useState(null)
+  const [receiptData, setReceiptData] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [search, setSearch] = useState('')
   const [note, setNote] = useState('')
@@ -135,23 +139,53 @@ export default function POS() {
       })
       const order = await res.json()
       if (!res.ok) throw new Error(order.error || 'Failed to place order')
-      const placedTotal = total
+
+      const selectedCustomer = customerId ? customers.find(c => c.id === parseInt(customerId)) : null
+      const cartSnapshot = cart.map(c => ({
+        name: c.name,
+        quantity: c.qty,
+        price: parseFloat(c.price),
+        notes: c.notes || null
+      }))
+
       setCart([])
       setNote('')
       setCustomerId('')
-      setPayModal({ ...order, total: placedTotal, type: orderType })
+      showToast(`Order #${order.id} placed — awaiting payment`, 'info')
+      setPayModal({
+        ...order,
+        total: parseFloat(total.toFixed(3)),
+        subtotal: parseFloat(subtotal.toFixed(3)),
+        tax: parseFloat(tax.toFixed(3)),
+        type: orderType,
+        items: cartSnapshot,
+        customer_name: selectedCustomer?.name || null
+      })
     } catch (err) {
       setError(err.message)
+      showToast(err.message, 'error')
     }
     setPlacing(false)
   }
 
   const handlePayment = async (orderId, method) => {
-    await apiFetch(`/api/orders/${orderId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'completed', payment_method: method })
-    })
-    setPayModal(null)
+    try {
+      const res = await apiFetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'completed', payment_method: method })
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Payment failed') }
+      const receipt = {
+        ...payModal,
+        payment_method: method,
+        paid_at: new Date().toISOString()
+      }
+      setPayModal(null)
+      showToast('Payment confirmed! 🎉', 'success')
+      setReceiptData(receipt)
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
   }
 
   return (
@@ -227,7 +261,6 @@ export default function POS() {
             {cartCount > 0 && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full font-medium">{cartCount} items</span>}
           </div>
 
-          {/* Order type */}
           <div className="flex gap-1">
             {[['dine-in','🍴'],['takeaway','🥡'],['delivery','🛵']].map(([t,e]) => (
               <button key={t} onClick={() => setOrderType(t)}
@@ -237,7 +270,6 @@ export default function POS() {
             ))}
           </div>
 
-          {/* Table selector */}
           {orderType === 'dine-in' && (
             <select value={tableNum} onChange={e => setTableNum(parseInt(e.target.value))}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500">
@@ -247,7 +279,6 @@ export default function POS() {
             </select>
           )}
 
-          {/* Customer selector */}
           <select value={customerId} onChange={e => setCustomerId(e.target.value)}
             className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500">
             <option value="">— Walk-in customer —</option>
@@ -259,7 +290,6 @@ export default function POS() {
           </select>
         </div>
 
-        {/* Cart items */}
         <div className="flex-1 overflow-auto p-4">
           {cart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-8">
@@ -287,7 +317,6 @@ export default function POS() {
           )}
         </div>
 
-        {/* Notes */}
         {cart.length > 0 && (
           <div className="px-4 pb-2">
             <textarea value={note} onChange={e => setNote(e.target.value)}
@@ -296,7 +325,6 @@ export default function POS() {
           </div>
         )}
 
-        {/* Totals & checkout */}
         <div className="p-4 border-t border-slate-800">
           <div className="space-y-1.5 mb-4">
             <div className="flex justify-between text-sm">
@@ -334,6 +362,14 @@ export default function POS() {
 
       {payModal && (
         <PaymentModal order={payModal} currency={currency} onConfirm={handlePayment} onClose={() => setPayModal(null)} />
+      )}
+
+      {receiptData && (
+        <ReceiptModal
+          order={receiptData}
+          settings={settings}
+          onClose={() => setReceiptData(null)}
+        />
       )}
     </div>
   )

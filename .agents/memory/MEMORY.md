@@ -3,7 +3,8 @@
 - [Integrations hub architecture](integrations-arch.md) — unified /api/integrations route; secrets read from env first, DB settings as override; node --watch needs full restart to pick up new route imports
 - [DB migration pattern](db-migration-pattern.md) — existing tables need ALTER TABLE ADD COLUMN IF NOT EXISTS; CREATE TABLE IF NOT EXISTS only adds new tables, not columns
 - [Inventory deduction pattern](inventory-deduction.md) — orders route PATCH /:id/status checks prev status before deducting; prevents double-deduction; cancelling completed order re-stocks
-- [Auth token flow](auth-token-flow.md) — token in localStorage as JSON {id,name,email,role,token}; apiFetch in src/utils/api.js adds Bearer header; Login.jsx keeps plain fetch (no token yet).
+- [Auth token flow](auth-token-flow.md) — localStorage JSON {id,name,email,role,token,refresh_token}; apiFetch auto-refreshes on 401 then retries; refresh endpoint: POST /api/auth/refresh; change-password: PATCH /api/auth/password (verifyToken applied inline in auth router).
+- [WebSocket architecture](websocket-arch.md) — ws package on http.createServer(app); path /ws; Vite proxy '/ws':{target:ws://localhost:3001,ws:true}; Kitchen.jsx connects via wss?://location.host/ws with polling fallback on close.
 - [POS order + payment flow](pos-order-flow.md) — POST /api/orders → PaymentModal → PATCH /:id/status {status:'completed',payment_method}; tax/tables from /api/settings.
 - [Settings API shape](settings-api.md) — GET /api/settings returns flat {key:value} object; PUT accepts partial updates; keys: tax_rate, tables_count, currency_symbol, restaurant_name, loyalty_points_per_dollar.
 - [Notion REST sync module](notion-rest-sync.md) — server/integrations/notion.js uses native fetch to api.notion.com/v1 (bypasses SDK); queryDatabase() paginates; maps Arabic+English status names.

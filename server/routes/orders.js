@@ -1,5 +1,6 @@
 import express from 'express'
 import { pool } from '../db.js'
+import { broadcast } from '../events.js'
 
 const router = express.Router()
 
@@ -92,6 +93,7 @@ router.post('/', async (req, res) => {
       )
     }
     await client.query('COMMIT')
+    broadcast('order_created', { id: order.id, type: order.type, table_number: order.table_number, status: 'pending' })
     res.status(201).json(order)
   } catch (err) {
     await client.query('ROLLBACK')
@@ -199,6 +201,7 @@ router.patch('/:id/status', async (req, res) => {
     }
 
     await client.query('COMMIT')
+    broadcast('order_updated', { id: parseInt(req.params.id), status })
     res.json(result.rows[0])
   } catch (err) {
     await client.query('ROLLBACK')
