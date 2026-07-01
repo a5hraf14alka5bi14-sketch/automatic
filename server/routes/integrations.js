@@ -97,8 +97,8 @@ router.get('/', async (req, res) => {
       }
     })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/status]', err)
+    res.status(500).json({ error: 'Failed to retrieve integration status' })
   }
 })
 
@@ -123,8 +123,8 @@ router.put('/:service/config', async (req, res) => {
     }
     res.json({ success: true })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/config]', err)
+    res.status(500).json({ error: 'Failed to save configuration' })
   }
 })
 
@@ -146,7 +146,8 @@ router.post('/:service/test', async (req, res) => {
       res.status(404).json({ error: 'Unknown service' })
     }
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message })
+    console.error('[integrations/test]', err)
+    res.status(400).json({ success: false, error: err.message || 'Connection test failed' })
   }
 })
 
@@ -194,7 +195,7 @@ router.post('/notion/sync', async (req, res) => {
       [err.message]
     ).catch(() => {})
     console.error('[notion/sync]', err)
-    res.status(500).json({ success: false, error: err.message })
+    res.status(500).json({ success: false, error: 'Sync failed. Check server logs for details.' })
   }
 })
 
@@ -209,7 +210,8 @@ router.get('/notion/sync/status', async (req, res) => {
     ])
     res.json({ logs, last_success: lastSuccess, engine: engineStatus })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/sync-status]', err)
+    res.status(500).json({ error: 'Failed to retrieve sync status' })
   }
 })
 
@@ -231,7 +233,8 @@ router.put('/notion/auto-sync', async (req, res) => {
 
     res.json({ success: true, ...getSyncEngineStatus() })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/auto-sync]', err)
+    res.status(500).json({ error: 'Failed to update auto-sync settings' })
   }
 })
 
@@ -249,7 +252,8 @@ router.get('/notion/auto-sync', async (req, res) => {
       ...getSyncEngineStatus()
     })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/auto-sync-get]', err)
+    res.status(500).json({ error: 'Failed to retrieve auto-sync settings' })
   }
 })
 
@@ -277,8 +281,8 @@ router.post('/github/sync', async (req, res) => {
     }
     res.json({ synced, repos })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/github-sync]', err)
+    res.status(500).json({ error: 'GitHub sync failed. Check server logs for details.' })
   }
 })
 
@@ -296,7 +300,8 @@ router.get('/github/repos', async (req, res) => {
     )
     res.json(result.rows)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/github-repos]', err)
+    res.status(500).json({ error: 'Failed to retrieve GitHub repos' })
   }
 })
 
@@ -318,7 +323,8 @@ router.post('/github/link-notion', async (req, res) => {
     )
     res.json({ success: true })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/github-link]', err)
+    res.status(500).json({ error: 'Failed to link repo to project' })
   }
 })
 
@@ -345,7 +351,7 @@ router.post('/notion/push', async (req, res) => {
     res.json({ success: true, ...result })
   } catch (err) {
     console.error('[notion/push]', err)
-    res.status(500).json({ success: false, error: err.message })
+    res.status(500).json({ success: false, error: 'Push to Notion failed. Check server logs for details.' })
   }
 })
 
@@ -359,7 +365,8 @@ router.post('/openai/chat', async (req, res) => {
     const result = await openAIChat(messages, model)
     res.json({ success: true, reply: result.choices[0]?.message?.content, usage: result.usage })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('[integrations/openai-chat]', err)
+    res.status(500).json({ error: 'AI request failed. Check server logs for details.' })
   }
 })
 

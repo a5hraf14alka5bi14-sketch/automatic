@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import POS from './pages/POS.jsx'
@@ -63,7 +64,9 @@ export default function App() {
         setIsOpen={setSidebarOpen}
       />
       <main className="flex-1 overflow-auto">
-        {pages[currentPage] || <Dashboard />}
+        <ErrorBoundary key={currentPage}>
+          {pages[currentPage] || <Dashboard />}
+        </ErrorBoundary>
       </main>
     </div>
   )

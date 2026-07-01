@@ -1,5 +1,7 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { verifyToken } from './middleware/auth.js'
@@ -23,14 +25,41 @@ const app = express()
 const PORT = 3001
 const IS_PROD = process.env.NODE_ENV === 'production'
 
-app.use(cors({
-  origin: true,
-  credentials: true
-}))
-app.use(express.json())
+// ── Fail fast if SESSION_SECRET is missing in production ──────────────────────
+if (IS_PROD && !process.env.SESSION_SECRET) {
+  console.error('FATAL: SESSION_SECRET environment variable must be set in production.')
+  process.exit(1)
+}
+if (!process.env.SESSION_SECRET) {
+  console.warn('[security] SESSION_SECRET is not set — using insecure fallback. Set this before deploying.')
+}
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
-app.use('/api/auth', authRoutes)
+// ── Security headers ──────────────────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}))
+
+// ── CORS — restrict to ALLOWED_ORIGIN in production ───────────────────────────
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || true,
+  credentials: true,
+}))
+
+// ── Request body size limit (DoS prevention) ──────────────────────────────────
+app.use(express.json({ limit: '1mb' }))
+
+// ── Rate limiting: max 10 login attempts per minute per IP ────────────────────
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again in a minute.' },
+})
+
+app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }))
+app.use('/api/auth', authLimiter, authRoutes)
 
 app.use(verifyToken)
 
@@ -74,6 +103,15 @@ async function initSyncEngine() {
     console.warn('[sync-engine] Init skipped:', e.message)
   }
 }
+
+// ── Global unhandled error handlers ──────────────────────────────────────────
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err.message)
+  process.exit(1)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason)
+})
 
 initDb().then(async () => {
   await initSyncEngine()
