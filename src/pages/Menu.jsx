@@ -187,7 +187,7 @@ function MenuRow({ item, onEdit, onToggle, onDelete }) {
 // ── Add / Edit Modal ──────────────────────────────────────────────────────────
 
 function ItemModal({ item, inventory, onClose, onSave }) {
-  const { fmt } = useCurrency()
+  const { fmt, symbol } = useCurrency()
   const isEdit = !!item?.id
   const [form, setForm] = useState({
     name: item?.name || '',
@@ -318,7 +318,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                   </select>
                 </div>
                 <div>
-                  <label className="text-slate-400 text-xs mb-1 block">Price ($) *</label>
+                  <label className="text-slate-400 text-xs mb-1 block">Price ({symbol}) *</label>
                   <input type="number" step="0.01" min="0" value={form.price} onChange={e => set('price', e.target.value)}
                     placeholder="12.99"
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
@@ -363,7 +363,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
                 </div>
                 <div>
-                  <label className="text-slate-400 text-xs mb-1 block">Food Cost ($)</label>
+                  <label className="text-slate-400 text-xs mb-1 block">Food Cost ({symbol})</label>
                   <input type="number" step="0.01" min="0" value={form.food_cost} onChange={e => set('food_cost', e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
                 </div>
@@ -457,7 +457,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500" />
                   </div>
                   <div>
-                    <label className="text-slate-500 text-xs mb-1 block">Cost per unit ($)</label>
+                    <label className="text-slate-500 text-xs mb-1 block">Cost per unit ({symbol})</label>
                     <input type="number" step="0.01" min="0" value={newIng.cost} onChange={e => setNewIng(n => ({ ...n, cost: e.target.value }))}
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500" />
                   </div>
@@ -517,6 +517,7 @@ function DeleteModal({ item, onClose, onConfirm }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function Menu() {
+  const { fmt } = useCurrency()
   const [items, setItems] = useState([])
   const [inventory, setInventory] = useState([])
   const [stats, setStats] = useState(null)
@@ -611,8 +612,8 @@ export default function Menu() {
           <StatCard label="Total Items" value={stats.total} />
           <StatCard label="Available" value={stats.available} sub={`${stats.total - stats.available} hidden`} />
           <StatCard label="Categories" value={stats.categories} />
-          <StatCard label="Avg Price" value={`$${stats.avg_price || '0.00'}`} />
-          <StatCard label="Avg Food Cost" value={`$${stats.avg_cost || '0.00'}`} />
+          <StatCard label="Avg Price" value={fmt(stats.avg_price || 0)} />
+          <StatCard label="Avg Food Cost" value={fmt(stats.avg_cost || 0)} />
           <StatCard label="Avg Margin" value={`${stats.avg_margin || 0}%`} sub="profit margin" />
         </div>
       )}

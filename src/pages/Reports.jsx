@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useCurrency } from '../utils/currency.js'
 
-const fmt = (val) => 'OMR ' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 const fmtN = (val, dec = 0) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 
 const CAT_EMOJI = {
@@ -42,6 +42,7 @@ function marginColor(pct) {
 }
 
 export default function Reports() {
+  const { fmt } = useCurrency()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState('today')

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useCurrency } from '../utils/currency.js'
 
 const StatCard = ({ label, value, sub, color, icon }) => (
   <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -39,7 +40,7 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  const fmt = (val) => 'OMR ' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+  const { fmt } = useCurrency()
 
   const statusColor = (s) => {
     const map = { pending: 'text-yellow-400', preparing: 'text-blue-400', ready: 'text-green-400', completed: 'text-slate-400', cancelled: 'text-red-400' }
