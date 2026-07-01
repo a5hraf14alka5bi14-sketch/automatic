@@ -59,10 +59,19 @@ function CustomerReceipt({ order, settings, currency }) {
           <span style={{ width: 70, textAlign: 'right' }}>AMOUNT</span>
         </div>
         {(order.items || []).map((item, i) => (
-          <div key={i} style={{ display: 'flex', marginBottom: 2 }}>
-            <span style={{ flex: 1, paddingRight: 4 }}>{item.name}</span>
-            <span style={{ width: 28, textAlign: 'center' }}>{item.quantity}</span>
-            <span style={{ width: 70, textAlign: 'right' }}>{fmt(parseFloat(item.price) * item.quantity, currency)}</span>
+          <div key={i} style={{ marginBottom: 4 }}>
+            <div style={{ display: 'flex' }}>
+              <span style={{ flex: 1, paddingRight: 4 }}>{item.name}</span>
+              <span style={{ width: 28, textAlign: 'center' }}>{item.quantity}</span>
+              <span style={{ width: 70, textAlign: 'right' }}>{fmt(parseFloat(item.price) * item.quantity, currency)}</span>
+            </div>
+            {Array.isArray(item.modifiers) && item.modifiers.length > 0 && (
+              <div style={{ paddingLeft: 8, fontSize: 9, color: '#777' }}>
+                {item.modifiers.map((m, mi) => (
+                  <span key={mi}>{mi > 0 ? ', ' : ''}{m.name}</span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -125,6 +134,13 @@ function KitchenReceipt({ order }) {
             <div style={{ fontWeight: 'bold', fontSize: 14 }}>
               {item.quantity}× {item.name}
             </div>
+            {Array.isArray(item.modifiers) && item.modifiers.length > 0 && (
+              <div style={{ fontSize: 11, paddingLeft: 16, color: '#444' }}>
+                {item.modifiers.map((m, mi) => (
+                  <div key={mi}>· {m.name}</div>
+                ))}
+              </div>
+            )}
             {item.notes && (
               <div style={{ fontStyle: 'italic', fontSize: 11, paddingLeft: 16, color: '#333' }}>
                 ↳ {item.notes}

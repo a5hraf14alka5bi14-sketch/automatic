@@ -52,12 +52,21 @@ function KitchenCard({ order, actions, onAction }) {
       </div>
 
       {Array.isArray(order.items) && order.items.length > 0 ? (
-        <div className="space-y-1 mb-3">
+        <div className="space-y-2 mb-3">
           {order.items.map((item, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm">
-              <span className="text-orange-400 font-bold w-6 flex-shrink-0">{item.quantity}×</span>
-              <span className="text-white">{item.name}</span>
-              {item.notes && <span className="text-slate-500 text-xs italic">({item.notes})</span>}
+            <div key={i}>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-orange-400 font-bold w-6 flex-shrink-0">{item.quantity}×</span>
+                <span className="text-white">{item.name}</span>
+                {item.notes && <span className="text-slate-500 text-xs italic">({item.notes})</span>}
+              </div>
+              {Array.isArray(item.modifiers) && item.modifiers.length > 0 && (
+                <div className="pl-8 mt-0.5 space-y-0.5">
+                  {item.modifiers.map((m, mi) => (
+                    <p key={mi} className="text-slate-400 text-xs">· {m.name}</p>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

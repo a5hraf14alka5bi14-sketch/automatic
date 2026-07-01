@@ -54,7 +54,7 @@ function ImagePlaceholder({ category, name }) {
   )
 }
 
-function MenuCard({ item, onEdit, onToggle, onDelete }) {
+function MenuCard({ item, onEdit, onToggle, onDelete, onModifiers }) {
   const { fmt } = useCurrency()
   const mgn = margin(item.price, item.food_cost)
   const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : []
@@ -79,6 +79,7 @@ function MenuCard({ item, onEdit, onToggle, onDelete }) {
 
         {/* Actions overlay */}
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={() => onModifiers(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-blue-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Modifiers">⚡</button>
           <button onClick={() => onEdit(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-orange-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Edit">✏️</button>
           <button onClick={() => onDelete(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-red-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Delete">🗑️</button>
         </div>
@@ -135,7 +136,7 @@ function MenuCard({ item, onEdit, onToggle, onDelete }) {
   )
 }
 
-function MenuRow({ item, onEdit, onToggle, onDelete }) {
+function MenuRow({ item, onEdit, onToggle, onDelete, onModifiers }) {
   const { fmt } = useCurrency()
   const mgn = margin(item.price, item.food_cost)
   const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : []
@@ -175,6 +176,7 @@ function MenuRow({ item, onEdit, onToggle, onDelete }) {
       </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
+          <button onClick={() => onModifiers(item)} className="text-slate-400 hover:text-blue-400 transition-colors text-sm" title="Modifiers">⚡</button>
           <button onClick={() => onEdit(item)} className="text-slate-400 hover:text-orange-400 transition-colors text-sm" title="Edit">✏️</button>
           <button onClick={() => onToggle(item)} className="text-slate-400 hover:text-yellow-400 transition-colors text-sm" title="Toggle">{item.available ? '🙈' : '👁️'}</button>
           <button onClick={() => onDelete(item)} className="text-slate-400 hover:text-red-400 transition-colors text-sm" title="Delete">🗑️</button>
@@ -495,6 +497,178 @@ function ItemModal({ item, inventory, onClose, onSave }) {
   )
 }
 
+// ── Modifiers Modal ───────────────────────────────────────────────────────────
+function ModifiersModal({ item, onClose }) {
+  const { symbol } = useCurrency()
+  const [groups, setGroups] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [newGroup, setNewGroup] = useState({ name: '', required: false, max_selections: 1 })
+  const [addingMod, setAddingMod] = useState({})
+  const [error, setError] = useState('')
+
+  const loadGroups = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/api/menu/${item.id}/modifier-groups`)
+      const data = await res.json()
+      setGroups(Array.isArray(data) ? data : [])
+    } catch {}
+    setLoading(false)
+  }, [item.id])
+
+  useEffect(() => { loadGroups() }, [loadGroups])
+
+  const addGroup = async () => {
+    if (!newGroup.name.trim()) return
+    setSaving(true); setError('')
+    try {
+      const res = await apiFetch(`/api/menu/${item.id}/modifier-groups`, {
+        method: 'POST', body: JSON.stringify(newGroup)
+      })
+      const data = await res.json()
+      if (res.ok) { setGroups(prev => [...prev, data]); setNewGroup({ name: '', required: false, max_selections: 1 }) }
+      else setError(data.error)
+    } catch {}
+    setSaving(false)
+  }
+
+  const deleteGroup = async (gid) => {
+    await apiFetch(`/api/menu/modifier-groups/${gid}`, { method: 'DELETE' })
+    setGroups(prev => prev.filter(g => g.id !== gid))
+  }
+
+  const addMod = async (gid) => {
+    const mod = addingMod[gid] || {}
+    if (!mod.name?.trim()) return
+    setSaving(true)
+    try {
+      const res = await apiFetch(`/api/menu/modifier-groups/${gid}/modifiers`, {
+        method: 'POST', body: JSON.stringify({ name: mod.name.trim(), price_delta: parseFloat(mod.price_delta || 0) })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setGroups(prev => prev.map(g => g.id === gid ? { ...g, modifiers: [...g.modifiers, data] } : g))
+        setAddingMod(prev => ({ ...prev, [gid]: { name: '', price_delta: '' } }))
+      }
+    } catch {}
+    setSaving(false)
+  }
+
+  const deleteMod = async (gid, mid) => {
+    await apiFetch(`/api/menu/modifiers/${mid}`, { method: 'DELETE' })
+    setGroups(prev => prev.map(g => g.id === gid ? { ...g, modifiers: g.modifiers.filter(m => m.id !== mid) } : g))
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg flex flex-col" style={{ maxHeight: '85vh' }}>
+        <div className="flex items-center justify-between p-5 border-b border-slate-800 flex-shrink-0">
+          <div>
+            <h2 className="text-white font-bold text-lg">Modifiers</h2>
+            <p className="text-slate-400 text-sm mt-0.5">{item.name}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-xl leading-none transition-colors">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-5 space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="text-center py-8 text-slate-500 text-sm">No modifier groups yet — add one below.</div>
+          ) : groups.map(g => (
+            <div key={g.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-white font-semibold text-sm">{g.name}</p>
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${g.required ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700 text-slate-400'}`}>
+                    {g.required ? 'Required' : 'Optional'}
+                  </span>
+                  <span className="text-xs text-slate-500">· max {g.max_selections}</span>
+                </div>
+                <button onClick={() => deleteGroup(g.id)} className="text-slate-600 hover:text-red-400 text-sm transition-colors" title="Delete group">🗑️</button>
+              </div>
+
+              {g.modifiers.length > 0 ? (
+                <div className="space-y-1.5 mb-3">
+                  {g.modifiers.map(m => (
+                    <div key={m.id} className="flex items-center justify-between bg-slate-800 rounded-lg px-3 py-2">
+                      <span className="text-slate-300 text-sm">{m.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-medium ${parseFloat(m.price_delta) > 0 ? 'text-green-400' : parseFloat(m.price_delta) < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                          {parseFloat(m.price_delta) === 0 ? 'Free' : `${parseFloat(m.price_delta) > 0 ? '+' : ''}${symbol} ${parseFloat(m.price_delta).toFixed(3)}`}
+                        </span>
+                        <button onClick={() => deleteMod(g.id, m.id)} className="text-slate-600 hover:text-red-400 text-xs transition-colors">✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-600 text-xs mb-3">No options yet</p>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  value={(addingMod[g.id] || {}).name || ''}
+                  onChange={e => setAddingMod(prev => ({ ...prev, [g.id]: { ...(prev[g.id] || {}), name: e.target.value } }))}
+                  placeholder="Option name"
+                  onKeyDown={e => e.key === 'Enter' && addMod(g.id)}
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500"
+                />
+                <input
+                  type="number" step="0.001"
+                  value={(addingMod[g.id] || {}).price_delta !== undefined ? (addingMod[g.id] || {}).price_delta : ''}
+                  onChange={e => setAddingMod(prev => ({ ...prev, [g.id]: { ...(prev[g.id] || {}), price_delta: e.target.value } }))}
+                  placeholder="+0.000"
+                  className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500"
+                />
+                <button onClick={() => addMod(g.id)} disabled={saving}
+                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs rounded-lg transition-colors font-medium">
+                  + Add
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-5 border-t border-slate-800 space-y-3 flex-shrink-0">
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide">New Modifier Group</p>
+          <div className="flex gap-2">
+            <input
+              value={newGroup.name}
+              onChange={e => setNewGroup(n => ({ ...n, name: e.target.value }))}
+              placeholder="Group name (e.g. Size, Extras, Sauce)"
+              onKeyDown={e => e.key === 'Enter' && addGroup()}
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+            />
+            <select
+              value={newGroup.max_selections}
+              onChange={e => setNewGroup(n => ({ ...n, max_selections: parseInt(e.target.value) }))}
+              className="w-24 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+            >
+              {[1,2,3,4,5].map(n => <option key={n} value={n}>Max {n}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer" onClick={() => setNewGroup(n => ({ ...n, required: !n.required }))}>
+              <div className={`w-8 h-4 rounded-full relative transition-colors ${newGroup.required ? 'bg-orange-500' : 'bg-slate-700'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${newGroup.required ? 'left-4' : 'left-0.5'}`} />
+              </div>
+              <span className="text-slate-400 text-sm">Required selection</span>
+            </label>
+            <button onClick={addGroup} disabled={saving || !newGroup.name.trim()}
+              className="px-5 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white text-sm font-semibold rounded-lg transition-colors">
+              {saving ? 'Adding…' : 'Add Group'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Delete Confirm Modal ──────────────────────────────────────────────────────
 function DeleteModal({ item, onClose, onConfirm }) {
   const [loading, setLoading] = useState(false)
@@ -526,8 +700,9 @@ export default function Menu() {
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('all')
   const [availFilter, setAvailFilter] = useState('all')
-  const [editItem, setEditItem] = useState(null)      // null = closed, {} = new, {id,..} = editing
+  const [editItem, setEditItem] = useState(null)
   const [deleteItem, setDeleteItem] = useState(null)
+  const [modifiersItem, setModifiersItem] = useState(null)
 
   const load = useCallback(async () => {
     try {
@@ -687,7 +862,7 @@ export default function Menu() {
       ) : view === 'grid' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtered.map(item => (
-            <MenuCard key={item.id} item={item} onEdit={handleEdit} onToggle={handleToggle} onDelete={setDeleteItem} />
+            <MenuCard key={item.id} item={item} onEdit={handleEdit} onToggle={handleToggle} onDelete={setDeleteItem} onModifiers={setModifiersItem} />
           ))}
         </div>
       ) : (
@@ -708,7 +883,7 @@ export default function Menu() {
             </thead>
             <tbody>
               {filtered.map(item => (
-                <MenuRow key={item.id} item={item} onEdit={handleEdit} onToggle={handleToggle} onDelete={setDeleteItem} />
+                <MenuRow key={item.id} item={item} onEdit={handleEdit} onToggle={handleToggle} onDelete={setDeleteItem} onModifiers={setModifiersItem} />
               ))}
             </tbody>
           </table>
@@ -721,6 +896,9 @@ export default function Menu() {
       )}
       {deleteItem && (
         <DeleteModal item={deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} />
+      )}
+      {modifiersItem && (
+        <ModifiersModal item={modifiersItem} onClose={() => setModifiersItem(null)} />
       )}
     </div>
   )

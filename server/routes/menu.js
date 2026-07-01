@@ -49,6 +49,74 @@ router.get('/stats', async (req, res) => {
   }
 })
 
+// ── GET /api/menu/modifier-groups/:gid/modifiers ─────────────────────────────
+router.get('/modifier-groups/:gid/modifiers', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM modifiers WHERE group_id=$1 ORDER BY id', [req.params.gid])
+    res.json(result.rows)
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+})
+
+// ── POST /api/menu/modifier-groups/:gid/modifiers ────────────────────────────
+router.post('/modifier-groups/:gid/modifiers', async (req, res) => {
+  const { name, price_delta } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' })
+  try {
+    const result = await pool.query(
+      'INSERT INTO modifiers (group_id, name, price_delta) VALUES ($1,$2,$3) RETURNING *',
+      [req.params.gid, name.trim(), parseFloat(price_delta || 0)]
+    )
+    res.status(201).json(result.rows[0])
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+})
+
+// ── PATCH /api/menu/modifier-groups/:gid ─────────────────────────────────────
+router.patch('/modifier-groups/:gid', async (req, res) => {
+  const { name, required, max_selections } = req.body
+  try {
+    const result = await pool.query(
+      `UPDATE modifier_groups SET
+        name=COALESCE($1,name),
+        required=COALESCE($2,required),
+        max_selections=COALESCE($3,max_selections)
+       WHERE id=$4 RETURNING *`,
+      [name || null, required !== undefined ? required : null,
+       max_selections !== undefined ? parseInt(max_selections) : null, req.params.gid]
+    )
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
+    res.json(result.rows[0])
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+})
+
+// ── DELETE /api/menu/modifier-groups/:gid ────────────────────────────────────
+router.delete('/modifier-groups/:gid', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM modifier_groups WHERE id=$1', [req.params.gid])
+    res.json({ success: true })
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+})
+
+// ── PATCH /api/menu/modifiers/:mid ───────────────────────────────────────────
+router.patch('/modifiers/:mid', async (req, res) => {
+  const { name, price_delta } = req.body
+  try {
+    const result = await pool.query(
+      `UPDATE modifiers SET name=COALESCE($1,name), price_delta=COALESCE($2,price_delta) WHERE id=$3 RETURNING *`,
+      [name || null, price_delta !== undefined ? parseFloat(price_delta) : null, req.params.mid]
+    )
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
+    res.json(result.rows[0])
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+})
+
+// ── DELETE /api/menu/modifiers/:mid ──────────────────────────────────────────
+router.delete('/modifiers/:mid', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM modifiers WHERE id=$1', [req.params.mid])
+    res.json({ success: true })
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+})
+
 // ── GET /api/menu/:id ─────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
@@ -129,6 +197,38 @@ router.delete('/:id/hard', async (req, res) => {
     console.error(err)
     res.status(500).json({ error: 'Server error' })
   }
+})
+
+// ── GET /api/menu/:id/modifier-groups ────────────────────────────────────────
+router.get('/:id/modifier-groups', async (req, res) => {
+  try {
+    const groups = await pool.query(
+      'SELECT * FROM modifier_groups WHERE menu_item_id=$1 ORDER BY id',
+      [req.params.id]
+    )
+    const result = []
+    for (const g of groups.rows) {
+      const mods = await pool.query(
+        'SELECT * FROM modifiers WHERE group_id=$1 ORDER BY id',
+        [g.id]
+      )
+      result.push({ ...g, modifiers: mods.rows })
+    }
+    res.json(result)
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+})
+
+// ── POST /api/menu/:id/modifier-groups ────────────────────────────────────────
+router.post('/:id/modifier-groups', async (req, res) => {
+  const { name, required, max_selections } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' })
+  try {
+    const result = await pool.query(
+      'INSERT INTO modifier_groups (menu_item_id, name, required, max_selections) VALUES ($1,$2,$3,$4) RETURNING *',
+      [req.params.id, name.trim(), required || false, parseInt(max_selections) || 1]
+    )
+    res.status(201).json({ ...result.rows[0], modifiers: [] })
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── GET /api/menu/:id/recipe ──────────────────────────────────────────────────

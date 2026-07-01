@@ -103,7 +103,25 @@ export async function initDb() {
         quantity INTEGER NOT NULL DEFAULT 1,
         price DECIMAL(10,2) NOT NULL,
         name VARCHAR(255),
-        notes TEXT
+        notes TEXT,
+        modifiers JSONB DEFAULT '[]'
+      );
+
+      CREATE TABLE IF NOT EXISTS modifier_groups (
+        id SERIAL PRIMARY KEY,
+        menu_item_id INTEGER REFERENCES menu_items(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        required BOOLEAN DEFAULT false,
+        max_selections INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS modifiers (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER REFERENCES modifier_groups(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        price_delta DECIMAL(10,3) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS inventory (
@@ -157,6 +175,7 @@ export async function initDb() {
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
       ALTER TABLE order_items ADD COLUMN IF NOT EXISTS notes TEXT;
+      ALTER TABLE order_items ADD COLUMN IF NOT EXISTS modifiers JSONB DEFAULT '[]';
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS notes TEXT;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_spent DECIMAL(10,2) DEFAULT 0;
@@ -230,6 +249,8 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_inventory_quantity ON inventory(quantity);
       CREATE INDEX IF NOT EXISTS idx_recipe_ing_menu_item ON recipe_ingredients(menu_item_id);
       CREATE INDEX IF NOT EXISTS idx_recipe_ing_inventory ON recipe_ingredients(inventory_item_id);
+      CREATE INDEX IF NOT EXISTS idx_modifier_groups_item ON modifier_groups(menu_item_id);
+      CREATE INDEX IF NOT EXISTS idx_modifiers_group ON modifiers(group_id);
     `)
 
     const settingsDefaults = [

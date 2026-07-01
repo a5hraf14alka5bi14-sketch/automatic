@@ -135,11 +135,18 @@ export default function Orders() {
                   {order.notes && <p className="text-slate-500 text-xs mt-0.5 italic">"{order.notes}"</p>}
                   <p className="text-slate-600 text-xs mt-1">{new Date(order.created_at).toLocaleString()}</p>
                   {Array.isArray(order.items) && order.items.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
+                    <div className="mt-2 space-y-1">
                       {order.items.map((item, i) => (
-                        <span key={i} className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md">
-                          {item.quantity}× {item.name}
-                        </span>
+                        <div key={i} className="flex flex-col">
+                          <span className="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded-md inline-flex items-center gap-1 self-start">
+                            <span className="font-medium text-orange-400">{item.quantity}×</span> {item.name}
+                          </span>
+                          {Array.isArray(item.modifiers) && item.modifiers.length > 0 && (
+                            <span className="text-xs text-slate-500 pl-2 mt-0.5">
+                              ↳ {item.modifiers.map(m => m.name).join(', ')}
+                            </span>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}

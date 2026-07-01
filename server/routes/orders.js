@@ -25,7 +25,8 @@ const ORDERS_SELECT = `
           'name', oi.name,
           'quantity', oi.quantity,
           'price', oi.price,
-          'notes', oi.notes
+          'notes', oi.notes,
+          'modifiers', COALESCE(oi.modifiers, '[]'::jsonb)
         ) ORDER BY oi.id
       ) FILTER (WHERE oi.id IS NOT NULL),
       '[]'
@@ -88,8 +89,9 @@ router.post('/', async (req, res) => {
         itemName = m.rows[0]?.name
       }
       await client.query(
-        'INSERT INTO order_items (order_id, menu_item_id, quantity, price, name, notes) VALUES ($1,$2,$3,$4,$5,$6)',
-        [order.id, item.menu_item_id || null, item.quantity || 1, item.price || 0, itemName || 'Item', item.notes || null]
+        'INSERT INTO order_items (order_id, menu_item_id, quantity, price, name, notes, modifiers) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [order.id, item.menu_item_id || null, item.quantity || 1, item.price || 0, itemName || 'Item', item.notes || null,
+         JSON.stringify(Array.isArray(item.modifiers) ? item.modifiers : [])]
       )
     }
     await client.query('COMMIT')

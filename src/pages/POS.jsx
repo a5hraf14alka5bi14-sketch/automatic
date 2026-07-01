@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useToast } from '../context/ToastContext.jsx'
 import ReceiptModal from '../components/ReceiptModal.jsx'
@@ -17,6 +17,142 @@ const CATS = [
 ]
 const CAT_EMOJI = Object.fromEntries(CATS.map(c => [c.id, c.emoji]))
 
+// ── Modifier Selection Modal ──────────────────────────────────────────────────
+function ModifierSelectModal({ item, groups, currency, onConfirm, onClose }) {
+  const fmtDelta = (d) => {
+    const n = parseFloat(d || 0)
+    if (n === 0) return ''
+    return n > 0 ? ` +${currency} ${n.toFixed(3)}` : ` −${currency} ${Math.abs(n).toFixed(3)}`
+  }
+
+  const initSelected = () => {
+    const s = {}
+    for (const g of groups) {
+      if (g.required && g.modifiers.length > 0) {
+        s[g.id] = new Set([g.modifiers[0].id])
+      } else {
+        s[g.id] = new Set()
+      }
+    }
+    return s
+  }
+
+  const [selected, setSelected] = useState(initSelected)
+
+  const toggle = (group, modId) => {
+    setSelected(prev => {
+      const cur = new Set(prev[group.id] || [])
+      if (group.max_selections === 1) {
+        return { ...prev, [group.id]: new Set([modId]) }
+      }
+      if (cur.has(modId)) {
+        cur.delete(modId)
+      } else if (cur.size < group.max_selections) {
+        cur.add(modId)
+      }
+      return { ...prev, [group.id]: cur }
+    })
+  }
+
+  const isValid = groups.every(g => !g.required || (selected[g.id] && selected[g.id].size > 0))
+
+  const extraPrice = groups.reduce((sum, g) => {
+    for (const modId of (selected[g.id] || [])) {
+      const mod = g.modifiers.find(m => m.id === modId)
+      if (mod) sum += parseFloat(mod.price_delta || 0)
+    }
+    return sum
+  }, 0)
+
+  const basePrice = parseFloat(item.price || 0)
+  const totalPrice = basePrice + extraPrice
+
+  const handleConfirm = () => {
+    const mods = []
+    for (const g of groups) {
+      for (const modId of (selected[g.id] || [])) {
+        const mod = g.modifiers.find(m => m.id === modId)
+        if (mod) mods.push({ id: mod.id, name: mod.name, price_delta: parseFloat(mod.price_delta || 0), group_name: g.name })
+      }
+    }
+    onConfirm(mods)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm flex flex-col" style={{ maxHeight: '85vh' }}>
+        <div className="p-5 border-b border-slate-800 flex-shrink-0">
+          <h2 className="text-white font-bold text-lg">Customize</h2>
+          <p className="text-slate-400 text-sm mt-0.5">{item.name}</p>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 space-y-5">
+          {groups.map(g => (
+            <div key={g.id}>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-white font-semibold text-sm">{g.name}</p>
+                {g.required
+                  ? <span className="text-xs bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded font-medium">Required</span>
+                  : <span className="text-xs text-slate-500">Optional</span>}
+                {g.max_selections > 1 && (
+                  <span className="text-xs text-slate-500">· pick up to {g.max_selections}</span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {g.modifiers.map(m => {
+                  const isSelected = (selected[g.id] || new Set()).has(m.id)
+                  const isRadio = g.max_selections === 1
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => toggle(g, m.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                        isSelected
+                          ? 'bg-orange-500/10 border-orange-500/50 text-white'
+                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`flex-shrink-0 flex items-center justify-center transition-colors ${
+                          isRadio ? 'w-4 h-4 rounded-full border-2' : 'w-4 h-4 rounded border-2'
+                        } ${isSelected ? 'border-orange-500 bg-orange-500' : 'border-slate-600'}`}>
+                          {isSelected && <div className={isRadio ? 'w-1.5 h-1.5 bg-white rounded-full' : 'text-white text-xs leading-none'}>
+                            {isRadio ? null : '✓'}
+                          </div>}
+                        </div>
+                        <span>{m.name}</span>
+                      </div>
+                      {parseFloat(m.price_delta || 0) !== 0 && (
+                        <span className={`text-xs font-medium ${parseFloat(m.price_delta) > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {fmtDelta(m.price_delta)}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 border-t border-slate-800 flex gap-3 flex-shrink-0">
+          <button onClick={onClose} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!isValid}
+            className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors"
+          >
+            Add · {currency} {totalPrice.toFixed(3)}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Payment Modal ─────────────────────────────────────────────────────────────
 function PaymentModal({ order, currency, onConfirm, onClose }) {
   const [method, setMethod] = useState('cash')
   const [loading, setLoading] = useState(false)
@@ -54,6 +190,7 @@ function PaymentModal({ order, currency, onConfirm, onClose }) {
   )
 }
 
+// ── Main POS Page ─────────────────────────────────────────────────────────────
 export default function POS() {
   const showToast = useToast()
   const [menu, setMenu] = useState([])
@@ -71,6 +208,9 @@ export default function POS() {
   const [search, setSearch] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
+  const [modifierModal, setModifierModal] = useState(null)
+  const [modifierLoading, setModifierLoading] = useState(false)
+  const modifierCache = useRef({})
 
   const loadData = useCallback(async () => {
     try {
@@ -100,19 +240,48 @@ export default function POS() {
     return true
   })
 
-  const addToCart = (item) => {
+  const addToCart = (item, selectedModifiers = []) => {
+    const extraPrice = selectedModifiers.reduce((s, m) => s + parseFloat(m.price_delta || 0), 0)
+    const unitPrice = parseFloat(item.price || 0) + extraPrice
+    const modKey = selectedModifiers.map(m => m.id).sort().join(',')
+    const cartId = `${item.id}:${modKey}`
+
     setCart(prev => {
-      const exists = prev.find(c => c.id === item.id)
-      if (exists) return prev.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c)
-      return [...prev, { ...item, qty: 1 }]
+      const exists = prev.find(c => c.cartId === cartId)
+      if (exists) return prev.map(c => c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c)
+      return [...prev, { cartId, id: item.id, name: item.name, price: unitPrice, qty: 1, modifiers: selectedModifiers, category: item.category }]
     })
+    setModifierModal(null)
   }
 
-  const updateQty = (id, delta) => {
-    setCart(prev => prev.map(c => c.id === id ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0))
+  const handleItemClick = async (item) => {
+    if (modifierLoading) return
+    const cached = modifierCache.current[item.id]
+    if (cached !== undefined) {
+      if (cached.length === 0) addToCart(item, [])
+      else setModifierModal({ item, groups: cached })
+      return
+    }
+    setModifierLoading(true)
+    try {
+      const res = await apiFetch(`/api/menu/${item.id}/modifier-groups`)
+      const groups = await res.json()
+      const validGroups = Array.isArray(groups) ? groups.filter(g => g.modifiers && g.modifiers.length > 0) : []
+      modifierCache.current[item.id] = validGroups
+      if (validGroups.length === 0) addToCart(item, [])
+      else setModifierModal({ item, groups: validGroups })
+    } catch {
+      modifierCache.current[item.id] = []
+      addToCart(item, [])
+    }
+    setModifierLoading(false)
   }
 
-  const removeItem = (id) => setCart(prev => prev.filter(c => c.id !== id))
+  const updateQty = (cartId, delta) => {
+    setCart(prev => prev.map(c => c.cartId === cartId ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0))
+  }
+
+  const removeItem = (cartId) => setCart(prev => prev.filter(c => c.cartId !== cartId))
 
   const subtotal = cart.reduce((s, c) => s + (parseFloat(c.price) * c.qty), 0)
   const tax = subtotal * taxRate
@@ -131,7 +300,13 @@ export default function POS() {
           table_number: orderType === 'dine-in' ? tableNum : null,
           customer_id: customerId ? parseInt(customerId) : null,
           notes: note.trim() || null,
-          items: cart.map(c => ({ menu_item_id: c.id, quantity: c.qty, price: parseFloat(c.price), name: c.name })),
+          items: cart.map(c => ({
+            menu_item_id: c.id,
+            quantity: c.qty,
+            price: parseFloat(c.price),
+            name: c.name,
+            modifiers: c.modifiers || []
+          })),
           subtotal: parseFloat(subtotal.toFixed(2)),
           tax: parseFloat(tax.toFixed(2)),
           total: parseFloat(total.toFixed(2))
@@ -145,7 +320,8 @@ export default function POS() {
         name: c.name,
         quantity: c.qty,
         price: parseFloat(c.price),
-        notes: c.notes || null
+        modifiers: c.modifiers || [],
+        notes: null
       }))
 
       setCart([])
@@ -175,11 +351,7 @@ export default function POS() {
         body: JSON.stringify({ status: 'completed', payment_method: method })
       })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Payment failed') }
-      const receipt = {
-        ...payModal,
-        payment_method: method,
-        paid_at: new Date().toISOString()
-      }
+      const receipt = { ...payModal, payment_method: method, paid_at: new Date().toISOString() }
       setPayModal(null)
       showToast('Payment confirmed! 🎉', 'success')
       setReceiptData(receipt)
@@ -230,14 +402,15 @@ export default function POS() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
             {filtered.map(item => {
-              const inCart = cart.find(c => c.id === item.id)
+              const cartQty = cart.filter(c => c.id === item.id).reduce((s, c) => s + c.qty, 0)
               return (
-                <button key={item.id} onClick={() => addToCart(item)}
-                  className={`relative bg-slate-900 border rounded-xl p-4 text-left transition-all group hover:scale-[1.02] active:scale-[0.98] ${
-                    inCart ? 'border-orange-500/60 bg-orange-500/5' : 'border-slate-800 hover:border-orange-500/40'
+                <button key={item.id} onClick={() => handleItemClick(item)}
+                  disabled={modifierLoading}
+                  className={`relative bg-slate-900 border rounded-xl p-4 text-left transition-all group hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 ${
+                    cartQty > 0 ? 'border-orange-500/60 bg-orange-500/5' : 'border-slate-800 hover:border-orange-500/40'
                   }`}>
-                  {inCart && (
-                    <span className="absolute top-2 right-2 w-5 h-5 bg-orange-500 rounded-full text-white text-xs flex items-center justify-center font-bold">{inCart.qty}</span>
+                  {cartQty > 0 && (
+                    <span className="absolute top-2 right-2 w-5 h-5 bg-orange-500 rounded-full text-white text-xs flex items-center justify-center font-bold">{cartQty}</span>
                   )}
                   <div className="text-2xl mb-1.5">{CAT_EMOJI[item.category] || '🍽️'}</div>
                   <p className="text-white font-medium text-sm leading-tight group-hover:text-orange-400 transition-colors line-clamp-2">{item.name}</p>
@@ -300,16 +473,23 @@ export default function POS() {
           ) : (
             <div className="space-y-2">
               {cart.map(item => (
-                <div key={item.id} className="flex items-center gap-2 group">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{item.name}</p>
-                    <p className="text-orange-400 text-xs">{fmtC(parseFloat(item.price) * item.qty)}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => updateQty(item.id, -1)} className="w-6 h-6 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-300 rounded text-sm transition-colors">−</button>
-                    <span className="text-white text-sm w-5 text-center font-medium">{item.qty}</span>
-                    <button onClick={() => updateQty(item.id, 1)} className="w-6 h-6 bg-slate-800 hover:bg-green-500/20 hover:text-green-400 text-slate-300 rounded text-sm transition-colors">+</button>
-                    <button onClick={() => removeItem(item.id)} className="w-6 h-6 text-slate-700 hover:text-red-400 text-xs ml-1 opacity-0 group-hover:opacity-100 transition-all">✕</button>
+                <div key={item.cartId} className="group">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{item.name}</p>
+                      {item.modifiers && item.modifiers.length > 0 && (
+                        <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">
+                          {item.modifiers.map(m => m.name).join(', ')}
+                        </p>
+                      )}
+                      <p className="text-orange-400 text-xs">{fmtC(parseFloat(item.price) * item.qty)}</p>
+                    </div>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <button onClick={() => updateQty(item.cartId, -1)} className="w-6 h-6 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-300 rounded text-sm transition-colors">−</button>
+                      <span className="text-white text-sm w-5 text-center font-medium">{item.qty}</span>
+                      <button onClick={() => updateQty(item.cartId, 1)} className="w-6 h-6 bg-slate-800 hover:bg-green-500/20 hover:text-green-400 text-slate-300 rounded text-sm transition-colors">+</button>
+                      <button onClick={() => removeItem(item.cartId)} className="w-6 h-6 text-slate-700 hover:text-red-400 text-xs ml-1 opacity-0 group-hover:opacity-100 transition-all">✕</button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -359,6 +539,16 @@ export default function POS() {
           </button>
         </div>
       </div>
+
+      {modifierModal && (
+        <ModifierSelectModal
+          item={modifierModal.item}
+          groups={modifierModal.groups}
+          currency={currency}
+          onConfirm={(mods) => addToCart(modifierModal.item, mods)}
+          onClose={() => setModifierModal(null)}
+        />
+      )}
 
       {payModal && (
         <PaymentModal order={payModal} currency={currency} onConfirm={handlePayment} onClose={() => setPayModal(null)} />
