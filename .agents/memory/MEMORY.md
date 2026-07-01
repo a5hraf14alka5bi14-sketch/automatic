@@ -12,3 +12,4 @@
 - [Notion Main Page Update Strategy](notion-main-page-update.md) — use replace_content (not update_content) for main page; include all embedded DB/page tags in new_str
 - [Notion full sync architecture](notion-sync-architecture.md) — all 12 DS IDs, bi-directional sync (pull+push), notion_id columns on menu_items/inventory/customers, all P1 schema fixes applied
 - [Modifier system architecture](modifier-system.md) — modifier_groups+modifiers tables, cartId keying, on-demand fetch cache, POS/Menu/Orders/Kitchen/Receipt all updated
+- [Notion rollup/formula mapping](notion-rollup-mapping.md) — use getNumeric (not .number) for Food Cost/Cost per Unit; rollups zero out otherwise

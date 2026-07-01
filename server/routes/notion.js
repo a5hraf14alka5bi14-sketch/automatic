@@ -234,4 +234,24 @@ router.patch('/tasks/:id/status', async (req, res) => {
   }
 })
 
+// ── Recipe Ingredients (dedicated data model) ─────────────────────────────────
+
+router.get('/recipe-ingredients', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ri.id, ri.ingredient_name, ri.quantity, ri.unit, ri.cost,
+              ri.menu_item_id, ri.inventory_item_id, ri.notion_id,
+              mi.name AS menu_item_name,
+              inv.name AS inventory_item_name, inv.quantity AS inventory_stock, inv.unit AS inventory_unit
+         FROM recipe_ingredients ri
+         LEFT JOIN menu_items mi ON mi.id = ri.menu_item_id
+         LEFT JOIN inventory inv ON inv.id = ri.inventory_item_id
+        ORDER BY mi.name NULLS LAST, ri.ingredient_name`
+    )
+    res.json(rows)
+  } catch (err) {
+    next(err)
+  }
+})
+
 export default router

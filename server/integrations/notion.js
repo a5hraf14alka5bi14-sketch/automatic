@@ -105,6 +105,58 @@ function getRelationId(prop) {
   return rels[0]?.id || null
 }
 
+function getRelationIds(prop) {
+  const rels = prop?.relation || []
+  return rels.map(r => r?.id).filter(Boolean)
+}
+
+// Extract a rollup property. Sums numeric arrays, returns single numbers/dates,
+// and joins text arrays. Rollups are how Notion surfaces values computed across
+// relations (e.g. total ingredient cost rolled up onto a menu item).
+function getRollup(prop) {
+  const r = prop?.rollup
+  if (!r) return null
+  if (r.type === 'number') return r.number ?? null
+  if (r.type === 'date') return r.date?.start ?? null
+  if (r.type === 'array') {
+    const arr = r.array || []
+    const nums = arr
+      .map(a => (a?.type === 'number' ? a.number : (a?.type === 'formula' ? a.formula?.number : undefined)))
+      .filter(n => typeof n === 'number')
+    if (nums.length) return nums.reduce((s, n) => s + n, 0)
+    const texts = arr.map(a => {
+      if (a?.type === 'title') return (a.title || []).map(t => t.plain_text || '').join('')
+      if (a?.type === 'rich_text') return (a.rich_text || []).map(t => t.plain_text || '').join('')
+      if (a?.type === 'select') return a.select?.name || ''
+      return ''
+    }).filter(Boolean)
+    return texts.length ? texts.join(', ') : null
+  }
+  return null
+}
+
+function getFormula(prop) {
+  const f = prop?.formula
+  if (!f) return null
+  if (f.type === 'number') return f.number ?? null
+  if (f.type === 'string') return f.string ?? null
+  if (f.type === 'boolean') return f.boolean ?? null
+  if (f.type === 'date') return f.date?.start ?? null
+  return null
+}
+
+// Resolve a numeric value whether the Notion property is a plain number,
+// a rollup, or a formula. Returns a Number or null.
+function getNumeric(prop) {
+  if (!prop) return null
+  const raw = prop.rollup ? getRollup(prop)
+    : prop.formula ? getFormula(prop)
+    : getNumber(prop)
+  if (typeof raw === 'number') return raw
+  if (typeof raw === 'string' && /^-?\d*\.?\d+$/.test(raw.trim())) return parseFloat(raw.trim())
+  return null
+}
+
 const STATUS_TO_ENGLISH = {
   'لم تبدأ': 'not_started',
   'قيد التنفيذ': 'in_progress',
@@ -164,11 +216,11 @@ export function mapNotionPageToMenuItem(page) {
   const props = page.properties || {}
   const name = getTitle(props['Recipe'] || props['Name'] || props['الوصفة'])
   const rawCategory = getSelect(props['Category'] || props['الفئة']) || 'other'
-  const price = getNumber(props['Selling Price'] || props['سعر البيع']) || 0
-  const foodCost = getNumber(props['Food Cost'] || props['تكلفة الطعام']) || 0
+  const price = getNumeric(props['Selling Price'] || props['سعر البيع']) || 0
+  const foodCost = getNumeric(props['Food Cost'] || props['تكلفة الطعام']) || 0
   const available = getCheckbox(props['Available'] || props['متاح'])
-  const prepTime = getNumber(props['Preparation Time'] || props['وقت التحضير']) || 15
-  const calories = getNumber(props['Calories'] || props['السعرات'])
+  const prepTime = getNumeric(props['Preparation Time'] || props['وقت التحضير']) || 15
+  const calories = getNumeric(props['Calories'] || props['السعرات'])
   const statusRaw = getStatus(props['Status'])
   const isActive = !statusRaw || !['تم', 'Done'].includes(statusRaw)
 
@@ -554,9 +606,9 @@ export async function pushCustomersToNotion() {
 export function mapNotionPageToRecipeIngredient(page) {
   const props = page.properties || {}
   const name = getTitle(props['Ingredient'] || props['المكون'] || props['Name'] || props['Item'])
-  const quantity = getNumber(props['Quantity'] || props['الكمية']) || 1
+  const quantity = getNumeric(props['Quantity'] || props['الكمية']) || 1
   const unit = getSelect(props['Unit'] || props['الوحدة']) || 'pcs'
-  const cost = getNumber(props['Cost per Unit'] || props['التكلفة'] || props['Cost']) || 0
+  const cost = getNumeric(props['Cost per Unit'] || props['التكلفة'] || props['Cost']) || 0
   const menuItemRelId = getRelationId(props['Menu Item'] || props['Recipe'] || props['الوصفة'])
   const invItemRelId = getRelationId(props['Inventory Item'] || props['Inventory'] || props['المخزون'])
   return {
