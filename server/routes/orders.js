@@ -1,16 +1,18 @@
 import express from 'express'
 import { pool, recordStockMovement } from '../db.js'
 import { broadcast } from '../events.js'
+import { validate } from '../middleware/validate.js'
+import { orderCreateSchema, orderStatusSchema } from '../validators.js'
 
 const router = express.Router()
 
 async function getSettings(client) {
-  const r = await client.query("SELECT key, value FROM settings WHERE key IN ('tax_rate','loyalty_points_per_dollar')")
+  const r = await client.query("SELECT key, value FROM settings WHERE key IN ('tax_rate','loyalty_points_per_omr')")
   const s = {}
   for (const row of r.rows) s[row.key] = row.value
   return {
     taxRate: parseFloat(s.tax_rate || '11') / 100,
-    loyaltyPerDollar: parseInt(s.loyalty_points_per_dollar || '1')
+    loyaltyPerDollar: parseInt(s.loyalty_points_per_omr || '1')
   }
 }
 
@@ -71,9 +73,8 @@ router.get('/customer/:customerId', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
 })
 
-router.post('/', async (req, res) => {
+router.post('/', validate(orderCreateSchema), async (req, res) => {
   const { type, table_number, items, subtotal, tax, total, customer_id, notes } = req.body
-  if (!items || items.length === 0) return res.status(400).json({ error: 'Items required' })
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -103,10 +104,8 @@ router.post('/', async (req, res) => {
   } finally { client.release() }
 })
 
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
   const { status, payment_method } = req.body
-  const validStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled']
-  if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' })
 
   const client = await pool.connect()
   try {

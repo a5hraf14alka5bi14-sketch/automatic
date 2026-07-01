@@ -1,5 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
+import { validate } from '../middleware/validate.js'
+import { menuCreateSchema, menuUpdateSchema } from '../validators.js'
 
 const router = express.Router()
 
@@ -17,11 +19,19 @@ router.get('/', async (req, res) => {
 })
 
 // ── GET /api/menu/all — all items including unavailable (management) ──────────
+// Optional pagination: ?limit=&offset= (omit for full list). Sets X-Total-Count.
 router.get('/all', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM menu_items ORDER BY category, name'
-    )
+    const { limit, offset } = req.query
+    const total = await pool.query('SELECT COUNT(*)::int AS c FROM menu_items')
+    res.set('X-Total-Count', String(total.rows[0].c))
+    let query = 'SELECT * FROM menu_items ORDER BY category, name'
+    const params = []
+    if (limit !== undefined) {
+      params.push(Math.min(Math.max(parseInt(limit) || 0, 0), 500)); query += ` LIMIT $${params.length}`
+      params.push(Math.max(parseInt(offset) || 0, 0)); query += ` OFFSET $${params.length}`
+    }
+    const result = await pool.query(query, params)
     res.json(result.rows)
   } catch (err) {
     console.error(err)
@@ -134,9 +144,8 @@ router.get('/:id', async (req, res) => {
 })
 
 // ── POST /api/menu ────────────────────────────────────────────────────────────
-router.post('/', async (req, res) => {
+router.post('/', validate(menuCreateSchema), async (req, res) => {
   const { name, category, price, description, image_url, prep_time, tags, food_cost, available } = req.body
-  if (!name || !category || !price) return res.status(400).json({ error: 'name, category, price required' })
   try {
     const result = await pool.query(
       `INSERT INTO menu_items (name, category, price, description, image_url, prep_time, tags, food_cost, available)
@@ -153,7 +162,7 @@ router.post('/', async (req, res) => {
 })
 
 // ── PATCH /api/menu/:id ───────────────────────────────────────────────────────
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', validate(menuUpdateSchema), async (req, res) => {
   const { name, category, price, description, available, image_url, prep_time, tags, food_cost } = req.body
   try {
     const result = await pool.query(

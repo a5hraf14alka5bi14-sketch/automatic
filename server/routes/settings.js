@@ -1,6 +1,8 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { requireRole } from '../middleware/auth.js'
+import { validate } from '../middleware/validate.js'
+import { settingsUpdateSchema } from '../validators.js'
 
 const router = express.Router()
 
@@ -12,7 +14,7 @@ const DEFAULTS = {
   tables_count: '10',
   receipt_footer: 'Thank you for dining with us!',
   low_stock_alert_enabled: 'true',
-  loyalty_points_per_dollar: '1',
+  loyalty_points_per_omr: '1',
 }
 
 async function getAllSettings() {
@@ -32,7 +34,7 @@ router.get('/', async (req, res) => {
   }
 })
 
-router.put('/', requireRole('admin', 'manager'), async (req, res) => {
+router.put('/', requireRole('admin', 'manager'), validate(settingsUpdateSchema), async (req, res) => {
   const allowed = Object.keys(DEFAULTS)
   const updates = Object.entries(req.body).filter(([k]) => allowed.includes(k))
   if (!updates.length) return res.status(400).json({ error: 'No valid settings provided' })

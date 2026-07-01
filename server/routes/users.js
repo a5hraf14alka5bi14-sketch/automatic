@@ -5,6 +5,53 @@ import { requireRole } from '../middleware/auth.js'
 
 const router = express.Router()
 
+// ── GET /api/users/me — current authenticated user's profile ──────────────────
+router.get('/me', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, email, role, created_at FROM users WHERE id=$1',
+      [req.user.id]
+    )
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
+    res.json(result.rows[0])
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ── PATCH /api/users/:id/password — self-service or admin reset ────────────────
+router.patch('/:id/password', async (req, res) => {
+  const targetId = parseInt(req.params.id)
+  const isSelf = targetId === req.user.id
+  const isAdmin = req.user.role === 'admin'
+  if (!isSelf && !isAdmin) {
+    return res.status(403).json({ error: 'Forbidden — insufficient role' })
+  }
+  const { current_password, new_password } = req.body
+  if (!new_password) return res.status(400).json({ error: 'new_password is required' })
+  if (new_password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
+  if (!/[A-Z]/.test(new_password)) return res.status(400).json({ error: 'Password must include an uppercase letter' })
+  if (!/[a-z]/.test(new_password)) return res.status(400).json({ error: 'Password must include a lowercase letter' })
+  if (!/[0-9]/.test(new_password)) return res.status(400).json({ error: 'Password must include a number' })
+  try {
+    const target = await pool.query('SELECT password FROM users WHERE id=$1', [targetId])
+    if (!target.rows.length) return res.status(404).json({ error: 'Not found' })
+    // Self-service change requires verifying the current password.
+    if (isSelf) {
+      if (!current_password) return res.status(400).json({ error: 'current_password is required' })
+      const valid = await bcrypt.compare(current_password, target.rows[0].password)
+      if (!valid) return res.status(401).json({ error: 'Current password is incorrect' })
+    }
+    const hash = await bcrypt.hash(new_password, 10)
+    await pool.query('UPDATE users SET password=$1 WHERE id=$2', [hash, targetId])
+    res.json({ success: true })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 router.get('/', requireRole('admin'), async (req, res) => {
   try {
     const result = await pool.query(

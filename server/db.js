@@ -276,8 +276,15 @@ export async function initDb() {
       ['currency_symbol', 'OMR'],
       ['tables_count', '10'],
       ['receipt_footer', 'Thank you for dining with us!'],
-      ['loyalty_points_per_dollar', '1'],
+      ['loyalty_points_per_omr', '1'],
     ]
+    // Migrate legacy loyalty key → OMR-based key (preserve existing value, avoid dupes)
+    await client.query(
+      `UPDATE settings SET key = 'loyalty_points_per_omr'
+       WHERE key = 'loyalty_points_per_dollar'
+         AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'loyalty_points_per_omr')`
+    )
+    await client.query(`DELETE FROM settings WHERE key = 'loyalty_points_per_dollar'`)
     for (const [key, value] of settingsDefaults) {
       await client.query(
         `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,

@@ -222,15 +222,15 @@ export default function Settings({ user }) {
             <Field label="Points per OMR" hint="Loyalty points awarded for each Omani Rial spent">
               <Input
                 type="number"
-                value={settings.loyalty_points_per_dollar || '1'}
-                onChange={v => set('loyalty_points_per_dollar', v)}
+                value={settings.loyalty_points_per_omr || '1'}
+                onChange={v => set('loyalty_points_per_omr', v)}
                 min="0"
                 max="100"
                 step="1"
                 suffix="pts / OMR 1"
               />
             </Field>
-            {settings.loyalty_points_per_dollar === '0' && (
+            {settings.loyalty_points_per_omr === '0' && (
               <div className="mt-3 text-xs text-slate-500 bg-slate-800 rounded-lg px-3 py-2">
                 Setting to 0 disables the loyalty program entirely.
               </div>

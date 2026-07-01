@@ -13,4 +13,5 @@
 - [Notion full sync architecture](notion-sync-architecture.md) — all 12 DS IDs, bi-directional sync (pull+push), notion_id columns on menu_items/inventory/customers, all P1 schema fixes applied
 - [Modifier system architecture](modifier-system.md) — modifier_groups+modifiers tables, cartId keying, on-demand fetch cache, POS/Menu/Orders/Kitchen/Receipt all updated
 - [Stock movements audit](stock-movements-audit.md) — log actual applied delta (RETURNING old+new), not requested amount, since inventory clamps at 0; create+initial movement must be one txn
+- [API validation & pagination](api-validation-pagination.md) — Joi via validate() middleware (allowUnknown, convert, reassign); list GETs take optional limit/offset + X-Total-Count, no params = full array
 - [Notion rollup/formula mapping](notion-rollup-mapping.md) — use getNumeric (not .number) for Food Cost/Cost per Unit; rollups zero out otherwise

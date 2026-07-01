@@ -1,18 +1,27 @@
 import express from 'express'
 import { pool } from '../db.js'
+import { validate } from '../middleware/validate.js'
+import { customerCreateSchema, customerUpdateSchema } from '../validators.js'
 
 const router = express.Router()
 
+// Optional pagination: ?limit=&offset= (omit for full list). Sets X-Total-Count.
 router.get('/', async (req, res) => {
   try {
-    const { search } = req.query
-    let query = 'SELECT * FROM customers'
+    const { search, limit, offset } = req.query
+    let where = ''
     const params = []
     if (search) {
-      query += ` WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1`
       params.push(`%${search}%`)
+      where = ` WHERE name ILIKE $${params.length} OR email ILIKE $${params.length} OR phone ILIKE $${params.length}`
     }
-    query += ' ORDER BY name'
+    const total = await pool.query(`SELECT COUNT(*)::int AS c FROM customers${where}`, params)
+    res.set('X-Total-Count', String(total.rows[0].c))
+    let query = `SELECT * FROM customers${where} ORDER BY name`
+    if (limit !== undefined) {
+      params.push(Math.min(Math.max(parseInt(limit) || 0, 0), 500)); query += ` LIMIT $${params.length}`
+      params.push(Math.max(parseInt(offset) || 0, 0)); query += ` OFFSET $${params.length}`
+    }
     res.json((await pool.query(query, params)).rows)
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
 })
@@ -25,9 +34,8 @@ router.get('/:id', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
 })
 
-router.post('/', async (req, res) => {
+router.post('/', validate(customerCreateSchema), async (req, res) => {
   const { name, email, phone, address, notes } = req.body
-  if (!name) return res.status(400).json({ error: 'Name required' })
   try {
     const result = await pool.query(
       'INSERT INTO customers (name, email, phone, address, notes) VALUES ($1,$2,$3,$4,$5) RETURNING *',
@@ -40,7 +48,7 @@ router.post('/', async (req, res) => {
   }
 })
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', validate(customerUpdateSchema), async (req, res) => {
   const { name, email, phone, address, notes } = req.body
   try {
     const result = await pool.query(

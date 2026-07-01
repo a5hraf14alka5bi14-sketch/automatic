@@ -1,5 +1,7 @@
 import express from 'express'
 import { pool, recordStockMovement } from '../db.js'
+import { validate } from '../middleware/validate.js'
+import { inventoryCreateSchema, inventoryUpdateSchema } from '../validators.js'
 
 const router = express.Router()
 
@@ -27,9 +29,19 @@ router.get('/movements', async (req, res, next) => {
 })
 
 // ── GET /api/inventory ────────────────────────────────────────────────────────
+// Optional pagination: ?limit=&offset= (omit for full list). Sets X-Total-Count.
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM inventory ORDER BY category, name')
+    const { limit, offset } = req.query
+    const total = await pool.query('SELECT COUNT(*)::int AS c FROM inventory')
+    res.set('X-Total-Count', String(total.rows[0].c))
+    let query = 'SELECT * FROM inventory ORDER BY category, name'
+    const params = []
+    if (limit !== undefined) {
+      params.push(Math.min(Math.max(parseInt(limit) || 0, 0), 500)); query += ` LIMIT $${params.length}`
+      params.push(Math.max(parseInt(offset) || 0, 0)); query += ` OFFSET $${params.length}`
+    }
+    const result = await pool.query(query, params)
     res.json(result.rows)
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
 })
@@ -60,9 +72,8 @@ router.get('/stats', async (req, res) => {
 })
 
 // ── POST /api/inventory ───────────────────────────────────────────────────────
-router.post('/', async (req, res) => {
+router.post('/', validate(inventoryCreateSchema), async (req, res) => {
   const { name, category, quantity, unit, min_quantity, cost } = req.body
-  if (!name || quantity === undefined) return res.status(400).json({ error: 'name and quantity required' })
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -91,7 +102,7 @@ router.post('/', async (req, res) => {
 })
 
 // ── PATCH /api/inventory/:id ──────────────────────────────────────────────────
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', validate(inventoryUpdateSchema), async (req, res) => {
   const { name, category, quantity, unit, min_quantity, cost, adjust } = req.body
   const client = await pool.connect()
   try {
