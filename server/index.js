@@ -22,12 +22,16 @@ import { initDb, pool } from './db.js'
 import { registerAdapter, startAutoSync } from './integrations/sync-engine.js'
 import { syncAll } from './integrations/notion.js'
 import { initWebSocketServer } from './events.js'
+import { logger } from './logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const server = http.createServer(app)
 const PORT = 3001
 const IS_PROD = process.env.NODE_ENV === 'production'
+
+// ── Trust Replit's reverse proxy so rate-limiter sees real client IPs ─────────
+app.set('trust proxy', 1)
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet({
@@ -116,20 +120,20 @@ async function initSyncEngine() {
 
 // ── Global unhandled error handlers ──────────────────────────────────────────
 process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err.message)
+  logger.error('uncaughtException — exiting', { msg: err.message, stack: err.stack })
   process.exit(1)
 })
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason)
+  logger.error('unhandledRejection', { reason: String(reason) })
 })
 
 initDb().then(async () => {
   await initSyncEngine()
   server.listen(PORT, IS_PROD ? '0.0.0.0' : 'localhost', () => {
     initWebSocketServer(server)
-    console.log(`API server running on port ${PORT} (${IS_PROD ? 'production' : 'development'})`)
+    logger.info(`API server running on port ${PORT}`, { env: IS_PROD ? 'production' : 'development' })
   })
 }).catch(err => {
-  console.error('Failed to initialize database:', err)
+  logger.error('Failed to initialize database', { msg: err.message })
   process.exit(1)
 })

@@ -9,6 +9,8 @@ const CAT_EMOJI = {
   sandwiches: '🥪', meals: '🍱', manakish: '🫓', desserts: '🍮', drinks: '🥤',
 }
 
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
 function StatCard({ label, value, sub, color, icon }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -41,12 +43,186 @@ function marginColor(pct) {
   return 'text-red-400'
 }
 
+// ── Heatmap: 7 days × 24 hours ───────────────────────────────────────────────
+function HeatmapTab({ heatmap }) {
+  if (!heatmap || heatmap.length === 0) {
+    return (
+      <div className="text-center py-20 text-slate-500">
+        <p className="text-4xl mb-3">📅</p>
+        <p>No data for this period</p>
+        <p className="text-xs mt-1">Try "7 Days" or "This Month" for heatmap data</p>
+      </div>
+    )
+  }
+
+  const cellMap = {}
+  let maxOrders = 1
+  for (const row of heatmap) {
+    cellMap[`${row.dow}-${row.hour}`] = row
+    if (row.orders > maxOrders) maxOrders = row.orders
+  }
+
+  const hours = Array.from({ length: 24 }, (_, i) => i)
+
+  const intensity = (orders) => {
+    if (!orders) return 'bg-slate-900 border-slate-800'
+    const pct = orders / maxOrders
+    if (pct >= 0.8) return 'bg-orange-500 border-orange-400'
+    if (pct >= 0.6) return 'bg-orange-500/70 border-orange-500/50'
+    if (pct >= 0.4) return 'bg-orange-500/45 border-orange-500/30'
+    if (pct >= 0.2) return 'bg-orange-500/25 border-orange-500/20'
+    return 'bg-orange-500/10 border-orange-500/10'
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 overflow-x-auto">
+        <h2 className="text-white font-semibold mb-4">Orders by Hour & Day of Week</h2>
+        <div className="min-w-[640px]">
+          <div className="flex gap-1 mb-1 pl-10">
+            {hours.map(h => (
+              <div key={h} className="flex-1 text-center text-slate-600 text-[9px]">{h}:00</div>
+            ))}
+          </div>
+          {DAY_LABELS.map((day, dow) => (
+            <div key={dow} className="flex items-center gap-1 mb-1">
+              <span className="w-9 text-xs text-slate-500 flex-shrink-0 text-right pr-1">{day}</span>
+              {hours.map(h => {
+                const cell = cellMap[`${dow}-${h}`]
+                return (
+                  <div key={h} title={cell ? `${cell.orders} orders · ${cell.revenue.toFixed(3)} OMR` : ''}
+                    className={`flex-1 h-7 rounded border ${intensity(cell?.orders || 0)} transition-colors`} />
+                )
+              })}
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 mt-4">
+          <span className="text-slate-500 text-xs">Low</span>
+          {['bg-orange-500/10', 'bg-orange-500/25', 'bg-orange-500/45', 'bg-orange-500/70', 'bg-orange-500'].map(c => (
+            <div key={c} className={`w-6 h-4 rounded ${c}`} />
+          ))}
+          <span className="text-slate-500 text-xs">High</span>
+          <span className="ml-3 text-slate-600 text-xs">Peak: {maxOrders} orders/hour</span>
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h2 className="text-white font-semibold mb-4">Busiest Hours</h2>
+        {(() => {
+          const byHour = {}
+          for (const row of heatmap) {
+            if (!byHour[row.hour]) byHour[row.hour] = { orders: 0, revenue: 0 }
+            byHour[row.hour].orders += row.orders
+            byHour[row.hour].revenue += row.revenue
+          }
+          const sorted = Object.entries(byHour).sort((a, b) => b[1].orders - a[1].orders).slice(0, 8)
+          const maxO = sorted[0]?.[1].orders || 1
+          return (
+            <div className="space-y-2">
+              {sorted.map(([hour, data]) => (
+                <div key={hour} className="flex items-center gap-3">
+                  <span className="text-slate-400 text-xs w-14 flex-shrink-0">{hour}:00–{(parseInt(hour) + 1) % 24}:00</span>
+                  <div className="flex-1 bg-slate-800 rounded-full h-2">
+                    <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${(data.orders / maxO) * 100}%` }} />
+                  </div>
+                  <span className="text-white text-xs font-medium w-16 text-right">{data.orders} orders</span>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+      </div>
+    </div>
+  )
+}
+
+// ── Cost Trend: daily bars ───────────────────────────────────────────────────
+function TrendsTab({ trend, fmt }) {
+  if (!trend || trend.length === 0) {
+    return (
+      <div className="text-center py-20 text-slate-500">
+        <p className="text-4xl mb-3">📈</p>
+        <p>No trend data for this period</p>
+        <p className="text-xs mt-1">Try "7 Days" or "This Month" for trend charts</p>
+      </div>
+    )
+  }
+
+  const maxRevenue = Math.max(...trend.map(d => d.revenue), 1)
+
+  const fmtDay = (dateStr) => {
+    const d = new Date(dateStr + 'T12:00:00')
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  const totalRevenue  = trend.reduce((s, d) => s + d.revenue, 0)
+  const totalFoodCost = trend.reduce((s, d) => s + d.foodCost, 0)
+  const totalProfit   = trend.reduce((s, d) => s + d.profit, 0)
+  const totalOrders   = trend.reduce((s, d) => s + d.orders, 0)
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Period Revenue" value={fmt(totalRevenue)} color="text-orange-400" icon="💵" />
+        <StatCard label="Period Food Cost" value={fmt(totalFoodCost)} color="text-red-400" icon="🥘" />
+        <StatCard label="Gross Profit" value={fmt(totalProfit)} color={totalProfit >= 0 ? 'text-green-400' : 'text-red-400'} icon="📈" />
+        <StatCard label="Total Orders" value={fmtN(totalOrders)} color="text-blue-400" icon="📋" />
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h2 className="text-white font-semibold mb-5">Daily Revenue vs Food Cost</h2>
+        <div className="space-y-3">
+          {trend.map(day => (
+            <div key={day.date} className="space-y-1">
+              <div className="flex justify-between text-xs text-slate-400 mb-0.5">
+                <span className="font-medium text-white">{fmtDay(day.date)}</span>
+                <span>{day.orders} orders</span>
+              </div>
+              <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden">
+                <div className="absolute left-0 top-0 h-full bg-orange-500/80 rounded-full"
+                  style={{ width: `${(day.revenue / maxRevenue) * 100}%` }} />
+                <div className="absolute left-0 top-0 h-full bg-red-500/60 rounded-full"
+                  style={{ width: `${(day.foodCost / maxRevenue) * 100}%` }} />
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-orange-400">Rev: {fmt(day.revenue)}</span>
+                <span className="text-red-400">Cost: {fmt(day.foodCost)}</span>
+                <span className={day.profit >= 0 ? 'text-green-400' : 'text-red-400'}>
+                  Profit: {fmt(day.profit)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-4 mt-4 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5"><div className="w-3 h-2 rounded bg-orange-500/80" /> Revenue</div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-2 rounded bg-red-500/60" /> Food Cost</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── CSV Export ────────────────────────────────────────────────────────────────
+function downloadCSV(period) {
+  const url = `/api/reports/export?period=${period}&format=csv`
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `report-${period}-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function Reports() {
   const { fmt } = useCurrency()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState('today')
   const [activeTab, setActiveTab] = useState('overview')
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -56,12 +232,21 @@ export default function Reports() {
       .catch(() => setLoading(false))
   }, [period])
 
+  const handleExport = async () => {
+    setExporting(true)
+    try { downloadCSV(period) } finally {
+      setTimeout(() => setExporting(false), 1500)
+    }
+  }
+
   const periods = [{ id: 'today', label: 'Today' }, { id: 'week', label: '7 Days' }, { id: 'month', label: 'This Month' }]
   const tabs = [
-    { id: 'overview', label: '📊 Overview' },
-    { id: 'profitability', label: '💰 Profitability' },
-    { id: 'menu', label: '🍽️ Menu Performance' },
-    { id: 'inventory', label: '⚠️ Stock Alerts' },
+    { id: 'overview',       label: '📊 Overview' },
+    { id: 'profitability',  label: '💰 Profitability' },
+    { id: 'menu',           label: '🍽️ Menu' },
+    { id: 'heatmap',        label: '📅 Heatmap' },
+    { id: 'trends',         label: '📈 Trends' },
+    { id: 'inventory',      label: '⚠️ Stock' },
   ]
 
   return (
@@ -71,20 +256,24 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-white">Reports & Analytics</h1>
           <p className="text-slate-400 text-sm mt-0.5">Business performance overview</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {periods.map(p => (
             <button key={p.id} onClick={() => setPeriod(p.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${period === p.id ? 'bg-orange-500 text-white' : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white'}`}>
               {p.label}
             </button>
           ))}
+          <button onClick={handleExport} disabled={exporting}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors">
+            {exporting ? '⏳' : '⬇'} CSV
+          </button>
         </div>
       </div>
 
-      <div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 mb-6 w-fit overflow-x-auto">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === t.id ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === t.id ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>
             {t.label}
           </button>
         ))}
@@ -149,11 +338,11 @@ export default function Reports() {
                 <h2 className="text-white font-semibold mb-5">Profit & Loss Summary</h2>
                 <div className="space-y-3">
                   {[
-                    { label: 'Gross Revenue', value: data.revenue, color: 'text-white' },
-                    { label: 'Tax Collected', value: -data.taxCollected, color: 'text-slate-400' },
-                    { label: 'Net Revenue', value: data.netRevenue, color: 'text-orange-400 font-bold', sep: true },
-                    { label: 'Food Cost', value: -data.totalFoodCost, color: 'text-red-400' },
-                    { label: 'Gross Profit', value: data.grossProfit, color: data.grossProfit >= 0 ? 'text-green-400 font-bold text-xl' : 'text-red-400 font-bold text-xl', sep: true },
+                    { label: 'Gross Revenue',  value: data.revenue,     color: 'text-white' },
+                    { label: 'Tax Collected',   value: -data.taxCollected, color: 'text-slate-400' },
+                    { label: 'Net Revenue',     value: data.netRevenue,  color: 'text-orange-400 font-bold', sep: true },
+                    { label: 'Food Cost',       value: -data.totalFoodCost, color: 'text-red-400' },
+                    { label: 'Gross Profit',    value: data.grossProfit, color: data.grossProfit >= 0 ? 'text-green-400 font-bold text-xl' : 'text-red-400 font-bold text-xl', sep: true },
                   ].map((row, i) => (
                     <div key={i}>
                       {row.sep && <div className="border-t border-slate-700 my-3" />}
@@ -170,7 +359,8 @@ export default function Reports() {
                     <span className={`font-bold ${marginColor(data.grossMargin)}`}>{data.grossMargin}%</span>
                   </div>
                   <div className="w-full bg-slate-800 rounded-full h-3">
-                    <div className={`h-3 rounded-full transition-all ${data.grossMargin >= 65 ? 'bg-green-500' : data.grossMargin >= 45 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${Math.min(100, data.grossMargin)}%` }} />
+                    <div className={`h-3 rounded-full transition-all ${data.grossMargin >= 65 ? 'bg-green-500' : data.grossMargin >= 45 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${Math.min(100, data.grossMargin)}%` }} />
                   </div>
                   <div className="flex justify-between text-xs text-slate-600 mt-1"><span>0%</span><span>Target: 65%+</span><span>100%</span></div>
                 </div>
@@ -181,12 +371,9 @@ export default function Reports() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-slate-800 bg-slate-800/40">
-                        <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">Category</th>
-                        <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Revenue</th>
-                        <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Food Cost</th>
-                        <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Profit</th>
-                        <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Margin</th>
-                        <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Qty Sold</th>
+                        {['Category','Revenue','Food Cost','Profit','Margin','Qty Sold'].map(h => (
+                          <th key={h} className={`py-3 px-4 text-slate-400 text-xs font-medium ${h === 'Category' ? 'text-left' : 'text-right'}`}>{h}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
@@ -280,6 +467,9 @@ export default function Reports() {
             </div>
           )}
 
+          {activeTab === 'heatmap' && <HeatmapTab heatmap={data.heatmap} />}
+          {activeTab === 'trends'  && <TrendsTab  trend={data.trend} fmt={fmt} />}
+
           {activeTab === 'inventory' && (
             <div className="space-y-6">
               {!data.lowStock || data.lowStock.length === 0 ? (
@@ -301,11 +491,9 @@ export default function Reports() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-slate-800 bg-slate-800/40">
-                          <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">Item</th>
-                          <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">Category</th>
-                          <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">In Stock</th>
-                          <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Minimum</th>
-                          <th className="text-right py-3 px-4 text-slate-400 text-xs font-medium">Status</th>
+                          {['Item','Category','In Stock','Minimum','Status'].map((h, i) => (
+                            <th key={h} className={`py-3 px-4 text-slate-400 text-xs font-medium ${i < 2 ? 'text-left' : 'text-right'}`}>{h}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>

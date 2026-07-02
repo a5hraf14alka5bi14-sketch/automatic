@@ -17,3 +17,5 @@
 - [Stock movements audit](stock-movements-audit.md) — log actual applied delta (RETURNING old+new), not requested amount, since inventory clamps at 0; create+initial movement must be one txn
 - [API validation & pagination](api-validation-pagination.md) — Joi via validate() middleware (allowUnknown, convert, reassign); list GETs take optional limit/offset + X-Total-Count, no params = full array
 - [Notion rollup/formula mapping](notion-rollup-mapping.md) — use getNumeric (not .number) for Food Cost/Cost per Unit; rollups zero out otherwise
+- [Notion components split](notion-components-split.md) — 8 sub-components in src/components/notion/; shared file must be .jsx (not .js) because it exports React components
+- [Reports heatmap and trend data](reports-heatmap-trend.md) — /api/reports includes heatmap+trend keys; CSV export at /api/reports/export; all in one Promise.all round trip
