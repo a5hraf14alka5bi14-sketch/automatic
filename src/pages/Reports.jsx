@@ -206,6 +206,255 @@ function TrendsTab({ trend, fmt }) {
   )
 }
 
+// ── Menu Engineering Matrix Tab ──────────────────────────────────────────────
+const QUADRANT_STYLE = {
+  star:      { label: 'Stars',      emoji: '⭐', color: 'text-green-400',  border: 'border-green-500/30',  bg: 'bg-green-500/10' },
+  plowhorse: { label: 'Plowhorses', emoji: '🐴', color: 'text-blue-400',   border: 'border-blue-500/30',   bg: 'bg-blue-500/10'  },
+  puzzle:    { label: 'Puzzles',    emoji: '❓', color: 'text-yellow-400', border: 'border-yellow-500/30', bg: 'bg-yellow-500/10'},
+  dog:       { label: 'Dogs',       emoji: '🐕', color: 'text-red-400',    border: 'border-red-500/30',    bg: 'bg-red-500/10'  },
+}
+
+function MatrixTab({ matrixData, fmt, loading }) {
+  const [filter, setFilter] = useState('all')
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(4)].map((_, i) => <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl p-4 animate-pulse h-14" />)}
+      </div>
+    )
+  }
+
+  if (!matrixData) {
+    return (
+      <div className="text-center py-20 text-slate-500">
+        <p className="text-4xl mb-3">🍽️</p>
+        <p>No menu data available</p>
+        <p className="text-xs mt-1">Ensure menu items have prices and food costs set</p>
+      </div>
+    )
+  }
+
+  const { items = [], summary = {}, avgQty = 0, avgMargin = 0 } = matrixData
+  const filtered = filter === 'all' ? items : items.filter(i => i.quadrant === filter)
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {Object.entries(QUADRANT_STYLE).map(([q, s]) => {
+          const count = summary[q === 'plowhorse' ? 'plowhorses' : q + 's'] ?? 0
+          return (
+            <button key={q} onClick={() => setFilter(filter === q ? 'all' : q)}
+              className={`rounded-xl border p-4 text-left transition-all ${
+                filter === q ? `${s.bg} ${s.border} ring-1 ring-inset ${s.border}` : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+              }`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xl">{s.emoji}</span>
+                <span className={`text-2xl font-bold ${s.color}`}>{count}</span>
+              </div>
+              <p className={`text-sm font-semibold ${s.color}`}>{s.label}</p>
+              <p className="text-slate-500 text-xs mt-0.5">
+                {q === 'star' && 'High pop · High margin'}
+                {q === 'plowhorse' && 'High pop · Low margin'}
+                {q === 'puzzle' && 'Low pop · High margin'}
+                {q === 'dog' && 'Low pop · Low margin'}
+              </p>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+        <span>📊 Avg popularity threshold: <strong className="text-white">{fmtN(avgQty, 1)} units sold</strong></span>
+        <span>📈 Avg margin threshold: <strong className="text-white">{fmtN(avgMargin, 1)}%</strong></span>
+        <span className="ml-auto text-slate-500">Showing: {filtered.length} / {items.length} items</span>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-800 bg-slate-800/40">
+              <th className="py-3 px-4 text-left text-slate-400 text-xs font-medium">Item</th>
+              <th className="py-3 px-4 text-left text-slate-400 text-xs font-medium">Category</th>
+              <th className="py-3 px-4 text-right text-slate-400 text-xs font-medium">Qty Sold</th>
+              <th className="py-3 px-4 text-right text-slate-400 text-xs font-medium">Revenue</th>
+              <th className="py-3 px-4 text-right text-slate-400 text-xs font-medium">Margin%</th>
+              <th className="py-3 px-4 text-right text-slate-400 text-xs font-medium">Quadrant</th>
+              <th className="py-3 px-4 text-left text-slate-400 text-xs font-medium">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={7} className="py-12 text-center text-slate-500">No items in this quadrant</td></tr>
+            ) : filtered.map(item => {
+              const s = QUADRANT_STYLE[item.quadrant]
+              return (
+                <tr key={item.id} className="border-b border-slate-800/50 hover:bg-slate-800/25 transition-colors">
+                  <td className="py-3 px-4">
+                    <span className="text-white font-medium">{item.name}</span>
+                  </td>
+                  <td className="py-3 px-4 text-slate-400 capitalize">{item.category || '—'}</td>
+                  <td className="py-3 px-4 text-right text-white font-medium">{item.qtySold}</td>
+                  <td className="py-3 px-4 text-right text-orange-400 font-medium">{fmt(item.revenue)}</td>
+                  <td className="py-3 px-4 text-right">
+                    <span className={`font-bold ${item.marginPct >= 65 ? 'text-green-400' : item.marginPct >= 45 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {item.marginPct}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <span className={`text-xs px-2 py-1 rounded-full border ${s.bg} ${s.color} ${s.border}`}>
+                      {s.emoji} {s.label.slice(0, -1)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-slate-400 text-xs">{item.action}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ── Revenue Forecast Tab ──────────────────────────────────────────────────────
+function ForecastTab({ forecastData, fmt, loading }) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(3)].map((_, i) => <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl p-5 animate-pulse h-28" />)}
+      </div>
+    )
+  }
+
+  if (!forecastData) {
+    return (
+      <div className="text-center py-20 text-slate-500">
+        <p className="text-4xl mb-3">📈</p><p>Unable to load forecast</p>
+      </div>
+    )
+  }
+
+  const { history = [], forecast = [], stats, message } = forecastData
+
+  if (message && forecast.length === 0) {
+    return (
+      <div className="text-center py-20 text-slate-500">
+        <p className="text-4xl mb-3">📊</p>
+        <p className="font-medium text-slate-300">Not enough data yet</p>
+        <p className="text-xs mt-1">{message}</p>
+      </div>
+    )
+  }
+
+  const allData  = [...history.slice(-28), ...forecast.slice(0, 30)]
+  const histLen  = Math.min(history.length, 28)
+  const maxRev   = Math.max(...allData.map(d => d.upper || d.revenue || 0), 1)
+  const growing  = stats?.trendSlope > 0
+
+  const fmtDate = (s) => {
+    const d = new Date(s + 'T12:00:00')
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  return (
+    <div className="space-y-5">
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label="Avg Daily Revenue"  value={fmt(stats.avgDailyRevenue)}  color="text-orange-400"                                                             icon="💵" />
+          <StatCard label="30-Day Forecast"    value={fmt(stats.forecast30Total)}  color="text-blue-400"                                                               icon="📅" />
+          <StatCard label="Weekly Growth"
+            value={`${stats.weeklyGrowthPct >= 0 ? '+' : ''}${stats.weeklyGrowthPct}%`}
+            color={stats.weeklyGrowthPct >= 0 ? 'text-green-400' : 'text-red-400'}                                                                                     icon={stats.weeklyGrowthPct >= 0 ? '📈' : '📉'} />
+          <StatCard label="Trend"
+            value={`${growing ? '▲' : '▼'} ${Math.abs(Number(stats.trendSlope)).toFixed(3)} OMR/day`}
+            color={growing ? 'text-green-400' : 'text-red-400'}
+            sub={`${stats.dataPoints} days of data`}                                                                                                                   icon="📊" />
+        </div>
+      )}
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-white font-semibold">Revenue Forecast — Next 30 Days</h2>
+            <p className="text-slate-500 text-xs mt-0.5">Linear regression + day-of-week seasonality adjustment</p>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5"><div className="w-3 h-2.5 rounded-sm bg-orange-500/80" /> Historical</div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-2.5 rounded-sm bg-blue-500/60"   /> Forecast</div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-2.5 rounded-sm bg-blue-500/15"   /> Band ±18%</div>
+          </div>
+        </div>
+
+        <div className="flex items-end gap-0.5 mb-2" style={{ height: 160 }}>
+          {allData.map((d, i) => {
+            const isHist = i < histLen
+            const h  = Math.max(2, (d.revenue / maxRev) * 100)
+            const hi = Math.max(2, ((d.upper  || d.revenue) / maxRev) * 100)
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center justify-end relative group"
+                title={`${fmtDate(d.date)}: ${fmt(d.revenue)}${!isHist ? ` (${fmt(d.lower)}–${fmt(d.upper)})` : ''}`}>
+                {!isHist && (
+                  <div className="absolute bottom-0 w-full rounded-sm bg-blue-500/15"
+                    style={{ height: `${hi}%` }} />
+                )}
+                <div className={`w-full rounded-sm ${isHist ? 'bg-orange-500/80' : 'bg-blue-500/55'}`}
+                  style={{ height: `${h}%` }} />
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="flex justify-between text-slate-600 text-[9px] mt-1">
+          {allData.filter((_, i) => i % Math.max(1, Math.floor(allData.length / 8)) === 0).map(d => (
+            <span key={d.date}>{fmtDate(d.date)}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+          <h3 className="text-white font-semibold mb-4">Next 7 Days Forecast</h3>
+          <div className="space-y-2">
+            {forecast.slice(0, 7).map(d => (
+              <div key={d.date} className="flex items-center gap-3">
+                <span className="text-slate-400 text-xs w-20 flex-shrink-0">{fmtDate(d.date)}</span>
+                <div className="flex-1 bg-slate-800 rounded-full h-2">
+                  <div className="bg-blue-500 h-2 rounded-full"
+                    style={{ width: `${Math.min(100, (d.revenue / Math.max(...forecast.slice(0,7).map(x => x.revenue), 1)) * 100)}%` }} />
+                </div>
+                <div className="text-right flex-shrink-0 w-24">
+                  <span className="text-white text-xs font-medium">{fmt(d.revenue)}</span>
+                  <span className="text-slate-600 text-xs"> ±18%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+          <h3 className="text-white font-semibold mb-4">Historical Daily Revenue (Last 14 Days)</h3>
+          <div className="space-y-2">
+            {history.slice(-14).reverse().map(d => (
+              <div key={d.date} className="flex items-center gap-3">
+                <span className="text-slate-400 text-xs w-20 flex-shrink-0">{fmtDate(d.date)}</span>
+                <div className="flex-1 bg-slate-800 rounded-full h-2">
+                  <div className="bg-orange-500 h-2 rounded-full"
+                    style={{ width: `${Math.min(100, (d.revenue / Math.max(...history.slice(-14).map(x => x.revenue), 1)) * 100)}%` }} />
+                </div>
+                <div className="text-right flex-shrink-0 w-24">
+                  <span className="text-orange-400 text-xs font-medium">{fmt(d.revenue)}</span>
+                  <span className="text-slate-600 text-xs"> · {d.orders}ord</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── CSV Export ────────────────────────────────────────────────────────────────
 function downloadCSV(period) {
   const url = `/api/reports/export?period=${period}&format=csv`
@@ -321,6 +570,10 @@ export default function Reports() {
   const [exporting, setExporting] = useState(false)
   const [staffData, setStaffData] = useState(null)
   const [staffLoading, setStaffLoading] = useState(false)
+  const [matrixData, setMatrixData] = useState(null)
+  const [matrixLoading, setMatrixLoading] = useState(false)
+  const [forecastData, setForecastData] = useState(null)
+  const [forecastLoading, setForecastLoading] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -339,6 +592,24 @@ export default function Reports() {
       .catch(() => setStaffLoading(false))
   }, [activeTab, period])
 
+  useEffect(() => {
+    if (activeTab !== 'matrix') return
+    setMatrixLoading(true)
+    apiFetch(`/api/reports/menu-matrix?period=${period}`)
+      .then(r => r.json())
+      .then(d => { setMatrixData(d); setMatrixLoading(false) })
+      .catch(() => setMatrixLoading(false))
+  }, [activeTab, period])
+
+  useEffect(() => {
+    if (activeTab !== 'forecast') return
+    setForecastLoading(true)
+    apiFetch('/api/reports/forecast')
+      .then(r => r.json())
+      .then(d => { setForecastData(d); setForecastLoading(false) })
+      .catch(() => setForecastLoading(false))
+  }, [activeTab])
+
   const handleExport = async () => {
     setExporting(true)
     try { downloadCSV(period) } finally {
@@ -351,6 +622,8 @@ export default function Reports() {
     { id: 'overview',       label: '📊 Overview' },
     { id: 'profitability',  label: '💰 Profitability' },
     { id: 'menu',           label: '🍽️ Menu' },
+    { id: 'matrix',         label: '⭐ Matrix' },
+    { id: 'forecast',       label: '🔮 Forecast' },
     { id: 'heatmap',        label: '📅 Heatmap' },
     { id: 'trends',         label: '📈 Trends' },
     { id: 'inventory',      label: '⚠️ Stock' },
@@ -581,6 +854,8 @@ export default function Reports() {
             </div>
           )}
 
+          {activeTab === 'matrix'   && <MatrixTab   matrixData={matrixData}     fmt={fmt} loading={matrixLoading} />}
+          {activeTab === 'forecast' && <ForecastTab forecastData={forecastData}  fmt={fmt} loading={forecastLoading} />}
           {activeTab === 'heatmap' && <HeatmapTab heatmap={data.heatmap} />}
           {activeTab === 'trends'  && <TrendsTab  trend={data.trend} fmt={fmt} />}
 

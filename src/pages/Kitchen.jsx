@@ -371,11 +371,11 @@ export default function Kitchen() {
         </div>
       </div>
 
-      {/* Columns */}
-      <div className="grid grid-cols-3 gap-4 flex-1 overflow-auto">
+      {/* Columns — 1 col mobile, 2 col tablet, 3 col desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 overflow-auto">
         {Object.entries(COL_CONFIG).map(([status, cfg]) => (
           <div key={status} className="flex flex-col min-h-0">
-            <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+            <div className="flex items-center gap-2 mb-3 flex-shrink-0 sticky top-0 bg-slate-950/90 backdrop-blur-sm py-1 -mx-1 px-1 rounded-lg z-10">
               <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
               <h2 className={`font-semibold text-sm ${cfg.titleColor}`}>
                 {cfg.title}

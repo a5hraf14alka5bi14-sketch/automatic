@@ -18,6 +18,7 @@ import Menu from './pages/Menu.jsx'
 import Settings from './pages/Settings.jsx'
 import ChangePassword from './pages/ChangePassword.jsx'
 import Login from './pages/Login.jsx'
+import AIExecutive from './pages/AIExecutive.jsx'
 
 function AppLayout({ user, onLogout }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -68,6 +69,7 @@ function AppLayout({ user, onLogout }) {
               <Route path="/settings" element={<Settings user={user} />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/notion" element={<NotionIntegration />} />
+              <Route path="/ai-executive" element={<AIExecutive />} />
               <Route path="/change-password" element={<ChangePassword />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

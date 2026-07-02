@@ -283,4 +283,165 @@ router.get('/staff', requireRole('admin', 'manager'), async (req, res) => {
   }
 })
 
+// ── GET /api/reports/menu-matrix?period=month ─────────────────────────────────
+router.get('/menu-matrix', requireRole('admin', 'manager'), async (req, res) => {
+  const { period = 'month' } = req.query
+  const df = dateFilter(period)
+
+  try {
+    const result = await pool.query(`
+      SELECT
+        m.id, m.name, m.category,
+        m.price::float                                    AS price,
+        COALESCE(m.food_cost, 0)::float                  AS food_cost,
+        COALESCE(SUM(oi.quantity), 0)::int               AS qty_sold,
+        COALESCE(SUM(oi.quantity * oi.price), 0)::float  AS revenue,
+        CASE WHEN m.price > 0
+          THEN ROUND((1 - COALESCE(m.food_cost, 0) / m.price) * 100, 1)
+          ELSE 0 END::float                              AS margin_pct
+      FROM menu_items m
+      LEFT JOIN order_items oi ON oi.menu_item_id = m.id
+      LEFT JOIN orders o
+        ON o.id = oi.order_id AND ${df} AND o.status != 'cancelled'
+      WHERE m.available = true
+      GROUP BY m.id, m.name, m.category, m.price, m.food_cost
+      ORDER BY qty_sold DESC, revenue DESC
+    `)
+
+    const items = result.rows
+    if (items.length === 0) {
+      return res.json({ items: [], avgQty: 0, avgMargin: 0,
+        summary: { stars: 0, plowhorses: 0, puzzles: 0, dogs: 0 } })
+    }
+
+    const totalQty  = items.reduce((s, i) => s + Number(i.qty_sold), 0)
+    const avgQty    = totalQty / items.length
+    const avgMargin = items.reduce((s, i) => s + Number(i.margin_pct), 0) / items.length
+
+    const classified = items.map(i => {
+      const qty    = Number(i.qty_sold)
+      const margin = Number(i.margin_pct)
+      const highPop    = qty >= avgQty
+      const highProfit = margin >= avgMargin
+
+      let quadrant, emoji, action
+      if      ( highPop &&  highProfit) { quadrant = 'star';      emoji = '⭐'; action = 'Promote actively — high value & demand' }
+      else if ( highPop && !highProfit) { quadrant = 'plowhorse'; emoji = '🐴'; action = 'Reduce food cost or raise price slightly' }
+      else if (!highPop &&  highProfit) { quadrant = 'puzzle';    emoji = '❓'; action = 'Reposition & market to boost demand' }
+      else                              { quadrant = 'dog';       emoji = '🐕'; action = 'Review — consider removal or redesign' }
+
+      return {
+        id: i.id, name: i.name, category: i.category,
+        price:     parseFloat(Number(i.price).toFixed(3)),
+        foodCost:  parseFloat(Number(i.food_cost).toFixed(3)),
+        qtySold:   qty,
+        revenue:   parseFloat(Number(i.revenue).toFixed(3)),
+        marginPct: parseFloat(Number(i.margin_pct).toFixed(1)),
+        quadrant, emoji, action,
+      }
+    })
+
+    res.json({
+      items: classified,
+      avgQty:    parseFloat(avgQty.toFixed(1)),
+      avgMargin: parseFloat(avgMargin.toFixed(1)),
+      summary: {
+        stars:      classified.filter(i => i.quadrant === 'star').length,
+        plowhorses: classified.filter(i => i.quadrant === 'plowhorse').length,
+        puzzles:    classified.filter(i => i.quadrant === 'puzzle').length,
+        dogs:       classified.filter(i => i.quadrant === 'dog').length,
+      }
+    })
+  } catch (err) {
+    logger.error(err?.message || 'Menu matrix error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ── GET /api/reports/forecast ─────────────────────────────────────────────────
+router.get('/forecast', async (req, res) => {
+  try {
+    const histResult = await pool.query(`
+      SELECT
+        DATE(created_at)               AS date,
+        COALESCE(SUM(total), 0)::float AS revenue,
+        COUNT(*)::int                  AS orders
+      FROM orders
+      WHERE created_at >= NOW() - INTERVAL '90 days'
+        AND status != 'cancelled'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `)
+
+    const history = histResult.rows.map(r => ({
+      date:    String(r.date).slice(0, 10),
+      revenue: parseFloat(Number(r.revenue).toFixed(3)),
+      orders:  r.orders,
+    }))
+
+    if (history.length < 3) {
+      return res.json({ history, forecast: [], stats: null,
+        message: 'Need at least 3 days of data for forecasting' })
+    }
+
+    const n  = history.length
+    const xs = history.map((_, i) => i)
+    const ys = history.map(r => r.revenue)
+
+    const sumX  = xs.reduce((a, b) => a + b, 0)
+    const sumY  = ys.reduce((a, b) => a + b, 0)
+    const sumXY = xs.reduce((s, x, i) => s + x * ys[i], 0)
+    const sumX2 = xs.reduce((s, x) => s + x * x, 0)
+    const denom = n * sumX2 - sumX * sumX
+    const slope     = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0
+    const intercept = (sumY - slope * sumX) / n
+
+    const dowSums   = Array(7).fill(0)
+    const dowCounts = Array(7).fill(0)
+    for (const r of history) {
+      const dow = new Date(r.date + 'T12:00:00').getDay()
+      dowSums[dow] += r.revenue; dowCounts[dow]++
+    }
+    const globalAvg = sumY / n
+    const dowFactor = dowSums.map((s, i) =>
+      dowCounts[i] > 0 ? (s / dowCounts[i]) / (globalAvg || 1) : 1)
+
+    const lastDate = new Date(history[history.length - 1].date + 'T12:00:00')
+    const forecast = []
+    for (let i = 1; i <= 30; i++) {
+      const d = new Date(lastDate)
+      d.setDate(d.getDate() + i)
+      const dow   = d.getDay()
+      const trend = Math.max(0, intercept + slope * (n + i - 1))
+      const adj   = trend * (0.6 + 0.4 * dowFactor[dow])
+      forecast.push({
+        date:    d.toISOString().slice(0, 10),
+        revenue: parseFloat(Math.max(0, adj).toFixed(3)),
+        lower:   parseFloat(Math.max(0, adj * 0.82).toFixed(3)),
+        upper:   parseFloat((adj * 1.18).toFixed(3)),
+        trend:   parseFloat(Math.max(0, trend).toFixed(3)),
+      })
+    }
+
+    const recent7 = ys.slice(-7).reduce((a, b) => a + b, 0)
+    const prev7   = ys.slice(-14, -7).reduce((a, b) => a + b, 0)
+
+    res.json({
+      history,
+      forecast,
+      stats: {
+        avgDailyRevenue: parseFloat((sumY / n).toFixed(3)),
+        trendSlope:      parseFloat(slope.toFixed(4)),
+        weeklyGrowthPct: prev7 > 0
+          ? parseFloat(((recent7 - prev7) / prev7 * 100).toFixed(1)) : 0,
+        forecast30Total: parseFloat(forecast.reduce((s, r) => s + r.revenue, 0).toFixed(3)),
+        dataPoints:      n,
+      }
+    })
+  } catch (err) {
+    logger.error(err?.message || 'Forecast error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 export default router

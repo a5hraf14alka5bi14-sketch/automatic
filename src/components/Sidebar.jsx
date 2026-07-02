@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { id: 'recipes',      label: 'Recipes',         icon: '🧪' },
   { id: 'customers',    label: 'Customers',       icon: '👥' },
   { id: 'reports',      label: 'Reports',         icon: '📊' },
+  { id: 'ai-executive', label: 'AI Executive',    icon: '🤖' },
   { id: 'settings',     label: 'Settings',        icon: '⚙️', divider: true },
   { id: 'integrations', label: 'Integrations',    icon: '🔌' },
   { id: 'notion',       label: 'Notion Sync',     icon: '📓' },

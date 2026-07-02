@@ -18,6 +18,7 @@ import notionRoutes from './routes/notion.js'
 import integrationsRoutes from './routes/integrations.js'
 import settingsRoutes from './routes/settings.js'
 import usersRoutes from './routes/users.js'
+import aiRoutes from './routes/ai.js'
 import { initDb, pool } from './db.js'
 import { registerAdapter, startAutoSync } from './integrations/sync-engine.js'
 import { syncAll } from './integrations/notion.js'
@@ -119,6 +120,7 @@ app.use('/api/notion', notionRoutes)
 app.use('/api/integrations', integrationsRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/users', usersRoutes)
+app.use('/api/ai', aiRoutes)
 
 if (IS_PROD) {
   const distPath = path.join(__dirname, '../dist')

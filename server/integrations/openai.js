@@ -60,3 +60,44 @@ export async function openAIChat(messages, model = 'gpt-4o-mini') {
   }
   return res.json()
 }
+
+export async function generateExecutiveInsights(data) {
+  const fmt = v => Number(v || 0).toFixed(3)
+  const trendDir = data.trendSlope > 0 ? 'growing' : data.trendSlope < 0 ? 'declining' : 'flat'
+
+  const prompt = `You are an AI business analyst for Automatic Restaurant, a Lebanese restaurant in Oman (currency: OMR).
+
+CURRENT PERIOD PERFORMANCE:
+- Revenue: OMR ${fmt(data.revenue)} | Orders: ${data.totalOrders || 0} | Avg Order: OMR ${fmt(data.avgOrderValue)}
+- Gross Profit: OMR ${fmt(data.grossProfit)} (${data.grossMargin || 0}% margin) | Food Cost: OMR ${fmt(data.totalFoodCost)}
+- Customers Served: ${data.customersServed || 0}
+${data.topItems?.length ? `- Best Seller: ${data.topItems[0].name} (${data.topItems[0].qty} sold)` : ''}
+${data.lowStock?.length ? `- ⚠️ Low Stock: ${data.lowStock.slice(0,3).map(i => i.name).join(', ')}` : '- ✅ All stock levels healthy'}
+
+REVENUE TREND (90 days):
+- Trend: ${trendDir} (${data.trendSlope > 0 ? '+' : ''}${Number(data.trendSlope||0).toFixed(4)} OMR/day)
+- Weekly growth: ${data.weeklyGrowthPct > 0 ? '+' : ''}${data.weeklyGrowthPct || 0}%
+- 30-day forecast: OMR ${fmt(data.forecast30Total)} | Avg daily: OMR ${fmt(data.avgDailyRevenue)}
+
+MENU ENGINEERING (this month):
+- ⭐ Stars: ${data.stars || 0} | 🐴 Plowhorses: ${data.plowhorses || 0} | ❓ Puzzles: ${data.puzzles || 0} | 🐕 Dogs: ${data.dogs || 0}
+
+Respond ONLY with valid JSON, no markdown fences:
+{
+  "headline": "12-word max status summary with a key metric",
+  "performance": "2-3 sentences on current performance with specific OMR numbers",
+  "opportunities": "2 specific actionable opportunities based on the data above",
+  "risks": "1-2 specific risks or warnings with numbers where possible",
+  "recommendation": "Single most important action to take today with expected impact"
+}`
+
+  const response = await openAIChat([{ role: 'user', content: prompt }], 'gpt-4o-mini')
+  const raw = response.choices[0]?.message?.content?.trim() || '{}'
+  try {
+    const start = raw.indexOf('{')
+    const end   = raw.lastIndexOf('}') + 1
+    return JSON.parse(start >= 0 ? raw.slice(start, end) : raw)
+  } catch {
+    return { headline: 'Analysis complete', performance: raw, opportunities: '', risks: '', recommendation: '' }
+  }
+}
