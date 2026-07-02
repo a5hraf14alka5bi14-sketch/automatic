@@ -10,6 +10,7 @@ import {
   createTaskInNotion,
   createProjectInNotion
 } from '../notion.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -29,7 +30,7 @@ router.get('/config', async (req, res) => {
       envKeyPresent: !!process.env.NOTION_API_KEY
     })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -50,7 +51,7 @@ router.put('/config', async (req, res) => {
     }
     res.json({ success: true })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -89,7 +90,7 @@ router.post('/projects/ingest', async (req, res) => {
     }
     res.json({ ingested: count })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: err.message })
   }
 })
@@ -115,7 +116,7 @@ router.post('/tasks/ingest', async (req, res) => {
     }
     res.json({ ingested: count })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: err.message })
   }
 })
@@ -127,7 +128,7 @@ router.get('/projects', async (req, res) => {
     const result = await pool.query('SELECT * FROM notion_projects ORDER BY created_at DESC')
     res.json(result.rows)
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -147,7 +148,7 @@ router.post('/projects', async (req, res) => {
     const row = await pool.query('SELECT * FROM notion_projects WHERE notion_id=$1', [project.notion_id])
     res.status(201).json(row.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: err.message || 'Failed to create project' })
   }
 })
@@ -166,7 +167,7 @@ router.patch('/projects/:id/status', async (req, res) => {
     )
     res.json(updated.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: err.message || 'Update failed' })
   }
 })
@@ -191,7 +192,7 @@ router.get('/tasks', async (req, res) => {
     const result = await pool.query(query, params)
     res.json(result.rows)
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -210,7 +211,7 @@ router.post('/tasks', async (req, res) => {
     const row = await pool.query('SELECT * FROM notion_tasks WHERE notion_id=$1', [task.notion_id])
     res.status(201).json(row.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: err.message || 'Failed to create task' })
   }
 })
@@ -229,7 +230,7 @@ router.patch('/tasks/:id/status', async (req, res) => {
     )
     res.json(updated.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: err.message || 'Update failed' })
   }
 })

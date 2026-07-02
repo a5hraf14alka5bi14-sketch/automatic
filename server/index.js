@@ -35,7 +35,20 @@ app.set('trust proxy', 1)
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'"],
+      styleSrc:    ["'self'", "'unsafe-inline'"],  // Tailwind CSS requires inline styles
+      imgSrc:      ["'self'", 'data:', 'https:'],  // allow external menu images
+      connectSrc:  ["'self'", 'wss:', 'ws:'],      // allow WebSocket connections
+      fontSrc:     ["'self'"],
+      objectSrc:   ["'none'"],
+      baseUri:     ["'self'"],
+      formAction:  ["'self'"],
+      ...(IS_PROD ? { upgradeInsecureRequests: [] } : {}),
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }))
 
@@ -64,6 +77,15 @@ const authLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again in a minute.' },
 })
 
+// ── General API rate limiting: 300 requests per minute per IP ────────────────
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+})
+
 app.get('/api/health', async (req, res) => {
   try {
     const dbStart = Date.now()
@@ -83,6 +105,7 @@ app.get('/api/health', async (req, res) => {
   }
 })
 app.use('/api/auth', authLimiter, authRoutes)
+app.use('/api', generalLimiter)
 
 app.use(verifyToken)
 

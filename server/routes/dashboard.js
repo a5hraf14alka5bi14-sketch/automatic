@@ -1,5 +1,6 @@
 import express from 'express'
 import { pool } from '../db.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -44,7 +45,7 @@ router.get('/stats', async (req, res) => {
       tablesOccupied:  Math.min(activeDineIn, totalTables)
     })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })

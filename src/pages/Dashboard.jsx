@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
+import { useToast } from '../context/ToastContext.jsx'
 
 const StatCard = ({ label, value, sub, color, icon }) => (
   <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -14,6 +15,7 @@ const StatCard = ({ label, value, sub, color, icon }) => (
 )
 
 export default function Dashboard() {
+  const toast = useToast()
   const [stats, setStats] = useState(null)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -25,12 +27,13 @@ export default function Dashboard() {
           apiFetch('/api/dashboard/stats'),
           apiFetch('/api/orders?limit=5')
         ])
+        if (!statsRes.ok || !ordersRes.ok) throw new Error('Failed to load dashboard data')
         const statsData = await statsRes.json()
         const ordersData = await ordersRes.json()
         setStats(statsData)
         setOrders(Array.isArray(ordersData) ? ordersData : [])
       } catch (err) {
-        console.error('Dashboard fetch error:', err)
+        toast('Failed to load dashboard data. Please refresh.', 'error')
       } finally {
         setLoading(false)
       }

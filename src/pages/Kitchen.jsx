@@ -139,7 +139,6 @@ export default function Kitchen() {
         ws.onopen = () => {
           setWsStatus('live')
           stopPolling()
-          console.log('[kitchen] WebSocket connected ✓')
         }
 
         ws.onmessage = (evt) => {

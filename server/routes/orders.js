@@ -3,6 +3,7 @@ import { pool, recordStockMovement } from '../db.js'
 import { broadcast } from '../events.js'
 import { validate } from '../middleware/validate.js'
 import { orderCreateSchema, orderStatusSchema } from '../validators.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -51,7 +52,7 @@ router.get('/', async (req, res) => {
     query += ` GROUP BY o.id, u.name ORDER BY o.created_at DESC`
     if (limit) { query += ` LIMIT $${params.length + 1}`; params.push(parseInt(limit)) }
     res.json((await pool.query(query, params)).rows)
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 router.get('/:id', async (req, res) => {
@@ -62,7 +63,7 @@ router.get('/:id', async (req, res) => {
     )
     if (!order.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(order.rows[0])
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 router.get('/customer/:customerId', async (req, res) => {
@@ -72,7 +73,7 @@ router.get('/customer/:customerId', async (req, res) => {
       [req.params.customerId]
     )
     res.json(result.rows)
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 router.post('/', validate(orderCreateSchema), async (req, res) => {
@@ -102,7 +103,7 @@ router.post('/', validate(orderCreateSchema), async (req, res) => {
     res.status(201).json(order)
   } catch (err) {
     await client.query('ROLLBACK')
-    console.error(err); res.status(500).json({ error: 'Server error' })
+    logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' })
   } finally { client.release() }
 })
 
@@ -231,7 +232,8 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
         }
       }
 
-      if (customer_id && !wasCompleted) {
+      // Reverse the loyalty points and stats that were applied when the order was completed
+      if (customer_id) {
         const orderTotal2 = prev.rows[0].total
         const { loyaltyPerDollar } = await getSettings(client)
         const pointsToDeduct = Math.floor(parseFloat(orderTotal2) * loyaltyPerDollar)
@@ -252,7 +254,7 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
     res.json(result.rows[0])
   } catch (err) {
     await client.query('ROLLBACK')
-    console.error(err); res.status(500).json({ error: 'Server error' })
+    logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' })
   } finally { client.release() }
 })
 

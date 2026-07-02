@@ -3,7 +3,10 @@ const { Pool } = pg
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 3000,
 })
 
 export async function initDb() {
@@ -189,6 +192,34 @@ export async function initDb() {
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS notion_id VARCHAR(255) UNIQUE;
     `)
 
+    // Upgrade financial columns to 3 decimal places (OMR standard)
+    await client.query(`
+      ALTER TABLE orders
+        ALTER COLUMN total    TYPE NUMERIC(10,3) USING total::NUMERIC(10,3),
+        ALTER COLUMN subtotal TYPE NUMERIC(10,3) USING subtotal::NUMERIC(10,3),
+        ALTER COLUMN tax      TYPE NUMERIC(10,3) USING tax::NUMERIC(10,3);
+      ALTER TABLE customers
+        ALTER COLUMN total_spent TYPE NUMERIC(10,3) USING total_spent::NUMERIC(10,3);
+    `)
+
+    // Add FK constraints idempotently — clean up orphans first to avoid violations
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_orders_user') THEN
+          UPDATE orders SET user_id = NULL
+            WHERE user_id IS NOT NULL AND user_id NOT IN (SELECT id FROM users);
+          ALTER TABLE orders ADD CONSTRAINT fk_orders_user
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_orders_customer') THEN
+          UPDATE orders SET customer_id = NULL
+            WHERE customer_id IS NOT NULL AND customer_id NOT IN (SELECT id FROM customers);
+          ALTER TABLE orders ADD CONSTRAINT fk_orders_customer
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `)
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS staff (
         id SERIAL PRIMARY KEY,
@@ -260,6 +291,8 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
       CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_payment_method ON orders(payment_method);
       CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
       CREATE INDEX IF NOT EXISTS idx_order_items_menu_item_id ON order_items(menu_item_id);
       CREATE INDEX IF NOT EXISTS idx_inventory_quantity ON inventory(quantity);
@@ -300,7 +333,7 @@ export async function initDb() {
     const userCheck = await client.query('SELECT id FROM users WHERE email = $1', ['admin@automatic.com'])
     if (userCheck.rows.length === 0) {
       const bcrypt = await import('bcryptjs')
-      const hash = await bcrypt.default.hash('admin123', 10)
+      const hash = await bcrypt.default.hash('Admin123', 10)
       await client.query(
         'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
         ['Admin Manager', 'admin@automatic.com', hash, 'admin']

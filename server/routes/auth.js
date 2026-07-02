@@ -7,6 +7,7 @@ import {
   SECRET, cookieOptions,
   ACCESS_COOKIE, REFRESH_COOKIE, ACCESS_MAX_AGE, REFRESH_MAX_AGE,
 } from '../config/secret.js'
+import { passwordSchema } from '../validators.js'
 
 const router = express.Router()
 
@@ -83,10 +84,8 @@ router.patch('/password', verifyToken, async (req, res, next) => {
   if (!current_password || !new_password) {
     return res.status(400).json({ error: 'Both current and new password are required' })
   }
-  if (new_password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
-  if (!/[A-Z]/.test(new_password)) return res.status(400).json({ error: 'Password must include an uppercase letter' })
-  if (!/[a-z]/.test(new_password)) return res.status(400).json({ error: 'Password must include a lowercase letter' })
-  if (!/[0-9]/.test(new_password)) return res.status(400).json({ error: 'Password must include a number' })
+  const { error: pwErr } = passwordSchema.validate(new_password)
+  if (pwErr) return res.status(400).json({ error: pwErr.message })
 
   try {
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id])

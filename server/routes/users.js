@@ -2,6 +2,8 @@ import express from 'express'
 import bcrypt from 'bcryptjs'
 import { pool } from '../db.js'
 import { requireRole } from '../middleware/auth.js'
+import { passwordSchema } from '../validators.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -15,7 +17,7 @@ router.get('/me', async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -30,10 +32,8 @@ router.patch('/:id/password', async (req, res) => {
   }
   const { current_password, new_password } = req.body
   if (!new_password) return res.status(400).json({ error: 'new_password is required' })
-  if (new_password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
-  if (!/[A-Z]/.test(new_password)) return res.status(400).json({ error: 'Password must include an uppercase letter' })
-  if (!/[a-z]/.test(new_password)) return res.status(400).json({ error: 'Password must include a lowercase letter' })
-  if (!/[0-9]/.test(new_password)) return res.status(400).json({ error: 'Password must include a number' })
+  const { error: pwErr } = passwordSchema.validate(new_password)
+  if (pwErr) return res.status(400).json({ error: pwErr.message })
   try {
     const target = await pool.query('SELECT password FROM users WHERE id=$1', [targetId])
     if (!target.rows.length) return res.status(404).json({ error: 'Not found' })
@@ -47,7 +47,7 @@ router.patch('/:id/password', async (req, res) => {
     await pool.query('UPDATE users SET password=$1 WHERE id=$2', [hash, targetId])
     res.json({ success: true })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -59,7 +59,7 @@ router.get('/', requireRole('admin'), async (req, res) => {
     )
     res.json(result.rows)
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -82,7 +82,7 @@ router.post('/', requireRole('admin'), async (req, res) => {
     res.status(201).json(result.rows[0])
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Email already exists' })
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -102,7 +102,7 @@ router.patch('/:id/role', requireRole('admin'), async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -116,7 +116,7 @@ router.delete('/:id', requireRole('admin'), async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json({ success: true })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })

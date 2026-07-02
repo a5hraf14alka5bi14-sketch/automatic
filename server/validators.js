@@ -7,6 +7,20 @@ const shortText = Joi.string().max(255)
 const longText = Joi.string().max(2000)
 const midText = Joi.string().max(500)
 
+// ── Password ──────────────────────────────────────────────────────────────────
+// Single source of truth for password rules — used in auth.js and users.js
+export const passwordSchema = Joi.string()
+  .min(8)
+  .max(128)
+  .pattern(/[A-Z]/)
+  .pattern(/[a-z]/)
+  .pattern(/[0-9]/)
+  .messages({
+    'string.min':          'Password must be at least 8 characters',
+    'string.max':          'Password must be at most 128 characters',
+    'string.pattern.base': 'Password must include an uppercase letter, a lowercase letter, and a number',
+  })
+
 // ── Menu ─────────────────────────────────────────────────────────────────────
 export const menuCreateSchema = Joi.object({
   name: shortText.required(),

@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { requireRole } from '../middleware/auth.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -164,7 +165,7 @@ router.get('/', async (req, res) => {
       trend:     trendData,
     })
   } catch (err) {
-    console.error(err); res.status(500).json({ error: 'Server error' })
+    logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -234,7 +235,7 @@ router.get('/export', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     res.send('\uFEFF' + rows.join('\n'))
   } catch (err) {
-    console.error(err); res.status(500).json({ error: 'Export failed' })
+    logger.error(err?.message || 'Export failed', { path: req.path }); res.status(500).json({ error: 'Export failed' })
   }
 })
 
@@ -277,7 +278,7 @@ router.get('/staff', requireRole('admin', 'manager'), async (req, res) => {
       itemsSold:  r.items_sold,
     })))
   } catch (err) {
-    console.error('[reports/staff]', err)
+    logger.error(err?.message || 'Staff report error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })

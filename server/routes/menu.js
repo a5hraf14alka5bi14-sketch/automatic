@@ -3,6 +3,7 @@ import { pool } from '../db.js'
 import { validate } from '../middleware/validate.js'
 import { requireRole } from '../middleware/auth.js'
 import { menuCreateSchema, menuUpdateSchema } from '../validators.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -20,7 +21,7 @@ router.get('/', async (req, res) => {
     )
     res.json(result.rows)
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -41,7 +42,7 @@ router.get('/all', async (req, res) => {
     const result = await pool.query(query, params)
     res.json(result.rows)
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -61,7 +62,7 @@ router.get('/stats', async (req, res) => {
     `)
     res.json(s.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -71,7 +72,7 @@ router.get('/modifier-groups/:gid/modifiers', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM modifiers WHERE group_id=$1 ORDER BY id', [req.params.gid])
     res.json(result.rows)
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── POST /api/menu/modifier-groups/:gid/modifiers ────────────────────────────
@@ -84,7 +85,7 @@ router.post('/modifier-groups/:gid/modifiers', async (req, res) => {
       [req.params.gid, name.trim(), parseFloat(price_delta || 0)]
     )
     res.status(201).json(result.rows[0])
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── PATCH /api/menu/modifier-groups/:gid ─────────────────────────────────────
@@ -102,7 +103,7 @@ router.patch('/modifier-groups/:gid', async (req, res) => {
     )
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── DELETE /api/menu/modifier-groups/:gid ────────────────────────────────────
@@ -110,7 +111,7 @@ router.delete('/modifier-groups/:gid', async (req, res) => {
   try {
     await pool.query('DELETE FROM modifier_groups WHERE id=$1', [req.params.gid])
     res.json({ success: true })
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── PATCH /api/menu/modifiers/:mid ───────────────────────────────────────────
@@ -123,7 +124,7 @@ router.patch('/modifiers/:mid', async (req, res) => {
     )
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── DELETE /api/menu/modifiers/:mid ──────────────────────────────────────────
@@ -131,7 +132,7 @@ router.delete('/modifiers/:mid', async (req, res) => {
   try {
     await pool.query('DELETE FROM modifiers WHERE id=$1', [req.params.mid])
     res.json({ success: true })
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── GET /api/menu/:id ─────────────────────────────────────────────────────────
@@ -145,7 +146,7 @@ router.get('/:id', async (req, res) => {
     )
     res.json({ ...item.rows[0], recipe: recipe.rows })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -163,7 +164,7 @@ router.post('/', validate(menuCreateSchema), async (req, res) => {
     )
     res.status(201).json(result.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -188,7 +189,7 @@ router.patch('/:id', validate(menuUpdateSchema), async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -199,7 +200,7 @@ router.delete('/:id', async (req, res) => {
     await pool.query('UPDATE menu_items SET available = false WHERE id = $1', [req.params.id])
     res.json({ success: true })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -210,7 +211,7 @@ router.delete('/:id/hard', async (req, res) => {
     await pool.query('DELETE FROM menu_items WHERE id=$1', [req.params.id])
     res.json({ success: true })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -231,7 +232,7 @@ router.get('/:id/modifier-groups', async (req, res) => {
       result.push({ ...g, modifiers: mods.rows })
     }
     res.json(result)
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── POST /api/menu/:id/modifier-groups ────────────────────────────────────────
@@ -244,7 +245,7 @@ router.post('/:id/modifier-groups', async (req, res) => {
       [req.params.id, name.trim(), required || false, parseInt(max_selections) || 1]
     )
     res.status(201).json({ ...result.rows[0], modifiers: [] })
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── GET /api/menu/:id/recipe ──────────────────────────────────────────────────
@@ -259,7 +260,7 @@ router.get('/:id/recipe', async (req, res) => {
     )
     res.json(result.rows)
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -283,7 +284,7 @@ router.post('/:id/recipe', async (req, res) => {
     )
     res.status(201).json(result.rows[0])
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -300,7 +301,7 @@ router.delete('/:id/recipe/:rid', async (req, res) => {
     )
     res.json({ success: true })
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })

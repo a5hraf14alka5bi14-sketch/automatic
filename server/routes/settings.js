@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { requireRole } from '../middleware/auth.js'
+import { logger } from '../logger.js'
 import { validate } from '../middleware/validate.js'
 import { settingsUpdateSchema } from '../validators.js'
 
@@ -29,7 +30,7 @@ router.get('/', async (req, res) => {
     const settings = await getAllSettings()
     res.json(settings)
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })
@@ -48,7 +49,7 @@ router.put('/', requireRole('admin', 'manager'), validate(settingsUpdateSchema),
     }
     res.json(await getAllSettings())
   } catch (err) {
-    console.error(err)
+    logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
 })

@@ -1,5 +1,6 @@
 import express from 'express'
 import { pool } from '../db.js'
+import { logger } from '../logger.js'
 import { getGitHubToken, testGitHubConnection, fetchGitHubRepos } from '../integrations/github.js'
 import { getOpenAIKey, testOpenAIConnection } from '../integrations/openai.js'
 import { getNotionConfig, getNotionClient } from '../notion.js'
@@ -107,7 +108,7 @@ router.get('/', async (req, res) => {
       }
     })
   } catch (err) {
-    console.error('[integrations/status]', err)
+    logger.error('[integrations/status]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to retrieve integration status' })
   }
 })
@@ -133,7 +134,7 @@ router.put('/:service/config', async (req, res) => {
     }
     res.json({ success: true })
   } catch (err) {
-    console.error('[integrations/config]', err)
+    logger.error('[integrations/config]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to save configuration' })
   }
 })
@@ -156,7 +157,7 @@ router.post('/:service/test', async (req, res) => {
       res.status(404).json({ error: 'Unknown service' })
     }
   } catch (err) {
-    console.error('[integrations/test]', err)
+    logger.error('[integrations/test]', { err: err?.message, path: req.path })
     res.status(400).json({ success: false, error: err.message || 'Connection test failed' })
   }
 })
@@ -216,7 +217,7 @@ router.post('/notion/sync', async (req, res) => {
        VALUES ('notion', 'pull', 'error', $1)`,
       [err.message]
     ).catch(() => {})
-    console.error('[notion/sync]', err)
+    logger.error('[notion/sync]', { err: err?.message, path: req.path })
     res.status(500).json({ success: false, error: 'Sync failed. Check server logs for details.' })
   }
 })
@@ -232,7 +233,7 @@ router.get('/notion/sync/status', async (req, res) => {
     ])
     res.json({ logs, last_success: lastSuccess, engine: engineStatus })
   } catch (err) {
-    console.error('[integrations/sync-status]', err)
+    logger.error('[integrations/sync-status]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to retrieve sync status' })
   }
 })
@@ -255,7 +256,7 @@ router.put('/notion/auto-sync', async (req, res) => {
 
     res.json({ success: true, ...getSyncEngineStatus() })
   } catch (err) {
-    console.error('[integrations/auto-sync]', err)
+    logger.error('[integrations/auto-sync]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to update auto-sync settings' })
   }
 })
@@ -274,7 +275,7 @@ router.get('/notion/auto-sync', async (req, res) => {
       ...getSyncEngineStatus()
     })
   } catch (err) {
-    console.error('[integrations/auto-sync-get]', err)
+    logger.error('[integrations/auto-sync-get]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to retrieve auto-sync settings' })
   }
 })
@@ -303,7 +304,7 @@ router.post('/github/sync', async (req, res) => {
     }
     res.json({ synced, repos })
   } catch (err) {
-    console.error('[integrations/github-sync]', err)
+    logger.error('[integrations/github-sync]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'GitHub sync failed. Check server logs for details.' })
   }
 })
@@ -322,7 +323,7 @@ router.get('/github/repos', async (req, res) => {
     )
     res.json(result.rows)
   } catch (err) {
-    console.error('[integrations/github-repos]', err)
+    logger.error('[integrations/github-repos]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to retrieve GitHub repos' })
   }
 })
@@ -345,7 +346,7 @@ router.post('/github/link-notion', async (req, res) => {
     )
     res.json({ success: true })
   } catch (err) {
-    console.error('[integrations/github-link]', err)
+    logger.error('[integrations/github-link]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to link repo to project' })
   }
 })
@@ -386,7 +387,7 @@ router.post('/notion/push', async (req, res) => {
     }
     res.json({ success: true, ...result })
   } catch (err) {
-    console.error('[notion/push]', err)
+    logger.error('[notion/push]', { err: err?.message, path: req.path })
     res.status(500).json({ success: false, error: 'Push to Notion failed. Check server logs for details.' })
   }
 })
@@ -398,7 +399,7 @@ router.get('/openai/summary', async (req, res) => {
     const generatedAt = await getSetting('last_ai_summary_at')
     res.json({ summary: summary || null, generated_at: generatedAt || null })
   } catch (err) {
-    console.error('[integrations/openai-summary-get]', err)
+    logger.error('[integrations/openai-summary-get]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to retrieve summary' })
   }
 })
@@ -417,7 +418,7 @@ router.post('/openai/summary', async (req, res) => {
     await setSetting('last_ai_summary_at', now)
     res.json({ success: true, summary, generated_at: now })
   } catch (err) {
-    console.error('[integrations/openai-summary]', err)
+    logger.error('[integrations/openai-summary]', { err: err?.message, path: req.path })
     res.status(500).json({ error: err.message || 'Summary generation failed' })
   }
 })
@@ -432,7 +433,7 @@ router.post('/openai/chat', async (req, res) => {
     const result = await openAIChat(messages, model)
     res.json({ success: true, reply: result.choices[0]?.message?.content, usage: result.usage })
   } catch (err) {
-    console.error('[integrations/openai-chat]', err)
+    logger.error('[integrations/openai-chat]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'AI request failed. Check server logs for details.' })
   }
 })

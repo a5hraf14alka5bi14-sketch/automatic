@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
+import { useToast } from '../context/ToastContext.jsx'
 
 const STATUS_STYLES = {
   pending:   'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
@@ -22,6 +23,7 @@ const PAYMENT_ICONS = { cash: '💵', card: '💳', other: '📱' }
 
 export default function Orders() {
   const { fmt } = useCurrency()
+  const toast = useToast()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -35,10 +37,11 @@ export default function Orders() {
   const fetchOrders = async () => {
     try {
       const res = await apiFetch('/api/orders')
+      if (!res.ok) throw new Error('Failed to load orders')
       const data = await res.json()
       setOrders(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error(err)
+      toast('Failed to load orders. Please refresh.', 'error')
     } finally {
       setLoading(false)
     }
@@ -52,12 +55,18 @@ export default function Orders() {
 
   const updateStatus = async (id, status, opts = {}) => {
     try {
-      await apiFetch(`/api/orders/${id}/status`, {
+      const res = await apiFetch(`/api/orders/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status, ...opts })
       })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to update order')
+      }
       fetchOrders()
-    } catch (err) { console.error(err) }
+    } catch (err) {
+      toast(err.message || 'Failed to update order status', 'error')
+    }
   }
 
   const handlePay = async () => {

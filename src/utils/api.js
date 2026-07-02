@@ -32,6 +32,7 @@ export async function apiFetch(url, options = {}) {
     }
     localStorage.removeItem('auth_user')
     window.location.reload()
+    return res
   }
 
   return res

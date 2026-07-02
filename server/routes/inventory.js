@@ -3,6 +3,7 @@ import { pool, recordStockMovement } from '../db.js'
 import { validate } from '../middleware/validate.js'
 import { requireRole } from '../middleware/auth.js'
 import { inventoryCreateSchema, inventoryUpdateSchema } from '../validators.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -50,7 +51,7 @@ router.get('/', async (req, res) => {
     }
     const result = await pool.query(query, params)
     res.json(result.rows)
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── GET /api/inventory/low-stock ─────────────────────────────────────────────
@@ -60,7 +61,7 @@ router.get('/low-stock', async (req, res) => {
       'SELECT * FROM inventory WHERE quantity <= min_quantity ORDER BY (quantity / NULLIF(min_quantity,0)) ASC, name'
     )
     res.json(result.rows)
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── GET /api/inventory/stats ──────────────────────────────────────────────────
@@ -75,7 +76,7 @@ router.get('/stats', async (req, res) => {
       FROM inventory
     `)
     res.json(s.rows[0])
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 // ── POST /api/inventory ───────────────────────────────────────────────────────
@@ -104,7 +105,7 @@ router.post('/', validate(inventoryCreateSchema), async (req, res) => {
     res.status(201).json(created)
   } catch (err) {
     await client.query('ROLLBACK')
-    console.error(err); res.status(500).json({ error: 'Server error' })
+    logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' })
   } finally { client.release() }
 })
 
@@ -155,7 +156,7 @@ router.patch('/:id', validate(inventoryUpdateSchema), async (req, res) => {
     await client.query('COMMIT')
     res.json(result.rows[0])
   } catch (err) {
-    await client.query('ROLLBACK'); console.error(err); res.status(500).json({ error: 'Server error' })
+    await client.query('ROLLBACK'); logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' })
   } finally { client.release() }
 })
 
@@ -168,7 +169,7 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     // FK violation — item is used in recipes
     if (err.code === '23503') return res.status(409).json({ error: 'Item is used in recipes. Remove from recipes first.' })
-    console.error(err); res.status(500).json({ error: 'Server error' })
+    logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' })
   }
 })
 

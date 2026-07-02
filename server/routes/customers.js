@@ -3,6 +3,7 @@ import { pool } from '../db.js'
 import { validate } from '../middleware/validate.js'
 import { requireRole } from '../middleware/auth.js'
 import { customerCreateSchema, customerUpdateSchema } from '../validators.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -24,7 +25,7 @@ router.get('/', async (req, res) => {
       params.push(Math.max(parseInt(offset) || 0, 0)); query += ` OFFSET $${params.length}`
     }
     res.json((await pool.query(query, params)).rows)
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 router.get('/:id', async (req, res) => {
@@ -32,7 +33,7 @@ router.get('/:id', async (req, res) => {
     const result = await pool.query('SELECT * FROM customers WHERE id=$1', [req.params.id])
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 router.post('/', validate(customerCreateSchema), async (req, res) => {
@@ -45,7 +46,7 @@ router.post('/', validate(customerCreateSchema), async (req, res) => {
     res.status(201).json(result.rows[0])
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Email already exists' })
-    console.error(err); res.status(500).json({ error: 'Server error' })
+    logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -64,7 +65,7 @@ router.patch('/:id', validate(customerUpdateSchema), async (req, res) => {
     res.json(result.rows[0])
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Email already exists' })
-    console.error(err); res.status(500).json({ error: 'Server error' })
+    logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' })
   }
 })
 
@@ -77,7 +78,7 @@ router.patch('/:id/points', requireRole('admin', 'manager'), async (req, res) =>
     )
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 router.delete('/:id', requireRole('admin', 'manager'), async (req, res) => {
@@ -85,7 +86,7 @@ router.delete('/:id', requireRole('admin', 'manager'), async (req, res) => {
     const result = await pool.query('DELETE FROM customers WHERE id=$1 RETURNING id', [req.params.id])
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json({ success: true })
-  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
 export default router

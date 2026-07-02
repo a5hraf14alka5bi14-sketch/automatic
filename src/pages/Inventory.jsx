@@ -3,6 +3,7 @@ import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { useRole, canManage } from '../utils/auth.js'
+import { useToast } from '../context/ToastContext.jsx'
 
 const CATEGORIES = ['proteins', 'vegetables', 'grains', 'legumes', 'bread', 'dairy', 'fruits', 'pantry', 'spices', 'beverages', 'general']
 
@@ -296,6 +297,7 @@ function StockMovementsView() {
 
 export default function Inventory() {
   const { fmt } = useCurrency()
+  const toast = useToast()
   const isManager = canManage(useRole())
   const { refreshLowStock } = useSettings()
   const [view, setView] = useState('items')
@@ -314,13 +316,14 @@ export default function Inventory() {
         apiFetch('/api/inventory'),
         apiFetch('/api/inventory/stats'),
       ])
+      if (!itemsRes.ok || !statsRes.ok) throw new Error('Failed to load inventory')
       const [itemsData, statsData] = await Promise.all([itemsRes.json(), statsRes.json()])
       setItems(Array.isArray(itemsData) ? itemsData : [])
       setStats(statsData)
       refreshLowStock()
-    } catch (e) { console.error(e) }
+    } catch (e) { toast('Failed to load inventory data. Please refresh.', 'error') }
     setLoading(false)
-  }, [refreshLowStock])
+  }, [refreshLowStock, toast])
 
   useEffect(() => { load() }, [load])
 
