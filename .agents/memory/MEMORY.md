@@ -25,6 +25,7 @@
 - [Role-based access control](role-based-access.md) — router-level middleware for menu/inventory (all non-GET); per-route for customers (DELETE+points PATCH); frontend gating via src/utils/auth.js useRole()+canManage(); cashier sees read-only views
 - [Staff performance report](staff-reports.md) — orders.user_id INTEGER; GET /api/reports/staff requireRole(admin,manager); ORDERS_SELECT LEFT JOINs users; GROUP BY must include u.name or queries fail silently
 - [Brand logo / branding assets](brand-logo.md) — logo-full.png used across app; dark-theme placements wrap it in a white plate; PDF uses cached getLogoDataUrl()
+- [RTL Arabic PDF table extraction](rtl-pdf-extraction.md) — pdf-parse mangles RTL; use pdfjs-dist glyph x/y: rows by y, numbers by asc-x, Arabic names by desc-x join
 - [OpenAI daily summary](openai-summary.md) — generateDailySummary() in server/integrations/openai.js; GET+POST /api/integrations/openai/summary; stored in settings table as last_ai_summary + last_ai_summary_at; Integrations.jsx shows card + Generate button
 - [Recipe + food cost system](recipe-foodcost.md) — GET /api/menu/food-cost (all items with pct), PATCH /:id/recipe/:rid (update), GET /api/inventory/impact (low-stock → affected dishes); Recipes.jsx at /recipes; Inventory has Stocktake+Impact tabs
 - [Server logging standard](server-logging.md) — all routes import logger from ../logger.js; use logger.error(msg, {path:req.path}) not console.error; index.js global error handler keeps console.error as intentional fallback
