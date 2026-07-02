@@ -2,10 +2,10 @@
 
 ## Project Overview
 
-Full-stack restaurant management system built with React 18 + Vite (port 5000) and Express (port 3001) backed by PostgreSQL.
+Full-stack restaurant management system built with React 19 + Vite (port 5000) and Express (port 3001) backed by PostgreSQL.
 
 ### Stack
-- **Frontend:** React 18, Vite, Tailwind CSS — served on port 5000
+- **Frontend:** React 19, Vite, Tailwind CSS — served on port 5000
 - **Backend:** Express (ESM, `"type":"module"`) — served on port 3001 (localhost only)
 - **Database:** PostgreSQL via `DATABASE_URL` environment variable
 - **Run command:** `npm run dev` (concurrently runs server + client)

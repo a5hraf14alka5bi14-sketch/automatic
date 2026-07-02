@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/a5hraf14alka5bi14-sketch/Automatic-/actions/workflows/ci.yml/badge.svg)](https://github.com/a5hraf14alka5bi14-sketch/Automatic-/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.0.0-informational)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.1.0-informational)](./CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/Platform-Replit-orange)](https://replit.com)
 
 Manage your restaurant operations — POS, kitchen, inventory, customers, reporting, and AI automation — from one integrated dashboard.
@@ -24,16 +24,17 @@ Manage your restaurant operations — POS, kitchen, inventory, customers, report
 | 👨‍🍳 **Kitchen Display** | Live order queue, prep status, priority management |
 | 📦 **Inventory** | Ingredient tracking, low-stock alerts, cost analysis |
 | 👥 **Customers** | Profiles, loyalty points, order history |
-| 📊 **Reports** | Daily sales, revenue trends, best-sellers |
+| 🍽️ **Menu & Recipes** | Menu management, recipe → inventory cost linking, food-cost % |
+| 📊 **Reports** | 9 tabs: overview, profitability, menu, engineering matrix, forecast, heatmap, trends, stock, staff |
+| 🤖 **AI Executive** | GPT-powered executive dashboard, revenue forecasting, menu-engineering insights |
 | 🔌 **Integrations** | GitHub, Notion, and OpenAI — all connected |
-| 🤖 **AI Assistant** | GPT-powered suggestions via OpenAI integration |
 
 ---
 
 ## 🏗 Architecture
 
 ```
-Browser (React 18 + Vite)   →   port 5000
+Browser (React 19 + Vite)   →   port 5000
         ↕ REST API
 Express Backend              →   port 3001
         ↕
@@ -51,7 +52,7 @@ External services (server-side only, keys never reach browser):
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, Vite, Tailwind CSS |
+| Frontend | React 19, Vite, Tailwind CSS |
 | Backend | Node.js, Express (ESM) |
 | Database | PostgreSQL |
 | Auth | JWT + bcryptjs |
@@ -100,7 +101,7 @@ npm run dev
 ### Demo credentials
 ```
 Email:    admin@automatic.com
-Password: admin123
+Password: Admin123
 ```
 
 ---
@@ -125,15 +126,20 @@ All keys are stored as environment secrets and **never exposed to the browser**.
 Automatic-/
 ├── src/                    # React frontend
 │   ├── pages/              # One file per page/module
-│   ├── components/         # Shared UI components
+│   ├── components/         # Shared UI components (Sidebar, ReceiptModal, notion/)
+│   ├── context/            # Settings / Toast providers
+│   ├── assets/brand/       # Official logo assets
 │   ├── App.jsx
 │   └── main.jsx
 ├── server/                 # Express backend
 │   ├── index.js            # Entry point (port 3001)
 │   ├── db.js               # DB pool + schema init
 │   ├── notion.js           # Notion client + helpers
-│   ├── integrations/       # GitHub & OpenAI clients
-│   └── routes/             # API route handlers
+│   ├── logger.js           # Structured logging
+│   ├── integrations/       # GitHub, OpenAI, Notion REST, sync-engine
+│   └── routes/             # API route handlers (auth, menu, orders, ai, reports, …)
+├── tests/                  # Vitest business-logic tests
+├── public/                 # Static assets & favicon
 ├── docs/                   # Technical documentation
 ├── .github/                # CI workflows & issue templates
 ├── .env.example            # Environment variable reference
@@ -152,14 +158,18 @@ Automatic-/
 - [x] Inventory tracking
 - [x] Customer management & loyalty
 - [x] Reports & analytics
+- [x] Menu & recipes with food-cost linking
 - [x] GitHub integration (repo sync)
 - [x] Notion integration (bidirectional project/task sync)
 - [x] OpenAI integration (AI chat)
+- [x] AI Executive dashboard & revenue forecasting
+- [x] Menu-engineering matrix
+- [x] Official brand logo across app & printed outputs
 - [ ] QR code menu
 - [ ] Mobile application
 - [ ] Multi-branch support
-- [ ] AI sales forecasting
 - [ ] Customer-facing online ordering
+- [ ] Deployment automation & production monitoring
 
 ---
 

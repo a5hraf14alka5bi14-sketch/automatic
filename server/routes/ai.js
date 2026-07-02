@@ -2,10 +2,11 @@ import express from 'express'
 import { pool } from '../db.js'
 import { logger } from '../logger.js'
 import { generateExecutiveInsights } from '../integrations/openai.js'
+import { requireRole } from '../middleware/auth.js'
 
 const router = express.Router()
 
-router.post('/insights', async (req, res) => {
+router.post('/insights', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const { kpis = {}, forecastStats = {}, matrixSummary = {} } = req.body
     const insights = await generateExecutiveInsights({ ...kpis, ...forecastStats, ...matrixSummary })

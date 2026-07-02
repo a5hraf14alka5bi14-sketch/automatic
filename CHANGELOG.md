@@ -6,6 +6,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.0] — 2026-07-02
+
+### Added — AI Executive & Revenue Intelligence
+- **AI Executive dashboard** (`/ai-executive`) — GPT-generated executive insights via `generateExecutiveInsights()`
+- **Revenue forecasting** — `GET /api/reports/forecast` projects upcoming revenue from historical trends
+- **Menu-engineering matrix** — `GET /api/reports/menu-matrix` classifies items (stars / plowhorses / puzzles / dogs)
+- Reports page expanded to **9 tabs**: overview, profitability, menu, matrix, forecast, heatmap, trends, stock, staff
+- New `/api/ai` route and `AIExecutive.jsx` page; AI Executive item added to sidebar
+- OpenAI daily summary generation stored in settings
+
+### Added — Branding
+- Official restaurant logo (الأوتوماتيك اللبناني · مأكولات لبنانية) integrated across login, sidebar, dashboard, Notion page, Reports PDF export, and printed receipts
+- Favicon and browser title updated to the official brand
+
+### Improved
+- Kitchen Display System made mobile-responsive (1 → 2 → 3 column layout)
+- Staff performance report with per-cashier metrics
+- Structured server logging via `server/logger.js`
+- Database precision upgraded to `NUMERIC(10,3)` and foreign keys added for orders
+
+---
+
 ## [1.0.0-beta] — 2026-06-29
 
 ### Added — Menu & Recipes Module

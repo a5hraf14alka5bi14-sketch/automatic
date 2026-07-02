@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Browser (React 18)                   │
+│                    Browser (React 19)                   │
 │   Dashboard · POS · Orders · Kitchen · Inventory ···    │
 │                     port 5000 (Vite)                    │
 └────────────────────────┬────────────────────────────────┘
@@ -23,6 +23,8 @@
 │  /api/reports       Sales & revenue reports             │
 │  /api/notion        Notion project/task sync            │
 │  /api/integrations  GitHub · Notion · OpenAI hub        │
+│  /api/ai            AI executive insights & forecasting │
+│  /api/users         User administration                 │
 └──────┬───────────────────────┬──────────────────────────┘
        │                       │
        ▼                       ▼

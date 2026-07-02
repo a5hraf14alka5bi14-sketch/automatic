@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { logger } from '../logger.js'
+import { requireRole } from '../middleware/auth.js'
 import { getGitHubToken, testGitHubConnection, fetchGitHubRepos } from '../integrations/github.js'
 import { getOpenAIKey, testOpenAIConnection } from '../integrations/openai.js'
 import { getNotionConfig, getNotionClient } from '../notion.js'
@@ -115,7 +116,7 @@ router.get('/', async (req, res) => {
 
 // ── PUT /api/integrations/:service/config ────────────────────────────────────
 
-router.put('/:service/config', async (req, res) => {
+router.put('/:service/config', requireRole('admin', 'manager'), async (req, res) => {
   const { service } = req.params
   try {
     if (service === 'github') {
@@ -141,7 +142,7 @@ router.put('/:service/config', async (req, res) => {
 
 // ── POST /api/integrations/:service/test ─────────────────────────────────────
 
-router.post('/:service/test', async (req, res) => {
+router.post('/:service/test', requireRole('admin', 'manager'), async (req, res) => {
   const { service } = req.params
   try {
     if (service === 'github') {
@@ -164,7 +165,7 @@ router.post('/:service/test', async (req, res) => {
 
 // ── POST /api/integrations/notion/sync — pull all from Notion ────────────────
 
-router.post('/notion/sync', async (req, res) => {
+router.post('/notion/sync', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const { type } = req.body
     let result
@@ -240,7 +241,7 @@ router.get('/notion/sync/status', async (req, res) => {
 
 // ── PUT /api/integrations/notion/auto-sync ───────────────────────────────────
 
-router.put('/notion/auto-sync', async (req, res) => {
+router.put('/notion/auto-sync', requireRole('admin', 'manager'), async (req, res) => {
   const { enabled, interval_minutes } = req.body
   try {
     const mins = Math.max(5, Math.min(1440, parseInt(interval_minutes) || 15))
@@ -282,7 +283,7 @@ router.get('/notion/auto-sync', async (req, res) => {
 
 // ── POST /api/integrations/github/sync ───────────────────────────────────────
 
-router.post('/github/sync', async (req, res) => {
+router.post('/github/sync', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const repos = await fetchGitHubRepos()
     let synced = 0
@@ -330,7 +331,7 @@ router.get('/github/repos', async (req, res) => {
 
 // ── POST /api/integrations/github/link-notion — link repo to project ─────────
 
-router.post('/github/link-notion', async (req, res) => {
+router.post('/github/link-notion', requireRole('admin', 'manager'), async (req, res) => {
   const { github_repo_id, notion_project_id } = req.body
   if (!github_repo_id) return res.status(400).json({ error: 'github_repo_id required' })
   try {
@@ -353,7 +354,7 @@ router.post('/github/link-notion', async (req, res) => {
 
 // ── POST /api/integrations/notion/push — push PG records without notion_id ──
 
-router.post('/notion/push', async (req, res) => {
+router.post('/notion/push', requireRole('admin', 'manager'), async (req, res) => {
   const { type } = req.body
   try {
     let result
@@ -405,7 +406,7 @@ router.get('/openai/summary', async (req, res) => {
 })
 
 // ── POST /api/integrations/openai/summary — generate & store daily summary ───
-router.post('/openai/summary', async (req, res) => {
+router.post('/openai/summary', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const { generateDailySummary } = await import('../integrations/openai.js')
     const dashRes = await fetch(`http://localhost:${process.env.PORT || 3001}/api/dashboard`, {
@@ -425,7 +426,7 @@ router.post('/openai/summary', async (req, res) => {
 
 // ── POST /api/integrations/openai/chat ───────────────────────────────────────
 
-router.post('/openai/chat', async (req, res) => {
+router.post('/openai/chat', requireRole('admin', 'manager'), async (req, res) => {
   const { messages, model } = req.body
   if (!messages?.length) return res.status(400).json({ error: 'messages required' })
   try {

@@ -176,15 +176,16 @@ export default function ReceiptModal({ order, settings, onClose }) {
       style.id = styleId
       document.head.appendChild(style)
     }
+    const safeSize = PAPER_PX[paperSize] ? paperSize : '80mm'
     style.innerHTML = `
       @media print {
-        @page { size: ${paperSize} auto; margin: 4mm; }
+        @page { size: ${safeSize} auto; margin: 4mm; }
         body > * { visibility: hidden !important; }
         #receipt-print-target, #receipt-print-target * { visibility: visible !important; }
         #receipt-print-target {
           position: fixed !important;
           top: 0; left: 0;
-          width: ${paperSize};
+          width: ${safeSize};
           background: white;
           padding: 4mm;
         }
