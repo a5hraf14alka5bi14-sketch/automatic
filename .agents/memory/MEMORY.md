@@ -28,6 +28,8 @@
 - [Brand logo / branding assets](brand-logo.md) — logo-full.png used across app; dark-theme placements wrap it in a white plate; PDF uses cached getLogoDataUrl()
 - [RTL Arabic PDF table extraction](rtl-pdf-extraction.md) — pdf-parse mangles RTL; use pdfjs-dist glyph x/y: rows by y, numbers by asc-x, Arabic names by desc-x join
 - [OpenAI daily summary](openai-summary.md) — generateDailySummary() in server/integrations/openai.js; GET+POST /api/integrations/openai/summary; stored in settings table as last_ai_summary + last_ai_summary_at; Integrations.jsx shows card + Generate button
+- [pg_dump backup credentials](pg-dump-backup.md) — pass DB creds via parsed PG* env vars not argv; PGDATABASE=$URL does NOT work (libpq only expands a URI via the dbname/-d param)
+- [Express 5 + Tailwind 4 upgrade](express5-tailwind4-upgrade.md) — only breakages: bare `app.get('*')` SPA fallback (→ middleware) and Tailwind v4 border default = currentColor (compat layer)
 - [DB migration runner](db-migration-runner.md) — numbered .sql in server/migrations/ via advisory-locked runMigrations(); db.js stays baseline
 - [Soft delete](soft-delete.md) — deleted_at on menu_items/inventory/customers; filter only entity list/detail/stats, NOT historical order/report joins
 - [Unit conversion for stock deduction](unit-conversion.md) — convertQuantity within-dimension only; computeDeductAmount falls back to raw qty on incompatible units

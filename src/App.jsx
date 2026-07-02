@@ -20,6 +20,7 @@ import Settings from './pages/Settings.jsx'
 import ChangePassword from './pages/ChangePassword.jsx'
 import Login from './pages/Login.jsx'
 import AIExecutive from './pages/AIExecutive.jsx'
+import System from './pages/System.jsx'
 
 function RequireRole({ routeId, role, children }) {
   if (!canAccessRoute(routeId, role)) {
@@ -79,6 +80,7 @@ function AppLayout({ user, onLogout }) {
               <Route path="/integrations" element={<RequireRole routeId="integrations" role={role}><Integrations /></RequireRole>} />
               <Route path="/notion" element={<RequireRole routeId="notion" role={role}><NotionIntegration /></RequireRole>} />
               <Route path="/ai-executive" element={<RequireRole routeId="ai-executive" role={role}><AIExecutive /></RequireRole>} />
+              <Route path="/system" element={<RequireRole routeId="system" role={role}><System /></RequireRole>} />
               <Route path="/change-password" element={<ChangePassword />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

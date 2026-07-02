@@ -24,6 +24,7 @@ export const ROUTE_ROLES = {
   integrations: ['admin', 'manager'],
   notion: ['admin', 'manager'],
   'ai-executive': ['admin', 'manager'],
+  system: ['admin'],
 }
 
 export function canAccessRoute(routeId, role) {

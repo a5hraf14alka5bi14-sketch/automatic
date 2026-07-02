@@ -5,8 +5,8 @@
 Full-stack restaurant management system built with React 19 + Vite (port 5000) and Express (port 3001) backed by PostgreSQL.
 
 ### Stack
-- **Frontend:** React 19, Vite, Tailwind CSS — served on port 5000
-- **Backend:** Express (ESM, `"type":"module"`) — served on port 3001 (localhost only)
+- **Frontend:** React 19, Vite, Tailwind CSS v4 (`@tailwindcss/postcss`, `@import "tailwindcss"` + `@config`) — served on port 5000
+- **Backend:** Express 5 (ESM, `"type":"module"`) — served on port 3001 (localhost only)
 - **Database:** PostgreSQL via `DATABASE_URL` environment variable
 - **Run command:** `npm run dev` (concurrently runs server + client)
 
@@ -22,6 +22,12 @@ Full-stack restaurant management system built with React 19 + Vite (port 5000) a
 | Reports | `src/pages/Reports.jsx` |
 | Integrations | `src/pages/Integrations.jsx` |
 | Notion Sync | `src/pages/NotionIntegration.jsx` |
+| System (admin) | `src/pages/System.jsx` — metrics, on-demand backup download, audit log (admin-only) |
+
+> **Large pages are split into components.** `POS.jsx` and `Reports.jsx` grew too
+> large to stay single-file, so their sub-components live in `src/components/pos/`
+> and `src/components/reports/` (the page file keeps all state/data-fetching and
+> passes props down). See the User Preferences note below.
 
 ### Server structure
 ```
@@ -33,6 +39,8 @@ server/
   lib/
     units.js            — unit conversion (kg↔g, L↔ml, dozen↔pcs)
     inventory.js        — pure stock-deduction math (convert + clamp)
+    observability.js    — requestLogger middleware + getMetrics() counters
+    audit.js            — auditMutations middleware (records successful mutations, best-effort)
   notion.js             — Notion client + helpers
   integrations/
     github.js           — GitHub API client
@@ -40,6 +48,7 @@ server/
   routes/
     auth.js             — JWT auth
     integrations.js     — GitHub / Notion / OpenAI hub
+    admin.js            — admin-only: GET /metrics, /audit, /backup (pg_dump stream)
     notion.js           — Notion projects & tasks CRUD
     menu.js / orders.js / inventory.js / customers.js / dashboard.js / reports.js
 ```
@@ -70,6 +79,6 @@ server/
 
 - Dark theme (slate-950 background) with orange-500 accents — maintain this palette
 - Arabic language support: status labels stored in Arabic, mapped to English internally
-- Keep all pages as single-file JSX components in `src/pages/`
+- Prefer single-file JSX components in `src/pages/`, but split a page into `src/components/<page>/` once it grows too large to navigate (as done for POS and Reports). The page file keeps all state/data-fetching; extracted pieces are presentational and take props.
 - No TypeScript — plain JSX throughout
 - Secrets must never be exposed to the browser; all API calls to third-party services go through the Express backend

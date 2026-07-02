@@ -35,3 +35,6 @@ Thumbs.db
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Local DB backups
+backups/

@@ -19,6 +19,9 @@ import integrationsRoutes from './routes/integrations.js'
 import settingsRoutes from './routes/settings.js'
 import usersRoutes from './routes/users.js'
 import aiRoutes from './routes/ai.js'
+import adminRoutes from './routes/admin.js'
+import { requestLogger } from './lib/observability.js'
+import { auditMutations } from './lib/audit.js'
 import { initDb, pool } from './db.js'
 import { runMigrations } from './migrate.js'
 import { registerAdapter, startAutoSync } from './integrations/sync-engine.js'
@@ -70,6 +73,9 @@ app.use(express.json({ limit: '1mb' }))
 // ── Parse cookies (httpOnly auth tokens) ──────────────────────────────────────
 app.use(cookieParser())
 
+// ── Observability: request id + timing + metrics counters ─────────────────────
+app.use(requestLogger)
+
 // ── Rate limiting: max 10 login attempts per minute per IP ────────────────────
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -112,6 +118,9 @@ app.use('/api', generalLimiter)
 app.use(verifyToken)
 app.use(enforcePasswordChange)
 
+// ── Audit trail for authenticated mutations ───────────────────────────────────
+app.use(auditMutations)
+
 app.use('/api/menu', menuRoutes)
 app.use('/api/orders', ordersRoutes)
 app.use('/api/inventory', inventoryRoutes)
@@ -123,14 +132,16 @@ app.use('/api/integrations', integrationsRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/users', usersRoutes)
 app.use('/api/ai', aiRoutes)
+app.use('/api/admin', adminRoutes)
 
 if (IS_PROD) {
   const distPath = path.join(__dirname, '../dist')
   app.use(express.static(distPath))
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api/')) {
-      res.sendFile(path.join(distPath, 'index.html'))
-    }
+  // SPA fallback. Express 5 (path-to-regexp v8) no longer accepts a bare '*'
+  // route pattern, so use a middleware that serves index.html for non-API GETs.
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api/')) return next()
+    res.sendFile(path.join(distPath, 'index.html'))
   })
 }
 

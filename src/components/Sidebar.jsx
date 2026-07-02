@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { id: 'settings',     label: 'Settings',        icon: '⚙️', divider: true },
   { id: 'integrations', label: 'Integrations',    icon: '🔌' },
   { id: 'notion',       label: 'Notion Sync',     icon: '📓' },
+  { id: 'system',       label: 'System',          icon: '🖥️' },
 ]
 
 const ROLE_COLORS = {
