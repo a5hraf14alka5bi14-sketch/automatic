@@ -91,6 +91,14 @@ describe('Inventory Deduction', () => {
     expect(deductInventory(0.5, 2)).toBe(0)
   })
 
+  it('clamps at exactly zero when deduction equals stock', () => {
+    expect(deductInventory(1.0, 1.0)).toBe(0)
+  })
+
+  it('handles fractional gram quantities', () => {
+    expect(deductInventory(0.750, 0.250)).toBe(0.5)
+  })
+
   it('triggers deduction only when transitioning to completed', () => {
     expect(shouldDeduct('pending', 'completed')).toBe(true)
     expect(shouldDeduct('preparing', 'completed')).toBe(true)
@@ -161,6 +169,14 @@ describe('Loyalty Points', () => {
     const requested = 100
     expect(capRedemption(requested, available, Infinity, 1000)).toBe(available)
   })
+
+  it('returns fractional OMR discount to 3 decimal places', () => {
+    expect(calcLoyaltyDiscount(5, 3)).toBe(1.667)
+  })
+
+  it('returns 0 discount when pointsPerOmr is 0', () => {
+    expect(calcLoyaltyDiscount(100, 0)).toBe(0)
+  })
 })
 
 // ── Date Filter ───────────────────────────────────────────────────────────────
@@ -224,6 +240,11 @@ describe('Role Validation', () => {
     expect(canAdmin('manager')).toBe(false)
     expect(canAdmin('cashier')).toBe(false)
   })
+
+  it('cashier role cannot manage', () => {
+    expect(canManage('cashier')).toBe(false)
+    expect(canAdmin('cashier')).toBe(false)
+  })
 })
 
 // ── OMR Currency Formatting ───────────────────────────────────────────────────
@@ -255,6 +276,10 @@ describe('OMR Currency Formatting', () => {
   it('handles null and undefined gracefully', () => {
     expect(formatOMR(null)).toBe('OMR 0.000')
     expect(formatOMR(undefined)).toBe('OMR 0.000')
+  })
+
+  it('supports custom currency symbol', () => {
+    expect(formatOMR(5, 'USD')).toBe('USD 5.000')
   })
 })
 
@@ -290,6 +315,13 @@ describe('Pagination', () => {
     expect(p.hasNext).toBe(false)
     expect(p.hasPrev).toBe(false)
   })
+
+  it('calculates middle page correctly', () => {
+    const p = calcPagination(100, 20, 40)
+    expect(p.page).toBe(3)
+    expect(p.hasNext).toBe(true)
+    expect(p.hasPrev).toBe(true)
+  })
 })
 
 // ── Health Check Response Shape ───────────────────────────────────────────────
@@ -317,5 +349,114 @@ describe('Health Check Shape', () => {
     const degraded = { status: 'error', db: 'error', ts: Date.now() }
     expect(isHealthDegraded(degraded)).toBe(true)
     expect(isHealthOk(degraded)).toBe(false)
+  })
+})
+
+// ── Order Status State Machine ────────────────────────────────────────────────
+const STATUS_FLOW = {
+  pending:   ['preparing', 'cancelled'],
+  preparing: ['ready', 'cancelled'],
+  ready:     ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+}
+
+function isValidTransition(from, to) {
+  return (STATUS_FLOW[from] || []).includes(to)
+}
+
+function isTerminalStatus(status) {
+  return status === 'completed' || status === 'cancelled'
+}
+
+describe('Order Status State Machine', () => {
+  it('allows valid forward transitions', () => {
+    expect(isValidTransition('pending', 'preparing')).toBe(true)
+    expect(isValidTransition('preparing', 'ready')).toBe(true)
+    expect(isValidTransition('ready', 'completed')).toBe(true)
+  })
+
+  it('allows cancellation from any non-terminal status', () => {
+    expect(isValidTransition('pending', 'cancelled')).toBe(true)
+    expect(isValidTransition('preparing', 'cancelled')).toBe(true)
+    expect(isValidTransition('ready', 'cancelled')).toBe(true)
+  })
+
+  it('blocks backward transitions', () => {
+    expect(isValidTransition('preparing', 'pending')).toBe(false)
+    expect(isValidTransition('ready', 'preparing')).toBe(false)
+    expect(isValidTransition('completed', 'ready')).toBe(false)
+  })
+
+  it('blocks transitions from terminal states', () => {
+    expect(isValidTransition('completed', 'cancelled')).toBe(false)
+    expect(isValidTransition('cancelled', 'pending')).toBe(false)
+    expect(isValidTransition('cancelled', 'completed')).toBe(false)
+  })
+
+  it('identifies terminal statuses', () => {
+    expect(isTerminalStatus('completed')).toBe(true)
+    expect(isTerminalStatus('cancelled')).toBe(true)
+    expect(isTerminalStatus('pending')).toBe(false)
+    expect(isTerminalStatus('preparing')).toBe(false)
+  })
+})
+
+// ── Staff Report Calculations ─────────────────────────────────────────────────
+function calcAvgTicket(revenue, orderCount) {
+  if (!orderCount || orderCount === 0) return 0
+  return parseFloat((revenue / orderCount).toFixed(3))
+}
+
+function buildStaffReport(staffRows) {
+  return staffRows.map(r => ({
+    ...r,
+    avgTicket: calcAvgTicket(r.revenue, r.orders),
+  })).sort((a, b) => b.revenue - a.revenue || b.orders - a.orders)
+}
+
+function filterStaffByRole(rows, role) {
+  if (!role || role === 'all') return rows
+  return rows.filter(r => r.role === role)
+}
+
+describe('Staff Report Calculations', () => {
+  const mockStaff = [
+    { id: 1, name: 'Alice', role: 'admin',   orders: 10, revenue: 120.5 },
+    { id: 2, name: 'Bob',   role: 'cashier', orders: 8,  revenue: 80.0 },
+    { id: 3, name: 'Carol', role: 'manager', orders: 0,  revenue: 0 },
+  ]
+
+  it('calculates average ticket per staff', () => {
+    expect(calcAvgTicket(120.5, 10)).toBe(12.05)
+    expect(calcAvgTicket(80.0, 8)).toBe(10)
+  })
+
+  it('returns 0 average ticket when no orders', () => {
+    expect(calcAvgTicket(0, 0)).toBe(0)
+    expect(calcAvgTicket(50, 0)).toBe(0)
+  })
+
+  it('sorts staff by revenue descending', () => {
+    const report = buildStaffReport(mockStaff)
+    expect(report[0].name).toBe('Alice')
+    expect(report[1].name).toBe('Bob')
+  })
+
+  it('adds avgTicket to each row', () => {
+    const report = buildStaffReport(mockStaff)
+    expect(report[0].avgTicket).toBe(12.05)
+    expect(report[2].avgTicket).toBe(0)
+  })
+
+  it('filters by role', () => {
+    const cashiers = filterStaffByRole(mockStaff, 'cashier')
+    expect(cashiers.length).toBe(1)
+    expect(cashiers[0].name).toBe('Bob')
+  })
+
+  it('returns all rows when role is "all"', () => {
+    expect(filterStaffByRole(mockStaff, 'all').length).toBe(3)
+    expect(filterStaffByRole(mockStaff, null).length).toBe(3)
   })
 })

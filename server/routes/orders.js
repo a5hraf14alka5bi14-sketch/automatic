@@ -18,6 +18,7 @@ async function getSettings(client) {
 
 const ORDERS_SELECT = `
   SELECT o.*,
+    u.name AS staff_name,
     COUNT(oi.id) AS items_count,
     COALESCE(
       json_agg(
@@ -34,6 +35,7 @@ const ORDERS_SELECT = `
       '[]'
     ) AS items
   FROM orders o
+  LEFT JOIN users u ON u.id = o.user_id
   LEFT JOIN order_items oi ON oi.order_id = o.id
 `
 
@@ -46,7 +48,7 @@ router.get('/', async (req, res) => {
       query += ` WHERE o.status = ANY($1::text[])`
       params.push(status.split(','))
     }
-    query += ` GROUP BY o.id ORDER BY o.created_at DESC`
+    query += ` GROUP BY o.id, u.name ORDER BY o.created_at DESC`
     if (limit) { query += ` LIMIT $${params.length + 1}`; params.push(parseInt(limit)) }
     res.json((await pool.query(query, params)).rows)
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
@@ -55,7 +57,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const order = await pool.query(
-      `${ORDERS_SELECT} WHERE o.id=$1 GROUP BY o.id`,
+      `${ORDERS_SELECT} WHERE o.id=$1 GROUP BY o.id, u.name`,
       [req.params.id]
     )
     if (!order.rows.length) return res.status(404).json({ error: 'Not found' })
@@ -66,7 +68,7 @@ router.get('/:id', async (req, res) => {
 router.get('/customer/:customerId', async (req, res) => {
   try {
     const result = await pool.query(
-      `${ORDERS_SELECT} WHERE o.customer_id=$1 GROUP BY o.id ORDER BY o.created_at DESC LIMIT 20`,
+      `${ORDERS_SELECT} WHERE o.customer_id=$1 GROUP BY o.id, u.name ORDER BY o.created_at DESC LIMIT 20`,
       [req.params.customerId]
     )
     res.json(result.rows)

@@ -1,5 +1,6 @@
 import express from 'express'
 import { pool } from '../db.js'
+import { requireRole } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -238,7 +239,7 @@ router.get('/export', async (req, res) => {
 })
 
 // ── GET /api/reports/staff?period=today ──────────────────────────────────────
-router.get('/staff', async (req, res) => {
+router.get('/staff', requireRole('admin', 'manager'), async (req, res) => {
   const { period = 'today' } = req.query
   const df = dateFilter(period, 'o')
 

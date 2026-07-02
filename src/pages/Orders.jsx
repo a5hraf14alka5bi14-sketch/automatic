@@ -194,6 +194,7 @@ export default function Orders() {
                     )}
                   </div>
                   {order.table_number && <p className="text-slate-400 text-xs">Table {order.table_number}</p>}
+                  {order.staff_name && <p className="text-slate-500 text-xs">Staff: {order.staff_name}</p>}
                   {order.notes && <p className="text-slate-500 text-xs mt-0.5 italic">"{order.notes}"</p>}
                   <p className="text-slate-600 text-xs mt-1">{new Date(order.created_at).toLocaleString()}</p>
                   {Array.isArray(order.items) && order.items.length > 0 && (

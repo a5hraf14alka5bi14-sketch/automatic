@@ -22,5 +22,5 @@
 - [PDF export](pdf-export.md) — jsPDF + jspdf-autotable, client-side (no Puppeteer); dark-themed branded; doc.lastAutoTable.finalY to stack tables
 - [Loyalty redemption](loyalty-redemption.md) — loyalty_discount column on orders; PATCH body loyalty_redemption_points; PaymentModal toggle with live "Amount Due"; single UPDATE nets earned−redeemed
 - [Role-based access control](role-based-access.md) — router-level middleware for menu/inventory (all non-GET); per-route for customers (DELETE+points PATCH); frontend gating via src/utils/auth.js useRole()+canManage(); cashier sees read-only views
-- [Staff performance report](staff-reports.md) — orders.user_id INTEGER column (ALTER TABLE); POST /api/orders stores req.user?.id; GET /api/reports/staff uses LEFT JOIN users+orders; Reports.jsx has 7th "👤 Staff" tab with lazy fetch
+- [Staff performance report](staff-reports.md) — orders.user_id INTEGER; GET /api/reports/staff requireRole(admin,manager); ORDERS_SELECT LEFT JOINs users; GROUP BY must include u.name or queries fail silently
 - [OpenAI daily summary](openai-summary.md) — generateDailySummary() in server/integrations/openai.js; GET+POST /api/integrations/openai/summary; stored in settings table as last_ai_summary + last_ai_summary_at; Integrations.jsx shows card + Generate button
