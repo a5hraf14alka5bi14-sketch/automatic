@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { readFile } from 'node:fs/promises'
 const { Pool } = pg
 
 export const pool = new Pool({
@@ -342,35 +343,27 @@ export async function initDb() {
 
     const menuCheck = await client.query('SELECT id FROM menu_items LIMIT 1')
     if (menuCheck.rows.length === 0) {
-      const items = [
-        ['Grilled Chicken Shawarma', 'shawarma', 12.99, 'Tender grilled chicken with garlic sauce', 30, '🌯,chicken,popular', 4.20],
-        ['Mixed Shawarma Plate', 'shawarma', 16.99, 'Chicken and meat shawarma with sides', 35, '🌯,mixed,popular', 5.50],
-        ['Mixed Grill Platter', 'grills', 22.99, 'Assorted grilled meats with sides', 40, '🔥,grill,popular', 7.80],
-        ['Shish Tawook', 'grills', 14.99, 'Marinated chicken skewers', 25, '🔥,chicken', 4.80],
-        ['Lamb Kofta', 'grills', 16.99, 'Spiced minced lamb skewers', 30, '🔥,lamb', 5.90],
-        ['Falafel Wrap', 'sandwiches', 8.99, 'Crispy falafel with tahini and veggies', 10, '🥪,vegetarian,falafel', 2.10],
-        ['Kafta Sandwich', 'sandwiches', 9.99, 'Spiced meat sandwich with veggies', 12, '🥪,meat', 3.20],
-        ['Hummus & Pita', 'appetizers', 6.99, 'Creamy hummus with fresh pita bread', 5, '🥙,vegetarian', 1.80],
-        ['Fattoush Salad', 'salads', 7.49, 'Fresh salad with crispy bread', 8, '🥗,vegetarian,fresh', 2.30],
-        ['Tabbouleh', 'salads', 7.49, 'Parsley, tomato and bulgur salad', 8, '🥗,vegetarian,fresh', 1.90],
-        ['Lebanese Salad', 'salads', 6.99, 'Fresh seasonal vegetables', 5, '🥗,vegetarian', 1.60],
-        ['Cheese Manakish', 'manakish', 7.99, 'Flatbread with akkawi cheese', 12, '🫓,cheese,breakfast', 2.50],
-        ['Zaatar Manakish', 'manakish', 5.99, 'Flatbread with zaatar and olive oil', 10, '🫓,zaatar,breakfast,vegetarian', 1.50],
-        ['Meat Manakish', 'manakish', 8.99, 'Flatbread with spiced minced meat', 15, '🫓,meat,breakfast', 3.00],
-        ['Kafta Meal', 'meals', 15.99, 'Kafta with rice and salad', 25, '🍱,meal,complete', 5.20],
-        ['Grilled Chicken Meal', 'meals', 14.99, 'Grilled chicken with rice and salad', 25, '🍱,meal,chicken', 4.90],
-        ['Lemonade Mint', 'drinks', 3.99, 'Fresh lemon with mint leaves', 3, '🥤,fresh,cold', 0.70],
-        ['Jallab Juice', 'drinks', 4.49, 'Rose water, grape juice and pine nuts', 3, '🥤,traditional', 0.90],
-        ['Arabic Coffee', 'drinks', 2.99, 'Traditional cardamom coffee', 5, '☕,hot,traditional', 0.60],
-        ['Lebanese Tea', 'drinks', 2.49, 'Herbal tea blend', 5, '☕,hot', 0.40],
-        ['Kunafa', 'desserts', 5.99, 'Sweet cheese pastry with syrup', 15, '🍮,sweet,hot', 2.00],
-        ['Baklava Plate', 'desserts', 4.99, 'Assorted honey nut pastries', 5, '🍮,sweet,cold', 1.80],
-        ['Maamoul', 'desserts', 3.99, 'Date-filled semolina cookies', 5, '🍮,traditional', 1.20],
-      ]
-      for (const [name, category, price, description, prep_time, tags, food_cost] of items) {
+      // Seed the real Arabic menu (names, real prices, drinks & desserts) from
+      // the exported customer menu. Keeping it in a data file avoids a large
+      // hardcoded array and keeps a fresh/production DB in sync with the real
+      // menu instead of generic English demo dishes.
+      let items
+      try {
+        items = JSON.parse(
+          await readFile(new URL('./seed-data/menu-items.json', import.meta.url), 'utf8')
+        )
+      } catch (err) {
+        throw new Error(`Failed to load menu seed (server/seed-data/menu-items.json): ${err.message}`)
+      }
+      for (const item of items) {
         await client.query(
-          'INSERT INTO menu_items (name, category, price, description, prep_time, tags, food_cost) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-          [name, category, price, description, prep_time, tags, food_cost]
+          `INSERT INTO menu_items (name, category, price, description, prep_time, tags, food_cost, available, image_url)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [
+            item.name, item.category, item.price, item.description ?? '',
+            item.prep_time ?? 15, item.tags ?? '', item.food_cost ?? 0,
+            item.available ?? true, item.image_url ?? null,
+          ]
         )
       }
     }
