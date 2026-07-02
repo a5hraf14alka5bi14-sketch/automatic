@@ -135,6 +135,27 @@ router.delete('/modifiers/:mid', async (req, res) => {
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
+// ── GET /api/menu/food-cost — all items with cost % & margin ─────────────────
+router.get('/food-cost', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        m.id, m.name, m.category, m.price, m.food_cost, m.available,
+        CASE WHEN m.price > 0 THEN ROUND((m.food_cost / m.price * 100)::numeric, 1) ELSE 0 END AS food_cost_pct,
+        CASE WHEN m.price > 0 THEN ROUND(((m.price - m.food_cost) / m.price * 100)::numeric, 1) ELSE 0 END AS margin_pct,
+        COUNT(r.id)::int AS ingredient_count
+      FROM menu_items m
+      LEFT JOIN recipe_ingredients r ON r.menu_item_id = m.id
+      GROUP BY m.id
+      ORDER BY food_cost_pct DESC NULLS LAST
+    `)
+    res.json(result.rows)
+  } catch (err) {
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 // ── GET /api/menu/:id ─────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
@@ -300,6 +321,35 @@ router.delete('/:id/recipe/:rid', async (req, res) => {
       [req.params.id]
     )
     res.json({ success: true })
+  } catch (err) {
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ── PATCH /api/menu/:id/recipe/:rid — update ingredient ───────────────────────
+router.patch('/:id/recipe/:rid', async (req, res) => {
+  const { quantity, unit, cost } = req.body
+  try {
+    const result = await pool.query(
+      `UPDATE recipe_ingredients SET
+        quantity=COALESCE($1,quantity),
+        unit=COALESCE($2,unit),
+        cost=COALESCE($3,cost)
+       WHERE id=$4 AND menu_item_id=$5 RETURNING *`,
+      [quantity !== undefined ? parseFloat(quantity) : null,
+       unit || null,
+       cost !== undefined ? parseFloat(cost) : null,
+       req.params.rid, req.params.id]
+    )
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
+    await pool.query(
+      `UPDATE menu_items SET food_cost=(
+        SELECT COALESCE(SUM(cost*quantity),0) FROM recipe_ingredients WHERE menu_item_id=$1
+      ) WHERE id=$1`,
+      [req.params.id]
+    )
+    res.json(result.rows[0])
   } catch (err) {
     logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })

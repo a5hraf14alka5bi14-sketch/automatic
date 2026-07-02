@@ -9,6 +9,7 @@ import POS from './pages/POS.jsx'
 import Orders from './pages/Orders.jsx'
 import Kitchen from './pages/Kitchen.jsx'
 import Inventory from './pages/Inventory.jsx'
+import Recipes from './pages/Recipes.jsx'
 import Customers from './pages/Customers.jsx'
 import Reports from './pages/Reports.jsx'
 import NotionIntegration from './pages/NotionIntegration.jsx'
@@ -61,6 +62,7 @@ function AppLayout({ user, onLogout }) {
               <Route path="/kitchen" element={<Kitchen />} />
               <Route path="/menu" element={<Menu />} />
               <Route path="/inventory" element={<Inventory />} />
+              <Route path="/recipes" element={<Recipes />} />
               <Route path="/customers" element={<Customers />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings user={user} />} />

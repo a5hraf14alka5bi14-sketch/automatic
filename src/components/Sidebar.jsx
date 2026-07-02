@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { id: 'kitchen',      label: 'Kitchen',         icon: '👨‍🍳' },
   { id: 'menu',         label: 'Menu & Recipes',  icon: '🍽️' },
   { id: 'inventory',    label: 'Inventory',       icon: '📦' },
+  { id: 'recipes',      label: 'Recipes',         icon: '🧪' },
   { id: 'customers',    label: 'Customers',       icon: '👥' },
   { id: 'reports',      label: 'Reports',         icon: '📊' },
   { id: 'settings',     label: 'Settings',        icon: '⚙️', divider: true },

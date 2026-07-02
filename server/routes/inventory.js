@@ -79,6 +79,41 @@ router.get('/stats', async (req, res) => {
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
+// ── GET /api/inventory/impact — low-stock items → affected menu items ─────────
+router.get('/impact', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        i.id, i.name AS item_name, i.quantity, i.min_quantity, i.unit,
+        m.id AS menu_item_id, m.name AS menu_item_name, m.category,
+        r.quantity AS required_qty, r.unit AS required_unit
+      FROM inventory i
+      JOIN recipe_ingredients r ON r.inventory_item_id = i.id
+      JOIN menu_items m ON m.id = r.menu_item_id AND m.available = true
+      WHERE i.quantity <= i.min_quantity
+      ORDER BY i.name, m.name
+    `)
+    const grouped = {}
+    for (const row of result.rows) {
+      if (!grouped[row.id]) {
+        grouped[row.id] = {
+          id: row.id, item_name: row.item_name,
+          quantity: row.quantity, min_quantity: row.min_quantity, unit: row.unit,
+          affected_dishes: []
+        }
+      }
+      grouped[row.id].affected_dishes.push({
+        menu_item_id: row.menu_item_id, menu_item_name: row.menu_item_name,
+        category: row.category, required_qty: row.required_qty, required_unit: row.required_unit
+      })
+    }
+    res.json(Object.values(grouped))
+  } catch (err) {
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 // ── POST /api/inventory ───────────────────────────────────────────────────────
 router.post('/', validate(inventoryCreateSchema), async (req, res) => {
   const { name, category, quantity, unit, min_quantity, cost } = req.body

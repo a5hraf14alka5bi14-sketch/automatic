@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
 import { useRole, canManage } from '../utils/auth.js'
@@ -57,8 +58,11 @@ function ImagePlaceholder({ category, name }) {
 
 function MenuCard({ item, onEdit, onToggle, onDelete, onModifiers }) {
   const { fmt } = useCurrency()
+  const navigate = useNavigate()
   const isManager = canManage(useRole())
   const mgn = margin(item.price, item.food_cost)
+  const costPct = parseFloat(item.price) > 0 ? Math.round((parseFloat(item.food_cost || 0) / parseFloat(item.price)) * 100) : 0
+  const costPctColor = costPct === 0 ? 'text-slate-500' : costPct < 30 ? 'text-green-400' : costPct < 40 ? 'text-yellow-400' : 'text-red-400'
   const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : []
 
   return (
@@ -82,6 +86,7 @@ function MenuCard({ item, onEdit, onToggle, onDelete, onModifiers }) {
         {/* Actions overlay */}
         {isManager && (
           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => navigate('/recipes')} className="w-7 h-7 bg-slate-900/90 hover:bg-green-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Recipe">🧪</button>
             <button onClick={() => onModifiers(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-blue-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Modifiers">⚡</button>
             <button onClick={() => onEdit(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-orange-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Edit">✏️</button>
             <button onClick={() => onDelete(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-red-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Delete">🗑️</button>
@@ -112,6 +117,10 @@ function MenuCard({ item, onEdit, onToggle, onDelete, onModifiers }) {
           <div>
             <p className="text-slate-500 text-xs">Food Cost</p>
             <p className="text-slate-300 text-xs font-medium">{fmt(item.food_cost || 0)}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-xs">Cost %</p>
+            <p className={`text-xs font-bold ${costPctColor}`}>{costPct > 0 ? `${costPct}%` : '—'}</p>
           </div>
           <div>
             <p className="text-slate-500 text-xs">Margin</p>
