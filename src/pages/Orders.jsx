@@ -28,6 +28,9 @@ export default function Orders() {
   const [payModal, setPayModal] = useState(null)
   const [payMethod, setPayMethod] = useState('cash')
   const [payLoading, setPayLoading] = useState(false)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [paymentFilter, setPaymentFilter] = useState('all')
 
   const fetchOrders = async () => {
     try {
@@ -66,7 +69,18 @@ export default function Orders() {
   }
 
   const statuses = ['all', 'pending', 'preparing', 'ready', 'completed', 'cancelled']
-  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter)
+
+  const filtered = orders.filter(o => {
+    if (filter !== 'all' && o.status !== filter) return false
+    if (paymentFilter === 'unpaid') { if (o.payment_method) return false }
+    else if (paymentFilter !== 'all') { if (o.payment_method !== paymentFilter) return false }
+    if (dateFrom && new Date(o.created_at) < new Date(dateFrom + 'T00:00:00')) return false
+    if (dateTo && new Date(o.created_at) > new Date(dateTo + 'T23:59:59.999')) return false
+    return true
+  })
+
+  const hasExtraFilters = !!dateFrom || !!dateTo || paymentFilter !== 'all'
+  const clearFilters = () => { setDateFrom(''); setDateTo(''); setPaymentFilter('all') }
 
   const counts = {}
   for (const o of orders) counts[o.status] = (counts[o.status] || 0) + 1
@@ -100,6 +114,54 @@ export default function Orders() {
             )}
           </button>
         ))}
+      </div>
+
+      <div className="flex gap-3 mb-5 flex-wrap items-end bg-slate-900/50 border border-slate-800 rounded-xl p-3">
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">From</label>
+          <input
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={e => setDateFrom(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-orange-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">To</label>
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={e => setDateTo(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-orange-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Payment</label>
+          <select
+            value={paymentFilter}
+            onChange={e => setPaymentFilter(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-orange-500"
+          >
+            <option value="all">All methods</option>
+            <option value="cash">💵 Cash</option>
+            <option value="card">💳 Card</option>
+            <option value="other">📱 Other</option>
+            <option value="unpaid">Unpaid</option>
+          </select>
+        </div>
+        {hasExtraFilters && (
+          <button
+            onClick={clearFilters}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors"
+          >
+            ✕ Clear filters
+          </button>
+        )}
+        <span className="ml-auto text-slate-500 text-sm self-center">
+          Showing {filtered.length} of {orders.length}
+        </span>
       </div>
 
       {loading ? (

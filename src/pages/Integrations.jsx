@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../utils/api.js'
 
 function StatusDot({ ok, loading }) {
@@ -259,6 +260,7 @@ function GitHubSection({ status, onRefresh }) {
 // ── Notion Section ────────────────────────────────────────────────────────────
 
 function NotionSection({ status, onRefresh }) {
+  const navigate = useNavigate()
   const [apiKey, setApiKey] = useState('')
   const [projectsDb, setProjectsDb] = useState('')
   const [tasksDb, setTasksDb] = useState('')
@@ -390,10 +392,10 @@ function NotionSection({ status, onRefresh }) {
           {testing ? <span className="w-3 h-3 border border-slate-400 border-t-transparent rounded-full animate-spin" /> : '⚡'}
           Test connection
         </button>
-        <a href="#" onClick={e => { e.preventDefault(); window.location.hash = 'notion' }}
+        <button type="button" onClick={() => navigate('/notion')}
           className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg transition-colors border border-slate-700">
           📓 Open Notion page
-        </a>
+        </button>
       </div>
 
       <TestResultBox result={testResult} error={testError} />

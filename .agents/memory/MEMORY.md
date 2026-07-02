@@ -12,6 +12,7 @@
 - [Notion Main Page Update Strategy](notion-main-page-update.md) — use replace_content (not update_content) for main page; include all embedded DB/page tags in new_str
 - [Notion full sync architecture](notion-sync-architecture.md) — all 12 DS IDs, bi-directional sync (pull+push), notion_id columns on menu_items/inventory/customers, all P1 schema fixes applied
 - [Modifier system architecture](modifier-system.md) — modifier_groups+modifiers tables, cartId keying, on-demand fetch cache, POS/Menu/Orders/Kitchen/Receipt all updated
+- [Router chunk build dependency](router-chunk-build.md) — vite `router` manualChunk fails `vite build` if react-router-dom not installed; v7 used with v6 API
 - [Settings context + low-stock badge](settings-context.md) — SettingsContext gives live settings (useCurrency wraps it); low-stock badge on sidebar Inventory item, not a header
 - [Stock movements audit](stock-movements-audit.md) — log actual applied delta (RETURNING old+new), not requested amount, since inventory clamps at 0; create+initial movement must be one txn
 - [API validation & pagination](api-validation-pagination.md) — Joi via validate() middleware (allowUnknown, convert, reassign); list GETs take optional limit/offset + X-Total-Count, no params = full array

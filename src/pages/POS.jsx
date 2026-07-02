@@ -213,6 +213,7 @@ export default function POS() {
   const [modifierModal, setModifierModal] = useState(null)
   const [modifierLoading, setModifierLoading] = useState(false)
   const modifierCache = useRef({})
+  const searchRef = useRef(null)
 
   const loadData = useCallback(async () => {
     try {
@@ -363,6 +364,45 @@ export default function POS() {
     }
   }
 
+  // Keep latest handlers accessible inside the keydown listener without stale closures.
+  const placeOrderRef = useRef(placeOrder)
+  placeOrderRef.current = placeOrder
+  const addFirstMatchRef = useRef(null)
+  addFirstMatchRef.current = () => { if (filtered.length > 0) handleItemClick(filtered[0]) }
+
+  useEffect(() => {
+    const onKey = (e) => {
+      const el = document.activeElement
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
+      if (e.key === 'Escape') {
+        if (modifierModal) return setModifierModal(null)
+        if (payModal) return setPayModal(null)
+        if (search) return setSearch('')
+        if (typing) return el.blur()
+        return
+      }
+      if (modifierModal || payModal) return
+      // Enter while the search box is focused adds the first matching item.
+      if (e.key === 'Enter' && el === searchRef.current) {
+        e.preventDefault()
+        addFirstMatchRef.current()
+        return
+      }
+      if (typing) return
+      if (e.key === '/') { e.preventDefault(); searchRef.current?.focus(); return }
+      if (e.key === 'Enter') {
+        if (cart.length > 0 && !placing) { e.preventDefault(); placeOrderRef.current() }
+        return
+      }
+      if (/^[1-9]$/.test(e.key)) {
+        const idx = parseInt(e.key, 10) - 1
+        if (CATS[idx]) { e.preventDefault(); setSelectedCategory(CATS[idx].id) }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [payModal, modifierModal, cart.length, placing, search])
+
   return (
     <div className="flex h-full">
       {/* ── Menu panel ──────────────────────────────────────────────────── */}
@@ -374,7 +414,7 @@ export default function POS() {
           </div>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search menu…"
+            <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search menu…  ( / )"
               className="bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500 w-52" />
           </div>
         </div>
