@@ -1,17 +1,17 @@
 ---
 name: Notion sync architecture
-description: How the Notion integration syncs data — MCP for reads, REST for writes
+description: How the Notion integration syncs data — MCP (agent OAuth) vs REST (server bot token), and the sharing blocker
 ---
 
-The NOTION_API_KEY is a Replit internal integration token. The Notion databases (Projects + Tasks) were NOT shared with this integration via the Notion UI, so direct REST API calls to `api.notion.com/v1/databases/{id}/query` return 404.
+Two independent access paths to the same Notion workspace ("مساحة عمل Ashraf Alkasbi"):
 
-The MCP server (custom-mcp Notion) has full workspace access via a different auth path and CAN query the databases using `mcpNotion_notionQueryDataSources`.
+- **MCP (custom-mcp Notion)** — OAuth to the human's account, FULL workspace access. Only available to the agent via `code_execution` callbacks (`mcpNotion_*`). NOT available to the running Express server.
+- **REST (`NOTION_API_KEY`)** — a bot integration named "Replit". Connects fine (`/users/me` → bot "Replit"), but **cannot see any database** until the pages/databases are explicitly shared with it in the Notion UI. Until then every `databases/{id}/query` and page-create returns "Could not find database with ID… Make sure the relevant pages and databases are shared with your integration 'Replit'."
 
-**Architecture:**
-- **Reads/Sync:** Agent uses `mcpNotion_notionQueryDataSources` with SQL, maps rows, then POSTs to `/api/notion/projects/ingest` or `/api/notion/tasks/ingest` which upsert into PostgreSQL.
-- **Writes (status updates, new pages):** Express backend calls `client.pages.update()` / `client.pages.create()` directly — these work because they operate on page IDs, not database-level queries.
-- **Data source IDs:** Projects = `bea6bf0f-16f9-455c-b887-dee7b7cba587`, Tasks = `2ea23851-9271-456c-bad7-cfa25fa2683d`
+**The one-share unlock:** all 9+ databases live under a single parent page **"🚀 Automatic Restaurant"**. Sharing that parent page with the "Replit" connection cascades access to every child database — the server's REST sync then works with no code change.
 
-**Why:** The Replit integration token doesn't have DB-level access (Notion requires explicit sharing in the workspace UI). The MCP server bypasses this with its own auth.
+**Data source model:** these databases are the NEW multi-data-source kind. A single database exposes several `collection://<id>` data sources (e.g. Menu&Recipes DB `6f3cf08f` also contains Order Items `e3e3a62a` and Sales `ed84c1af`). For MCP, always `fetch` the DB first and use the `collection://` data-source id with `notionQueryDataSources` / `create_pages` (`parent:{data_source_id}`). The server's REST code (version `2022-06-28`, `parent:{database_id}`) targets each DB's PRIMARY data source, which for menu/inventory/customers equals the standalone DB id — so it stays correct once shared.
 
-**How to apply:** When the user wants a re-sync, the agent must run the MCP query → ingest pipeline (not a backend-only endpoint). The `/api/notion/projects/sync` and `/api/notion/tasks/sync` routes were removed; use `/ingest` endpoints instead, called from the agent layer after MCP queries.
+**Sync direction:** local Postgres is the source of truth (menu 41, inventory 10, customers 6); Notion was essentially empty. So the real flow is PUSH local→Notion, not pull.
+
+**How to apply:** To bootstrap immediately without waiting on sharing, the agent pushes via MCP `create_pages` and writes the returned page id back into each table's `notion_id` (unique col) so nothing duplicates later. For ongoing hands-off sync the user MUST share the parent page; then toggle `notion_auto_sync_enabled` (server boot reads it and calls `startAutoSync`). Config IDs live in `server/notion.js` DEFAULT_*_DS constants and match the data-source ids.
