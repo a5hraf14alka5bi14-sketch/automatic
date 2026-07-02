@@ -26,8 +26,13 @@ Full-stack restaurant management system built with React 19 + Vite (port 5000) a
 ### Server structure
 ```
 server/
-  index.js              — Express entry point (port 3001)
-  db.js                 — PostgreSQL pool + schema init
+  index.js              — Express entry point (port 3001); exports { app } for tests
+  db.js                 — PostgreSQL pool + baseline schema init
+  migrate.js            — versioned migration runner (advisory-locked)
+  migrations/           — numbered .sql migrations (001_soft_delete, …)
+  lib/
+    units.js            — unit conversion (kg↔g, L↔ml, dozen↔pcs)
+    inventory.js        — pure stock-deduction math (convert + clamp)
   notion.js             — Notion client + helpers
   integrations/
     github.js           — GitHub API client

@@ -28,6 +28,10 @@
 - [Brand logo / branding assets](brand-logo.md) — logo-full.png used across app; dark-theme placements wrap it in a white plate; PDF uses cached getLogoDataUrl()
 - [RTL Arabic PDF table extraction](rtl-pdf-extraction.md) — pdf-parse mangles RTL; use pdfjs-dist glyph x/y: rows by y, numbers by asc-x, Arabic names by desc-x join
 - [OpenAI daily summary](openai-summary.md) — generateDailySummary() in server/integrations/openai.js; GET+POST /api/integrations/openai/summary; stored in settings table as last_ai_summary + last_ai_summary_at; Integrations.jsx shows card + Generate button
+- [DB migration runner](db-migration-runner.md) — numbered .sql in server/migrations/ via advisory-locked runMigrations(); db.js stays baseline
+- [Soft delete](soft-delete.md) — deleted_at on menu_items/inventory/customers; filter only entity list/detail/stats, NOT historical order/report joins
+- [Unit conversion for stock deduction](unit-conversion.md) — convertQuantity within-dimension only; computeDeductAmount falls back to raw qty on incompatible units
+- [Integration test infra](integration-test-infra.md) — index.js exports app + isEntryPoint guard; supertest against dev DB with self-cleaning itest_<ts> rows
 - [Secret encryption at rest](secret-encryption-at-rest.md) — integration API keys AES-256-GCM encrypted (enc:v1: prefix) in settings; decryptSecret passes plaintext/env values through
 - [Force password change](force-password-change.md) — users.must_change_password gates app; seeded admin=true; App.jsx forces ChangePassword before router mounts
 - [Vite 8 / Rolldown manualChunks](vite8-rolldown-manualchunks.md) — Vite 8 build needs manualChunks as a function, not object; plugin-react v6+

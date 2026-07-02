@@ -41,9 +41,9 @@ router.get('/movements', async (req, res, next) => {
 router.get('/', async (req, res) => {
   try {
     const { limit, offset } = req.query
-    const total = await pool.query('SELECT COUNT(*)::int AS c FROM inventory')
+    const total = await pool.query('SELECT COUNT(*)::int AS c FROM inventory WHERE deleted_at IS NULL')
     res.set('X-Total-Count', String(total.rows[0].c))
-    let query = 'SELECT * FROM inventory ORDER BY category, name'
+    let query = 'SELECT * FROM inventory WHERE deleted_at IS NULL ORDER BY category, name'
     const params = []
     if (limit !== undefined) {
       params.push(Math.min(Math.max(parseInt(limit) || 0, 0), 500)); query += ` LIMIT $${params.length}`
@@ -58,7 +58,7 @@ router.get('/', async (req, res) => {
 router.get('/low-stock', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM inventory WHERE quantity <= min_quantity ORDER BY (quantity / NULLIF(min_quantity,0)) ASC, name'
+      'SELECT * FROM inventory WHERE quantity <= min_quantity AND deleted_at IS NULL ORDER BY (quantity / NULLIF(min_quantity,0)) ASC, name'
     )
     res.json(result.rows)
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
@@ -74,6 +74,7 @@ router.get('/stats', async (req, res) => {
         COALESCE(SUM(quantity * cost), 0) AS total_value,
         COUNT(DISTINCT category) AS categories
       FROM inventory
+      WHERE deleted_at IS NULL
     `)
     res.json(s.rows[0])
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
@@ -89,8 +90,8 @@ router.get('/impact', async (req, res) => {
         r.quantity AS required_qty, r.unit AS required_unit
       FROM inventory i
       JOIN recipe_ingredients r ON r.inventory_item_id = i.id
-      JOIN menu_items m ON m.id = r.menu_item_id AND m.available = true
-      WHERE i.quantity <= i.min_quantity
+      JOIN menu_items m ON m.id = r.menu_item_id AND m.available = true AND m.deleted_at IS NULL
+      WHERE i.quantity <= i.min_quantity AND i.deleted_at IS NULL
       ORDER BY i.name, m.name
     `)
     const grouped = {}
@@ -198,7 +199,7 @@ router.patch('/:id', validate(inventoryUpdateSchema), async (req, res) => {
 // ── DELETE /api/inventory/:id ─────────────────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM inventory WHERE id=$1 RETURNING id', [req.params.id])
+    const result = await pool.query('UPDATE inventory SET deleted_at=NOW() WHERE id=$1 AND deleted_at IS NULL RETURNING id', [req.params.id])
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json({ success: true })
   } catch (err) {

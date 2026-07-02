@@ -1,5 +1,6 @@
 import express from 'express'
 import { pool, recordStockMovement } from '../db.js'
+import { computeDeductAmount } from '../lib/inventory.js'
 import { broadcast } from '../events.js'
 import { validate } from '../middleware/validate.js'
 import {
@@ -245,13 +246,17 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
       )
       for (const oi of orderItems.rows) {
         const recipe = await client.query(
-          `SELECT ri.inventory_item_id, ri.quantity AS ing_qty
+          `SELECT ri.inventory_item_id, ri.quantity AS ing_qty, ri.unit AS recipe_unit, i.unit AS inv_unit
            FROM recipe_ingredients ri
+           JOIN inventory i ON i.id = ri.inventory_item_id
            WHERE ri.menu_item_id=$1 AND ri.inventory_item_id IS NOT NULL`,
           [oi.menu_item_id]
         )
         for (const ri of recipe.rows) {
-          const deduct = parseFloat(ri.ing_qty) * parseInt(oi.quantity)
+          const deduct = computeDeductAmount({
+            ingQty: ri.ing_qty, recipeUnit: ri.recipe_unit,
+            invUnit: ri.inv_unit, orderQty: oi.quantity,
+          })
           const upd = await client.query(
             `WITH prev AS (SELECT quantity AS q FROM inventory WHERE id=$2)
              UPDATE inventory SET quantity = GREATEST(0, quantity - $1), updated_at=NOW()
@@ -298,13 +303,17 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
       )
       for (const oi of orderItems.rows) {
         const recipe = await client.query(
-          `SELECT ri.inventory_item_id, ri.quantity AS ing_qty
+          `SELECT ri.inventory_item_id, ri.quantity AS ing_qty, ri.unit AS recipe_unit, i.unit AS inv_unit
            FROM recipe_ingredients ri
+           JOIN inventory i ON i.id = ri.inventory_item_id
            WHERE ri.menu_item_id=$1 AND ri.inventory_item_id IS NOT NULL`,
           [oi.menu_item_id]
         )
         for (const ri of recipe.rows) {
-          const restock = parseFloat(ri.ing_qty) * parseInt(oi.quantity)
+          const restock = computeDeductAmount({
+            ingQty: ri.ing_qty, recipeUnit: ri.recipe_unit,
+            invUnit: ri.inv_unit, orderQty: oi.quantity,
+          })
           const upd = await client.query(
             `WITH prev AS (SELECT quantity AS q FROM inventory WHERE id=$2)
              UPDATE inventory SET quantity = quantity + $1, updated_at=NOW()

@@ -11,11 +11,11 @@ const router = express.Router()
 router.get('/', async (req, res) => {
   try {
     const { search, limit, offset } = req.query
-    let where = ''
+    let where = ' WHERE deleted_at IS NULL'
     const params = []
     if (search) {
       params.push(`%${search}%`)
-      where = ` WHERE name ILIKE $${params.length} OR email ILIKE $${params.length} OR phone ILIKE $${params.length}`
+      where += ` AND (name ILIKE $${params.length} OR email ILIKE $${params.length} OR phone ILIKE $${params.length})`
     }
     const total = await pool.query(`SELECT COUNT(*)::int AS c FROM customers${where}`, params)
     res.set('X-Total-Count', String(total.rows[0].c))
@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM customers WHERE id=$1', [req.params.id])
+    const result = await pool.query('SELECT * FROM customers WHERE id=$1 AND deleted_at IS NULL', [req.params.id])
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
@@ -83,7 +83,7 @@ router.patch('/:id/points', requireRole('admin', 'manager'), async (req, res) =>
 
 router.delete('/:id', requireRole('admin', 'manager'), async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM customers WHERE id=$1 RETURNING id', [req.params.id])
+    const result = await pool.query('UPDATE customers SET deleted_at=NOW() WHERE id=$1 AND deleted_at IS NULL RETURNING id', [req.params.id])
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json({ success: true })
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }

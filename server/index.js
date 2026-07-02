@@ -20,6 +20,7 @@ import settingsRoutes from './routes/settings.js'
 import usersRoutes from './routes/users.js'
 import aiRoutes from './routes/ai.js'
 import { initDb, pool } from './db.js'
+import { runMigrations } from './migrate.js'
 import { registerAdapter, startAutoSync } from './integrations/sync-engine.js'
 import { syncAll } from './integrations/notion.js'
 import { initWebSocketServer } from './events.js'
@@ -170,13 +171,23 @@ process.on('unhandledRejection', (reason) => {
   logger.error('unhandledRejection', { reason: String(reason) })
 })
 
-initDb().then(async () => {
-  await initSyncEngine()
-  server.listen(PORT, IS_PROD ? '0.0.0.0' : 'localhost', () => {
-    initWebSocketServer(server)
-    logger.info(`API server running on port ${PORT}`, { env: IS_PROD ? 'production' : 'development' })
-  })
-}).catch(err => {
-  logger.error('Failed to initialize database', { msg: err.message })
-  process.exit(1)
-})
+// Only bootstrap the DB + HTTP listener when this module is the entry point.
+// Integration tests import `app` directly and manage their own lifecycle.
+const isEntryPoint = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
+
+if (isEntryPoint) {
+  initDb()
+    .then(() => runMigrations(pool))
+    .then(async () => {
+      await initSyncEngine()
+      server.listen(PORT, IS_PROD ? '0.0.0.0' : 'localhost', () => {
+        initWebSocketServer(server)
+        logger.info(`API server running on port ${PORT}`, { env: IS_PROD ? 'production' : 'development' })
+      })
+    }).catch(err => {
+      logger.error('Failed to initialize database', { msg: err.message })
+      process.exit(1)
+    })
+}
+
+export { app, server }

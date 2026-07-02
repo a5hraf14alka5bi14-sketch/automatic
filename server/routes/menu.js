@@ -18,7 +18,7 @@ router.use((req, res, next) => {
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM menu_items WHERE available = true ORDER BY category, name'
+      'SELECT * FROM menu_items WHERE available = true AND deleted_at IS NULL ORDER BY category, name'
     )
     res.json(result.rows)
   } catch (err) {
@@ -32,9 +32,9 @@ router.get('/', async (req, res) => {
 router.get('/all', async (req, res) => {
   try {
     const { limit, offset } = req.query
-    const total = await pool.query('SELECT COUNT(*)::int AS c FROM menu_items')
+    const total = await pool.query('SELECT COUNT(*)::int AS c FROM menu_items WHERE deleted_at IS NULL')
     res.set('X-Total-Count', String(total.rows[0].c))
-    let query = 'SELECT * FROM menu_items ORDER BY category, name'
+    let query = 'SELECT * FROM menu_items WHERE deleted_at IS NULL ORDER BY category, name'
     const params = []
     if (limit !== undefined) {
       params.push(Math.min(Math.max(parseInt(limit) || 0, 0), 500)); query += ` LIMIT $${params.length}`
@@ -60,6 +60,7 @@ router.get('/stats', async (req, res) => {
         ROUND(AVG(CASE WHEN price > 0 THEN (price - food_cost) / price * 100 ELSE 0 END)::numeric, 1) AS avg_margin,
         COUNT(DISTINCT category) AS categories
       FROM menu_items
+      WHERE deleted_at IS NULL
     `)
     res.json(s.rows[0])
   } catch (err) {
@@ -147,6 +148,7 @@ router.get('/food-cost', async (req, res) => {
         COUNT(r.id)::int AS ingredient_count
       FROM menu_items m
       LEFT JOIN recipe_ingredients r ON r.menu_item_id = m.id
+      WHERE m.deleted_at IS NULL
       GROUP BY m.id
       ORDER BY food_cost_pct DESC NULLS LAST
     `)
@@ -274,7 +276,7 @@ router.patch('/recipe/unlink', async (req, res) => {
 // ── GET /api/menu/:id ─────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const item = await pool.query('SELECT * FROM menu_items WHERE id=$1', [req.params.id])
+    const item = await pool.query('SELECT * FROM menu_items WHERE id=$1 AND deleted_at IS NULL', [req.params.id])
     if (!item.rows.length) return res.status(404).json({ error: 'Not found' })
     const recipe = await pool.query(
       'SELECT r.*, i.name AS inventory_name, i.unit AS inventory_unit FROM recipe_ingredients r LEFT JOIN inventory i ON r.inventory_item_id=i.id WHERE r.menu_item_id=$1 ORDER BY r.id',
@@ -333,7 +335,7 @@ router.patch('/:id', validate(menuUpdateSchema), async (req, res) => {
 // ── DELETE /api/menu/:id ──────────────────────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
-    await pool.query('UPDATE menu_items SET available = false WHERE id = $1', [req.params.id])
+    await pool.query('UPDATE menu_items SET available = false, deleted_at = NOW() WHERE id = $1', [req.params.id])
     res.json({ success: true })
   } catch (err) {
     logger.error(err?.message || 'Server error', { path: req.path })
