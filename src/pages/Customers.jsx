@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
+import { useRole, canManage } from '../utils/auth.js'
 
 function StatCard({ label, value, sub, color }) {
   return (
@@ -176,6 +177,7 @@ function OrderHistoryDrawer({ customer, onClose }) {
 
 export default function Customers() {
   const { fmt } = useCurrency()
+  const isManager = canManage(useRole())
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -221,10 +223,12 @@ export default function Customers() {
           <h1 className="text-2xl font-bold text-white">Customers</h1>
           <p className="text-slate-400 text-sm mt-0.5">{customers.length} registered customer{customers.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setEditCustomer({})}
-          className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-orange-500/20">
-          + Add Customer
-        </button>
+        {isManager && (
+          <button onClick={() => setEditCustomer({})}
+            className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-orange-500/20">
+            + Add Customer
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -297,8 +301,10 @@ export default function Customers() {
                   <td className="px-4 py-3 text-right text-slate-500 text-xs">{new Date(c.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                      <button onClick={() => setEditCustomer(c)} className="text-slate-400 hover:text-orange-400 transition-colors text-sm" title="Edit">✏️</button>
-                      <button onClick={() => setDeleteCustomer(c)} className="text-slate-400 hover:text-red-400 transition-colors text-sm" title="Delete">🗑️</button>
+                      {isManager && <>
+                        <button onClick={() => setEditCustomer(c)} className="text-slate-400 hover:text-orange-400 transition-colors text-sm" title="Edit">✏️</button>
+                        <button onClick={() => setDeleteCustomer(c)} className="text-slate-400 hover:text-red-400 transition-colors text-sm" title="Delete">🗑️</button>
+                      </>}
                     </div>
                   </td>
                 </tr>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
 import { useSettings } from '../context/SettingsContext.jsx'
+import { useRole, canManage } from '../utils/auth.js'
 
 const CATEGORIES = ['proteins', 'vegetables', 'grains', 'legumes', 'bread', 'dairy', 'fruits', 'pantry', 'spices', 'beverages', 'general']
 
@@ -295,6 +296,7 @@ function StockMovementsView() {
 
 export default function Inventory() {
   const { fmt } = useCurrency()
+  const isManager = canManage(useRole())
   const { refreshLowStock } = useSettings()
   const [view, setView] = useState('items')
   const [items, setItems] = useState([])
@@ -358,7 +360,7 @@ export default function Inventory() {
               Movements
             </button>
           </div>
-          {view === 'items' && (
+          {view === 'items' && isManager && (
             <button onClick={() => setEditItem({})}
               className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-orange-500/20">
               + Add Item
@@ -387,10 +389,16 @@ export default function Inventory() {
             <p className="text-red-400 font-semibold text-sm mb-2">Low Stock — {lowStock.length} item{lowStock.length > 1 ? 's' : ''} need restocking</p>
             <div className="flex flex-wrap gap-2">
               {lowStock.map(item => (
-                <button key={item.id} onClick={() => setAdjustItem(item)}
-                  className="bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs px-2.5 py-1 rounded-full transition-colors">
-                  {item.name} — {item.quantity} {item.unit}
-                </button>
+                isManager ? (
+                  <button key={item.id} onClick={() => setAdjustItem(item)}
+                    className="bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs px-2.5 py-1 rounded-full transition-colors">
+                    {item.name} — {item.quantity} {item.unit}
+                  </button>
+                ) : (
+                  <span key={item.id} className="bg-red-500/20 text-red-300 text-xs px-2.5 py-1 rounded-full">
+                    {item.name} — {item.quantity} {item.unit}
+                  </span>
+                )
               ))}
             </div>
           </div>
@@ -472,9 +480,11 @@ export default function Inventory() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                        <button onClick={() => setAdjustItem(item)} className="text-slate-400 hover:text-blue-400 transition-colors text-sm" title="Adjust stock">⚖️</button>
-                        <button onClick={() => setEditItem(item)} className="text-slate-400 hover:text-orange-400 transition-colors text-sm" title="Edit">✏️</button>
-                        <button onClick={() => setDeleteItem(item)} className="text-slate-400 hover:text-red-400 transition-colors text-sm" title="Delete">🗑️</button>
+                        {isManager && <>
+                          <button onClick={() => setAdjustItem(item)} className="text-slate-400 hover:text-blue-400 transition-colors text-sm" title="Adjust stock">⚖️</button>
+                          <button onClick={() => setEditItem(item)} className="text-slate-400 hover:text-orange-400 transition-colors text-sm" title="Edit">✏️</button>
+                          <button onClick={() => setDeleteItem(item)} className="text-slate-400 hover:text-red-400 transition-colors text-sm" title="Delete">🗑️</button>
+                        </>}
                       </div>
                     </td>
                   </tr>

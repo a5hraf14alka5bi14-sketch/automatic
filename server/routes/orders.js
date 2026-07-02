@@ -79,8 +79,8 @@ router.post('/', validate(orderCreateSchema), async (req, res) => {
   try {
     await client.query('BEGIN')
     const orderResult = await client.query(
-      'INSERT INTO orders (type, table_number, status, subtotal, tax, total, customer_id, notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-      [type || 'dine-in', table_number || null, 'pending', subtotal || 0, tax || 0, total || 0, customer_id || null, notes || null]
+      'INSERT INTO orders (type, table_number, status, subtotal, tax, total, customer_id, notes, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+      [type || 'dine-in', table_number || null, 'pending', subtotal || 0, tax || 0, total || 0, customer_id || null, notes || null, req.user?.id || null]
     )
     const order = orderResult.rows[0]
     for (const item of items) {

@@ -23,6 +23,26 @@ export async function testOpenAIConnection() {
   return { models_available: data.data?.length || 0, gpt_models: gptModels }
 }
 
+export async function generateDailySummary(kpis) {
+  const fmt = v => Number(v || 0).toFixed(3)
+  const prompt = `You are an AI analyst for Automatic Restaurant, a Lebanese restaurant in Oman (currency: OMR).
+
+Today's performance:
+- Revenue: OMR ${fmt(kpis.revenue)} | Orders: ${kpis.totalOrders || 0} | Avg Order: OMR ${fmt(kpis.avgOrderValue)}
+- Gross Profit: OMR ${fmt(kpis.grossProfit)} (margin: ${kpis.grossMargin || 0}%)
+- Food Cost: OMR ${fmt(kpis.totalFoodCost)} | Customers Served: ${kpis.customersServed || 0}
+${kpis.topItems?.length ? `- Best Seller: ${kpis.topItems[0].name} (${kpis.topItems[0].qty} sold)` : ''}
+${kpis.lowStock?.length ? `- Low Stock Alert: ${kpis.lowStock.map(i => i.name).join(', ')}` : ''}
+
+Write a 3-sentence executive summary: (1) overall performance, (2) top highlight or concern, (3) one specific recommendation. Be concise and data-driven.`
+
+  const response = await openAIChat(
+    [{ role: 'user', content: prompt }],
+    'gpt-4o-mini'
+  )
+  return response.choices[0]?.message?.content?.trim() || ''
+}
+
 export async function openAIChat(messages, model = 'gpt-4o-mini') {
   const key = await getOpenAIKey()
   if (!key) throw new Error('OpenAI API key not configured')

@@ -175,6 +175,7 @@ export async function initDb() {
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS loyalty_discount NUMERIC(10,3) DEFAULT 0;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER;
       ALTER TABLE order_items ADD COLUMN IF NOT EXISTS notes TEXT;
       ALTER TABLE order_items ADD COLUMN IF NOT EXISTS modifiers JSONB DEFAULT '[]';
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;

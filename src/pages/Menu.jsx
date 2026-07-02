@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
+import { useRole, canManage } from '../utils/auth.js'
 
 const CATEGORIES = [
   { id: 'all', label: 'All Items', emoji: '🍽️' },
@@ -56,6 +57,7 @@ function ImagePlaceholder({ category, name }) {
 
 function MenuCard({ item, onEdit, onToggle, onDelete, onModifiers }) {
   const { fmt } = useCurrency()
+  const isManager = canManage(useRole())
   const mgn = margin(item.price, item.food_cost)
   const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : []
 
@@ -78,11 +80,13 @@ function MenuCard({ item, onEdit, onToggle, onDelete, onModifiers }) {
         </div>
 
         {/* Actions overlay */}
-        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => onModifiers(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-blue-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Modifiers">⚡</button>
-          <button onClick={() => onEdit(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-orange-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Edit">✏️</button>
-          <button onClick={() => onDelete(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-red-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Delete">🗑️</button>
-        </div>
+        {isManager && (
+          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => onModifiers(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-blue-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Modifiers">⚡</button>
+            <button onClick={() => onEdit(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-orange-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Edit">✏️</button>
+            <button onClick={() => onDelete(item)} className="w-7 h-7 bg-slate-900/90 hover:bg-red-500 text-white rounded-lg flex items-center justify-center text-xs transition-colors" title="Delete">🗑️</button>
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -138,6 +142,7 @@ function MenuCard({ item, onEdit, onToggle, onDelete, onModifiers }) {
 
 function MenuRow({ item, onEdit, onToggle, onDelete, onModifiers }) {
   const { fmt } = useCurrency()
+  const isManager = canManage(useRole())
   const mgn = margin(item.price, item.food_cost)
   const tags = item.tags ? item.tags.split(',').map(t => t.trim()).filter(Boolean) : []
   return (
@@ -176,10 +181,12 @@ function MenuRow({ item, onEdit, onToggle, onDelete, onModifiers }) {
       </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
-          <button onClick={() => onModifiers(item)} className="text-slate-400 hover:text-blue-400 transition-colors text-sm" title="Modifiers">⚡</button>
-          <button onClick={() => onEdit(item)} className="text-slate-400 hover:text-orange-400 transition-colors text-sm" title="Edit">✏️</button>
-          <button onClick={() => onToggle(item)} className="text-slate-400 hover:text-yellow-400 transition-colors text-sm" title="Toggle">{item.available ? '🙈' : '👁️'}</button>
-          <button onClick={() => onDelete(item)} className="text-slate-400 hover:text-red-400 transition-colors text-sm" title="Delete">🗑️</button>
+          {isManager && <>
+            <button onClick={() => onModifiers(item)} className="text-slate-400 hover:text-blue-400 transition-colors text-sm" title="Modifiers">⚡</button>
+            <button onClick={() => onEdit(item)} className="text-slate-400 hover:text-orange-400 transition-colors text-sm" title="Edit">✏️</button>
+            <button onClick={() => onToggle(item)} className="text-slate-400 hover:text-yellow-400 transition-colors text-sm" title="Toggle">{item.available ? '🙈' : '👁️'}</button>
+            <button onClick={() => onDelete(item)} className="text-slate-400 hover:text-red-400 transition-colors text-sm" title="Delete">🗑️</button>
+          </>}
         </div>
       </td>
     </tr>
@@ -773,12 +780,14 @@ export default function Menu() {
           <h1 className="text-white text-2xl font-bold">Menu & Recipes</h1>
           <p className="text-slate-400 text-sm mt-0.5">Manage your Lebanese restaurant menu, pricing, and recipes</p>
         </div>
-        <button
-          onClick={() => setEditItem({})}
-          className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-orange-500/20"
-        >
-          + Add Item
-        </button>
+        {canManage(useRole()) && (
+          <button
+            onClick={() => setEditItem({})}
+            className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-orange-500/20"
+          >
+            + Add Item
+          </button>
+        )}
       </div>
 
       {/* Stats */}

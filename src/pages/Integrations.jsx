@@ -429,6 +429,31 @@ function OpenAISection({ status, onRefresh }) {
   const [aiReply, setAiReply] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
+  const [summary, setSummary] = useState(null)
+  const [summaryAt, setSummaryAt] = useState(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState('')
+
+  useEffect(() => {
+    apiFetch('/api/integrations/openai/summary')
+      .then(r => r.json())
+      .then(d => { if (d.summary) { setSummary(d.summary); setSummaryAt(d.generated_at) } })
+      .catch(() => {})
+  }, [])
+
+  const handleGenerateSummary = async () => {
+    setSummaryLoading(true)
+    setSummaryError('')
+    try {
+      const res = await apiFetch('/api/integrations/openai/summary', { method: 'POST' })
+      const data = await res.json()
+      if (data.summary) { setSummary(data.summary); setSummaryAt(data.generated_at) }
+      else setSummaryError(data.error || 'Failed to generate summary')
+    } catch (e) {
+      setSummaryError(e.message)
+    }
+    setSummaryLoading(false)
+  }
 
   const handleSave = async () => {
     if (!apiKey.trim()) return
@@ -589,6 +614,38 @@ function OpenAISection({ status, onRefresh }) {
               </div>
             )}
             {aiError && <p className="text-red-400 text-sm">{aiError}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Daily AI Summary */}
+      {status?.configured && (
+        <div className="mt-5 border border-slate-700 rounded-lg overflow-hidden">
+          <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
+            <span className="text-slate-300 text-sm font-medium">📊 Daily AI Summary</span>
+            <button
+              onClick={handleGenerateSummary}
+              disabled={summaryLoading}
+              className="px-3 py-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              {summaryLoading
+                ? <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin inline-block" />
+                : '✨'}
+              {summaryLoading ? 'Generating…' : 'Generate'}
+            </button>
+          </div>
+          <div className="p-4">
+            {summaryError && <p className="text-red-400 text-sm mb-3">{summaryError}</p>}
+            {summary ? (
+              <>
+                <p className="text-slate-300 text-sm leading-relaxed">{summary}</p>
+                {summaryAt && (
+                  <p className="text-slate-600 text-xs mt-2">Generated: {new Date(summaryAt).toLocaleString()}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-slate-500 text-sm">No summary yet. Click Generate to create a daily performance summary powered by AI.</p>
+            )}
           </div>
         </div>
       )}

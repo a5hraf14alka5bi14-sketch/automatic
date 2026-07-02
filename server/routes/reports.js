@@ -237,4 +237,48 @@ router.get('/export', async (req, res) => {
   }
 })
 
+// ── GET /api/reports/staff?period=today ──────────────────────────────────────
+router.get('/staff', async (req, res) => {
+  const { period = 'today' } = req.query
+  const df = dateFilter(period, 'o')
+
+  try {
+    const result = await pool.query(`
+      SELECT
+        u.id,
+        u.name,
+        u.role,
+        COUNT(DISTINCT o.id)::int                          AS orders,
+        COALESCE(SUM(o.total), 0)::float                  AS revenue,
+        COALESCE(AVG(o.total), 0)::float                  AS avg_ticket,
+        COALESCE(SUM(ic.item_count), 0)::int              AS items_sold
+      FROM users u
+      LEFT JOIN orders o
+        ON o.user_id = u.id
+        AND ${df}
+        AND o.status != 'cancelled'
+      LEFT JOIN (
+        SELECT order_id, COUNT(*)::int AS item_count
+        FROM order_items
+        GROUP BY order_id
+      ) ic ON ic.order_id = o.id
+      GROUP BY u.id, u.name, u.role
+      ORDER BY revenue DESC, orders DESC
+    `)
+
+    res.json(result.rows.map(r => ({
+      id:         r.id,
+      name:       r.name,
+      role:       r.role,
+      orders:     r.orders,
+      revenue:    parseFloat(parseFloat(r.revenue).toFixed(3)),
+      avgTicket:  parseFloat(parseFloat(r.avg_ticket).toFixed(3)),
+      itemsSold:  r.items_sold,
+    })))
+  } catch (err) {
+    console.error('[reports/staff]', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 export default router

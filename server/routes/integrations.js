@@ -391,6 +391,37 @@ router.post('/notion/push', async (req, res) => {
   }
 })
 
+// ── GET  /api/integrations/openai/summary — return stored summary ─────────────
+router.get('/openai/summary', async (req, res) => {
+  try {
+    const summary = await getSetting('last_ai_summary')
+    const generatedAt = await getSetting('last_ai_summary_at')
+    res.json({ summary: summary || null, generated_at: generatedAt || null })
+  } catch (err) {
+    console.error('[integrations/openai-summary-get]', err)
+    res.status(500).json({ error: 'Failed to retrieve summary' })
+  }
+})
+
+// ── POST /api/integrations/openai/summary — generate & store daily summary ───
+router.post('/openai/summary', async (req, res) => {
+  try {
+    const { generateDailySummary } = await import('../integrations/openai.js')
+    const dashRes = await fetch(`http://localhost:${process.env.PORT || 3001}/api/dashboard`, {
+      headers: { cookie: req.headers.cookie || '' }
+    })
+    const kpis = dashRes.ok ? await dashRes.json() : {}
+    const summary = await generateDailySummary(kpis)
+    const now = new Date().toISOString()
+    await setSetting('last_ai_summary', summary)
+    await setSetting('last_ai_summary_at', now)
+    res.json({ success: true, summary, generated_at: now })
+  } catch (err) {
+    console.error('[integrations/openai-summary]', err)
+    res.status(500).json({ error: err.message || 'Summary generation failed' })
+  }
+})
+
 // ── POST /api/integrations/openai/chat ───────────────────────────────────────
 
 router.post('/openai/chat', async (req, res) => {

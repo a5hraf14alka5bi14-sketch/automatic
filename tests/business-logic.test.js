@@ -115,6 +115,17 @@ function calcLoyaltyPoints(orderTotal, pointsPerUnit, unitValue = 1) {
   return Math.floor(orderTotal / unitValue * pointsPerUnit)
 }
 
+function calcLoyaltyDiscount(points, pointsPerOmr) {
+  if (!pointsPerOmr || pointsPerOmr <= 0) return 0
+  return parseFloat((points / pointsPerOmr).toFixed(3))
+}
+
+function capRedemption(requestedPoints, availablePoints, maxDiscountOmr, orderTotal) {
+  const cappedByBalance = Math.min(requestedPoints, availablePoints)
+  const maxByOrder = Math.floor(orderTotal * (maxDiscountOmr || Infinity))
+  return Math.min(cappedByBalance, maxByOrder)
+}
+
 describe('Loyalty Points', () => {
   it('calculates points for order total (1 point per OMR)', () => {
     expect(calcLoyaltyPoints(10.5, 1)).toBe(10)
@@ -134,6 +145,21 @@ describe('Loyalty Points', () => {
 
   it('handles zero order total', () => {
     expect(calcLoyaltyPoints(0, 1)).toBe(0)
+  })
+
+  it('converts points to OMR discount correctly', () => {
+    expect(calcLoyaltyDiscount(100, 10)).toBe(10)
+    expect(calcLoyaltyDiscount(50, 10)).toBe(5)
+  })
+
+  it('caps redemption at customer balance', () => {
+    expect(capRedemption(200, 50, Infinity, 100)).toBe(50)
+  })
+
+  it('cannot redeem more points than available', () => {
+    const available = 30
+    const requested = 100
+    expect(capRedemption(requested, available, Infinity, 1000)).toBe(available)
   })
 })
 
@@ -156,5 +182,140 @@ describe('Date Filter', () => {
 
   it('returns month filter', () => {
     expect(dateFilterLabel('month')).toBe('month')
+  })
+})
+
+// ── Role Validation ───────────────────────────────────────────────────────────
+const VALID_ROLES = ['admin', 'manager', 'cashier']
+
+function isValidRole(role) {
+  return VALID_ROLES.includes(role)
+}
+
+function canManage(role) {
+  return role === 'admin' || role === 'manager'
+}
+
+function canAdmin(role) {
+  return role === 'admin'
+}
+
+describe('Role Validation', () => {
+  it('accepts valid roles', () => {
+    expect(isValidRole('admin')).toBe(true)
+    expect(isValidRole('manager')).toBe(true)
+    expect(isValidRole('cashier')).toBe(true)
+  })
+
+  it('rejects invalid roles', () => {
+    expect(isValidRole('superuser')).toBe(false)
+    expect(isValidRole('')).toBe(false)
+    expect(isValidRole('ADMIN')).toBe(false)
+  })
+
+  it('canManage returns true for admin and manager only', () => {
+    expect(canManage('admin')).toBe(true)
+    expect(canManage('manager')).toBe(true)
+    expect(canManage('cashier')).toBe(false)
+  })
+
+  it('canAdmin returns true for admin only', () => {
+    expect(canAdmin('admin')).toBe(true)
+    expect(canAdmin('manager')).toBe(false)
+    expect(canAdmin('cashier')).toBe(false)
+  })
+})
+
+// ── OMR Currency Formatting ───────────────────────────────────────────────────
+function formatOMR(amount, symbol = 'OMR') {
+  const n = parseFloat(amount || 0)
+  return `${symbol} ${n.toFixed(3)}`
+}
+
+function parseOMR(str) {
+  return parseFloat(str.replace(/[^\d.]/g, '')) || 0
+}
+
+describe('OMR Currency Formatting', () => {
+  it('formats to 3 decimal places', () => {
+    expect(formatOMR(12.99)).toBe('OMR 12.990')
+    expect(formatOMR(1.5)).toBe('OMR 1.500')
+    expect(formatOMR(0)).toBe('OMR 0.000')
+  })
+
+  it('prefixes with OMR symbol and space', () => {
+    expect(formatOMR(5)).toMatch(/^OMR /)
+  })
+
+  it('parses OMR string back to number', () => {
+    expect(parseOMR('OMR 12.990')).toBe(12.99)
+    expect(parseOMR('OMR 0.500')).toBe(0.5)
+  })
+
+  it('handles null and undefined gracefully', () => {
+    expect(formatOMR(null)).toBe('OMR 0.000')
+    expect(formatOMR(undefined)).toBe('OMR 0.000')
+  })
+})
+
+// ── Pagination ────────────────────────────────────────────────────────────────
+function calcPagination(total, limit, offset) {
+  const page = Math.floor(offset / limit) + 1
+  const totalPages = Math.ceil(total / limit)
+  const hasNext = offset + limit < total
+  const hasPrev = offset > 0
+  return { page, totalPages, hasNext, hasPrev }
+}
+
+describe('Pagination', () => {
+  it('calculates first page correctly', () => {
+    const p = calcPagination(100, 20, 0)
+    expect(p.page).toBe(1)
+    expect(p.totalPages).toBe(5)
+    expect(p.hasNext).toBe(true)
+    expect(p.hasPrev).toBe(false)
+  })
+
+  it('calculates last page correctly', () => {
+    const p = calcPagination(100, 20, 80)
+    expect(p.page).toBe(5)
+    expect(p.hasNext).toBe(false)
+    expect(p.hasPrev).toBe(true)
+  })
+
+  it('handles single page results', () => {
+    const p = calcPagination(5, 20, 0)
+    expect(p.page).toBe(1)
+    expect(p.totalPages).toBe(1)
+    expect(p.hasNext).toBe(false)
+    expect(p.hasPrev).toBe(false)
+  })
+})
+
+// ── Health Check Response Shape ───────────────────────────────────────────────
+function isHealthOk(response) {
+  return (
+    response &&
+    response.status === 'ok' &&
+    response.db === 'ok' &&
+    typeof response.uptimeSeconds === 'number' &&
+    typeof response.dbLatencyMs === 'number'
+  )
+}
+
+function isHealthDegraded(response) {
+  return response?.status === 'error' || response?.db === 'error'
+}
+
+describe('Health Check Shape', () => {
+  it('validates a healthy response', () => {
+    const healthy = { status: 'ok', db: 'ok', uptimeSeconds: 120, dbLatencyMs: 2, ts: Date.now() }
+    expect(isHealthOk(healthy)).toBe(true)
+  })
+
+  it('detects a degraded response', () => {
+    const degraded = { status: 'error', db: 'error', ts: Date.now() }
+    expect(isHealthDegraded(degraded)).toBe(true)
+    expect(isHealthOk(degraded)).toBe(false)
   })
 })
