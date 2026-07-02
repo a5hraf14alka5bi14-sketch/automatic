@@ -1,9 +1,16 @@
 import express from 'express'
 import { pool, recordStockMovement } from '../db.js'
 import { validate } from '../middleware/validate.js'
+import { requireRole } from '../middleware/auth.js'
 import { inventoryCreateSchema, inventoryUpdateSchema } from '../validators.js'
 
 const router = express.Router()
+
+// All write operations require admin or manager role
+router.use((req, res, next) => {
+  if (req.method === 'GET') return next()
+  return requireRole('admin', 'manager')(req, res, next)
+})
 
 // ── GET /api/inventory/movements ──────────────────────────────────────────────
 router.get('/movements', async (req, res, next) => {

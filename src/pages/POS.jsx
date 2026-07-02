@@ -156,8 +156,25 @@ function ModifierSelectModal({ item, groups, currency, onConfirm, onClose }) {
 // ── Payment Modal ─────────────────────────────────────────────────────────────
 function PaymentModal({ order, currency, onConfirm, onClose }) {
   const [method, setMethod] = useState('cash')
+  const [applyLoyalty, setApplyLoyalty] = useState(false)
   const [loading, setLoading] = useState(false)
-  const handle = async () => { setLoading(true); await onConfirm(order.id, method); setLoading(false) }
+
+  const loyaltyPoints = order.loyalty_points || 0
+  const loyaltyPerOmr = order.loyalty_per_omr || 1
+  const orderTotal    = parseFloat(order.total)
+
+  // Max redeemable = min(all customer points, points needed to cover the full bill)
+  const maxRedeemable   = Math.min(loyaltyPoints, Math.floor(orderTotal * loyaltyPerOmr))
+  const discountAmount  = loyaltyPerOmr > 0 ? parseFloat((maxRedeemable / loyaltyPerOmr).toFixed(3)) : 0
+  const pointsToRedeem  = applyLoyalty ? maxRedeemable : 0
+  const amountDue       = parseFloat((orderTotal - (applyLoyalty ? discountAmount : 0)).toFixed(3))
+
+  const handle = async () => {
+    setLoading(true)
+    await onConfirm(order.id, method, pointsToRedeem)
+    setLoading(false)
+  }
+
   return (
     <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm">
@@ -165,24 +182,66 @@ function PaymentModal({ order, currency, onConfirm, onClose }) {
           <h2 className="text-white font-bold text-lg">Payment</h2>
           <p className="text-slate-400 text-sm mt-0.5">Order #{order.id} · {order.type}</p>
         </div>
+
         <div className="p-5 space-y-4">
+          {/* Total amount display */}
           <div className="bg-slate-800 rounded-2xl p-5 text-center">
-            <p className="text-slate-400 text-sm">Total Due</p>
-            <p className="text-orange-400 text-5xl font-bold mt-1">{currency} {parseFloat(order.total).toFixed(3)}</p>
+            <p className="text-slate-400 text-sm">{applyLoyalty ? 'After Loyalty Discount' : 'Total Due'}</p>
+            <p className={`text-5xl font-bold mt-1 transition-colors ${applyLoyalty ? 'text-green-400' : 'text-orange-400'}`}>
+              {currency} {amountDue.toFixed(3)}
+            </p>
+            {applyLoyalty && discountAmount > 0 && (
+              <p className="text-slate-500 text-xs mt-2 line-through">
+                {currency} {orderTotal.toFixed(3)}
+              </p>
+            )}
           </div>
+
+          {/* Loyalty redemption toggle — only shown if customer has points */}
+          {loyaltyPoints > 0 && discountAmount > 0 && (
+            <button
+              onClick={() => setApplyLoyalty(v => !v)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
+                applyLoyalty
+                  ? 'bg-orange-500/10 border-orange-500 text-orange-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600 hover:text-white'
+              }`}>
+              <div className="text-left">
+                <p className="text-sm font-medium">🎁 Redeem Loyalty Points</p>
+                <p className="text-xs opacity-70 mt-0.5">
+                  {maxRedeemable} pts → save {currency} {discountAmount.toFixed(3)}
+                  {loyaltyPoints > maxRedeemable ? ` (of ${loyaltyPoints} available)` : ''}
+                </p>
+              </div>
+              <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
+                applyLoyalty ? 'border-orange-400 bg-orange-400' : 'border-slate-500'
+              }`}>
+                {applyLoyalty && <span className="text-white text-xs font-bold leading-none">✓</span>}
+              </div>
+            </button>
+          )}
+
+          {/* Payment method selector */}
           <p className="text-slate-400 text-sm font-medium">Select Payment Method</p>
           <div className="grid grid-cols-3 gap-2">
             {[['cash','💵','Cash'],['card','💳','Card'],['other','📱','Other']].map(([v,e,l]) => (
               <button key={v} onClick={() => setMethod(v)}
-                className={`py-3 rounded-xl flex flex-col items-center gap-1.5 transition-all text-sm font-medium ${method===v ? 'bg-orange-500 text-white ring-2 ring-orange-400' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                className={`py-3 rounded-xl flex flex-col items-center gap-1.5 transition-all text-sm font-medium ${
+                  method===v ? 'bg-orange-500 text-white ring-2 ring-orange-400' : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}>
                 <span className="text-2xl">{e}</span>{l}
               </button>
             ))}
           </div>
         </div>
+
         <div className="p-5 border-t border-slate-800 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-colors">Pay Later</button>
-          <button onClick={handle} disabled={loading} className="flex-1 py-3 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-colors">
+          <button onClick={onClose}
+            className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-colors">
+            Pay Later
+          </button>
+          <button onClick={handle} disabled={loading}
+            className="flex-1 py-3 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-colors">
             {loading ? 'Processing…' : '✓ Confirm Payment'}
           </button>
         </div>
@@ -432,7 +491,9 @@ export default function POS() {
         tax: parseFloat(tax.toFixed(3)),
         type: orderType,
         items: cartSnapshot,
-        customer_name: selectedCustomer?.name || null
+        customer_name: selectedCustomer?.name || null,
+        loyalty_points: parseInt(selectedCustomer?.loyalty_points || 0),
+        loyalty_per_omr: parseInt(settings.loyalty_points_per_omr || '1'),
       })
     } catch (err) {
       setError(err.message)
@@ -441,11 +502,11 @@ export default function POS() {
     setPlacing(false)
   }
 
-  const handlePayment = async (orderId, method) => {
+  const handlePayment = async (orderId, method, loyaltyRedemptionPoints = 0) => {
     try {
       const res = await apiFetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: 'completed', payment_method: method })
+        body: JSON.stringify({ status: 'completed', payment_method: method, loyalty_redemption_points: loyaltyRedemptionPoints || 0 })
       })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Payment failed') }
       const receipt = { ...payModal, payment_method: method, paid_at: new Date().toISOString() }

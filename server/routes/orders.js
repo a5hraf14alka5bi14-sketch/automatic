@@ -105,7 +105,7 @@ router.post('/', validate(orderCreateSchema), async (req, res) => {
 })
 
 router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
-  const { status, payment_method } = req.body
+  const { status, payment_method, loyalty_redemption_points } = req.body
 
   const client = await pool.connect()
   try {
@@ -167,14 +167,28 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
       if (customer_id) {
         const { loyaltyPerDollar } = await getSettings(client)
         const pointsEarned = Math.floor(parseFloat(orderTotal) * loyaltyPerDollar)
+
+        // Apply loyalty redemption if requested
+        const pointsToRedeem = loyalty_redemption_points && loyalty_redemption_points > 0
+          ? parseInt(loyalty_redemption_points) : 0
+        const loyaltyDiscount = loyaltyPerDollar > 0
+          ? parseFloat((pointsToRedeem / loyaltyPerDollar).toFixed(3)) : 0
+
+        if (loyaltyDiscount > 0) {
+          await client.query(
+            'UPDATE orders SET loyalty_discount=$1 WHERE id=$2',
+            [loyaltyDiscount, req.params.id]
+          )
+        }
+
         await client.query(
           `UPDATE customers SET
             total_orders = total_orders + 1,
             total_spent = total_spent + $1,
-            loyalty_points = loyalty_points + $2,
+            loyalty_points = GREATEST(0, loyalty_points + $2 - $3),
             updated_at = NOW()
-           WHERE id = $3`,
-          [parseFloat(orderTotal), pointsEarned, customer_id]
+           WHERE id = $4`,
+          [parseFloat(orderTotal), pointsEarned, pointsToRedeem, customer_id]
         )
       }
     }

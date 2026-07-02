@@ -19,3 +19,6 @@
 - [Notion rollup/formula mapping](notion-rollup-mapping.md) — use getNumeric (not .number) for Food Cost/Cost per Unit; rollups zero out otherwise
 - [Notion components split](notion-components-split.md) — 8 sub-components in src/components/notion/; shared file must be .jsx (not .js) because it exports React components
 - [Reports heatmap and trend data](reports-heatmap-trend.md) — /api/reports includes heatmap+trend keys; CSV export at /api/reports/export; all in one Promise.all round trip
+- [PDF export](pdf-export.md) — jsPDF + jspdf-autotable, client-side (no Puppeteer); dark-themed branded; doc.lastAutoTable.finalY to stack tables
+- [Loyalty redemption](loyalty-redemption.md) — loyalty_discount column on orders; PATCH body loyalty_redemption_points; PaymentModal toggle with live "Amount Due"; single UPDATE nets earned−redeemed
+- [Role-based access control](role-based-access.md) — router-level middleware for menu/inventory (all non-GET); per-route for customers (DELETE+points PATCH); backend-only, no frontend gating yet

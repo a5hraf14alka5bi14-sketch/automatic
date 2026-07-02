@@ -64,7 +64,24 @@ const authLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again in a minute.' },
 })
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }))
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbStart = Date.now()
+    await pool.query('SELECT 1')
+    const dbLatencyMs = Date.now() - dbStart
+    res.json({
+      status:        'ok',
+      db:            'ok',
+      dbLatencyMs,
+      uptimeSeconds: Math.floor(process.uptime()),
+      version:       process.env.npm_package_version || '1.0.0',
+      env:           process.env.NODE_ENV || 'development',
+      ts:            Date.now(),
+    })
+  } catch (err) {
+    res.status(503).json({ status: 'error', db: 'error', ts: Date.now() })
+  }
+})
 app.use('/api/auth', authLimiter, authRoutes)
 
 app.use(verifyToken)

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
 
@@ -215,6 +217,100 @@ function downloadCSV(period) {
   document.body.removeChild(a)
 }
 
+// ── PDF Export ────────────────────────────────────────────────────────────────
+function downloadPDF(data, period, fmtFn) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const periodLabel = { today: 'Today', week: 'Last 7 Days', month: 'This Month' }[period] || period
+  const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const dark   = [15,  23,  42]   // slate-950
+  const panel  = [30,  41,  59]   // slate-800
+  const orange = [249, 115, 22]   // orange-500
+  const muted  = [148, 163, 184]  // slate-400
+  const light  = [226, 232, 240]  // slate-200
+
+  // Header banner
+  doc.setFillColor(...dark)
+  doc.rect(0, 0, 210, 38, 'F')
+  doc.setTextColor(...orange)
+  doc.setFontSize(20)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Automatic Restaurant OS', 14, 16)
+  doc.setTextColor(...muted)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Reports — ${periodLabel}`, 14, 25)
+  doc.text(`Generated: ${now}`, 14, 31)
+
+  // KPI Summary table
+  autoTable(doc, {
+    startY: 44,
+    head: [['Metric', 'Value']],
+    body: [
+      ['Revenue',          fmtFn(data.revenue)],
+      ['Total Orders',     String(data.totalOrders  || 0)],
+      ['Avg Order Value',  fmtFn(data.avgOrderValue)],
+      ['Customers Served', String(data.customersServed || 0)],
+      ['Food Cost',        fmtFn(data.totalFoodCost)],
+      ['Gross Profit',     fmtFn(data.grossProfit)],
+      ['Gross Margin',     `${data.grossMargin || 0}%`],
+    ],
+    tableWidth: 90,
+    headStyles:         { fillColor: panel, textColor: orange, fontStyle: 'bold' },
+    bodyStyles:         { fillColor: dark,  textColor: light },
+    alternateRowStyles: { fillColor: panel },
+    theme: 'grid',
+  })
+
+  // Category Profitability
+  if (data.categoryPerf?.length > 0) {
+    const y1 = doc.lastAutoTable.finalY + 10
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...light)
+    doc.text('Category Profitability', 14, y1)
+    autoTable(doc, {
+      startY: y1 + 4,
+      head: [['Category', 'Revenue', 'Food Cost', 'Profit', 'Margin']],
+      body: data.categoryPerf.map(c => [
+        (c.category || 'Other').charAt(0).toUpperCase() + (c.category || 'Other').slice(1),
+        fmtFn(c.revenue),
+        fmtFn(c.foodCost),
+        fmtFn(c.profit),
+        `${c.margin || 0}%`,
+      ]),
+      headStyles:         { fillColor: panel, textColor: orange, fontStyle: 'bold' },
+      bodyStyles:         { fillColor: dark,  textColor: light },
+      alternateRowStyles: { fillColor: panel },
+      theme: 'grid',
+    })
+  }
+
+  // Top Menu Items
+  if (data.topItems?.length > 0) {
+    const y2 = doc.lastAutoTable.finalY + 10
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...light)
+    doc.text('Top Menu Items', 14, y2)
+    autoTable(doc, {
+      startY: y2 + 4,
+      head: [['Item', 'Category', 'Qty Sold', 'Revenue']],
+      body: data.topItems.slice(0, 10).map(item => [
+        item.name,
+        item.category || '',
+        String(item.totalQty   || 0),
+        fmtFn(item.totalRevenue),
+      ]),
+      headStyles:         { fillColor: panel, textColor: orange, fontStyle: 'bold' },
+      bodyStyles:         { fillColor: dark,  textColor: light },
+      alternateRowStyles: { fillColor: panel },
+      theme: 'grid',
+    })
+  }
+
+  doc.save(`report-${period}-${new Date().toISOString().slice(0, 10)}.pdf`)
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Reports() {
   const { fmt } = useCurrency()
@@ -266,6 +362,12 @@ export default function Reports() {
           <button onClick={handleExport} disabled={exporting}
             className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors">
             {exporting ? '⏳' : '⬇'} CSV
+          </button>
+          <button
+            onClick={() => data && downloadPDF(data, period, fmt)}
+            disabled={!data || loading}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors">
+            📄 PDF
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { validate } from '../middleware/validate.js'
+import { requireRole } from '../middleware/auth.js'
 import { customerCreateSchema, customerUpdateSchema } from '../validators.js'
 
 const router = express.Router()
@@ -67,7 +68,7 @@ router.patch('/:id', validate(customerUpdateSchema), async (req, res) => {
   }
 })
 
-router.patch('/:id/points', async (req, res) => {
+router.patch('/:id/points', requireRole('admin', 'manager'), async (req, res) => {
   const { points } = req.body
   try {
     const result = await pool.query(
@@ -79,7 +80,7 @@ router.patch('/:id/points', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }
 })
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const result = await pool.query('DELETE FROM customers WHERE id=$1 RETURNING id', [req.params.id])
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })

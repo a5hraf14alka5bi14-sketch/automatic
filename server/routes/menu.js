@@ -1,9 +1,16 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { validate } from '../middleware/validate.js'
+import { requireRole } from '../middleware/auth.js'
 import { menuCreateSchema, menuUpdateSchema } from '../validators.js'
 
 const router = express.Router()
+
+// All write operations require admin or manager role
+router.use((req, res, next) => {
+  if (req.method === 'GET') return next()
+  return requireRole('admin', 'manager')(req, res, next)
+})
 
 // ── GET /api/menu — available items only (used by POS) ───────────────────────
 router.get('/', async (req, res) => {
