@@ -32,8 +32,12 @@ import { logger } from './logger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const server = http.createServer(app)
-const PORT = 3001
 const IS_PROD = process.env.NODE_ENV === 'production'
+// In production the whole app (API + built frontend + WebSocket) is served from a
+// single port. Replit's deployment forwards external port 80 → localPort 5000, so
+// we must listen on 5000 there. In development the API stays on 3001 and Vite
+// serves the client on 5000 (proxying /api and /ws to 3001).
+const PORT = process.env.PORT || (IS_PROD ? 5000 : 3001)
 
 // ── Trust Replit's reverse proxy so rate-limiter sees real client IPs ─────────
 app.set('trust proxy', 1)
@@ -57,13 +61,14 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }))
 
-// ── CORS — restrict to ALLOWED_ORIGIN in production ───────────────────────────
-if (IS_PROD && !process.env.ALLOWED_ORIGIN) {
-  console.error('FATAL: ALLOWED_ORIGIN must be set in production (credentialed CORS cannot reflect arbitrary origins).')
-  process.exit(1)
-}
+// ── CORS ──────────────────────────────────────────────────────────────────────
+// In production the built frontend is served from the SAME origin as the API, so
+// no cross-origin access is needed — we disable CORS reflection (origin:false) by
+// default, which is safe (same-origin requests never trigger CORS). Set
+// ALLOWED_ORIGIN only if a SEPARATE frontend origin must call this API.
+// In development, reflect any origin so the Vite dev server (port 5000) works.
 app.use(cors({
-  origin: IS_PROD ? process.env.ALLOWED_ORIGIN : true,
+  origin: IS_PROD ? (process.env.ALLOWED_ORIGIN || false) : true,
   credentials: true,
 }))
 
@@ -115,6 +120,19 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api', generalLimiter)
 
+// ── Serve the built frontend (production) BEFORE auth ─────────────────────────
+// The SPA and its static assets must load without a token; only /api/* is gated
+// by verifyToken below. Placed here so the deployment healthcheck on `/` returns
+// the app shell (200) instead of 401. The fallback skips /api/ and non-GET.
+if (IS_PROD) {
+  const distPath = path.join(__dirname, '../dist')
+  app.use(express.static(distPath))
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api/')) return next()
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
+}
+
 app.use(verifyToken)
 app.use(enforcePasswordChange)
 
@@ -133,17 +151,6 @@ app.use('/api/settings', settingsRoutes)
 app.use('/api/users', usersRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/admin', adminRoutes)
-
-if (IS_PROD) {
-  const distPath = path.join(__dirname, '../dist')
-  app.use(express.static(distPath))
-  // SPA fallback. Express 5 (path-to-regexp v8) no longer accepts a bare '*'
-  // route pattern, so use a middleware that serves index.html for non-API GETs.
-  app.use((req, res, next) => {
-    if (req.method !== 'GET' || req.path.startsWith('/api/')) return next()
-    res.sendFile(path.join(distPath, 'index.html'))
-  })
-}
 
 // ── Global error handler — hide internal details from clients ─────────────────
 // eslint-disable-next-line no-unused-vars
