@@ -14,18 +14,21 @@ export const STATUS_TO_ARABIC = {
   done: 'تم'
 }
 
-const DEFAULT_PROJECTS_DS = 'bea6bf0f-16f9-455c-b887-dee7b7cba587'
-const DEFAULT_TASKS_DS = '2ea23851-9271-456c-bad7-cfa25fa2683d'
-const DEFAULT_MENU_DS = '6f3cf08f-3cdf-472b-807d-b4edc27cc13f'
-const DEFAULT_INVENTORY_DS = 'fb57f374-c7dd-4c18-ad3c-c601c96b1f91'
-const DEFAULT_CUSTOMERS_DS = 'ff5b19de-d827-4818-9bee-cea05375fb21'
-const DEFAULT_SUPPLIERS_DS = '918d94de-97d9-4422-ac00-3cc41874d3a5'
-const DEFAULT_PURCHASE_ORDERS_DS = '1976152b-9da3-43df-9d8a-af56818067ef'
-const DEFAULT_STAFF_DS = '7bdb3187-d6e4-425c-aea1-ca16d97474e3'
-const DEFAULT_FINANCE_DS = 'd3de7e73-bef6-430a-9da7-b8451379d436'
-const DEFAULT_ORDER_ITEMS_DS = 'e3e3a62a-e550-40b5-909f-3fa053597bc3'
-const DEFAULT_SALES_DS = 'ed84c1af-01a7-4a33-8f8e-835997a04094'
-const DEFAULT_RECIPE_INGREDIENTS_DS = '8a2c31ac-5244-43ac-b721-d94338e8ded4'
+// REST database container IDs (Notion-Version 2022-06-28 addresses the database,
+// not the data source). In the multi-data-source model these differ from the
+// collection:// data-source IDs used by the MCP layer.
+const DEFAULT_PROJECTS_DS = '7393008a-5771-453d-aeb7-ef4afd8751ba'
+const DEFAULT_TASKS_DS = 'fdde12c5-0c0a-4df4-ab5d-3983a01a0eb8'
+const DEFAULT_MENU_DS = '55d032d4-e5ac-462e-86c0-898914bad335'
+const DEFAULT_INVENTORY_DS = '39197a5a-3a84-4e7d-995b-44ae2d80d85c'
+const DEFAULT_CUSTOMERS_DS = '5e03302c-30a4-4990-8ab1-992411e8196b'
+const DEFAULT_SUPPLIERS_DS = 'bb195e84-a1cc-437e-9bf4-a41ba67392ab'
+const DEFAULT_PURCHASE_ORDERS_DS = '901d5648-5299-42ed-8634-18ea83075c67'
+const DEFAULT_STAFF_DS = '9af38ed0-26bc-45fc-99c2-24bc4068203b'
+const DEFAULT_FINANCE_DS = 'a0aa93a9-964c-4434-bac4-8d2a95997e1a'
+const DEFAULT_ORDER_ITEMS_DS = 'eca42e10-8f29-4f34-bde1-ecdc46855de1'
+const DEFAULT_SALES_DS = 'd815b59c-c22b-4737-9851-6c1197e1e540'
+const DEFAULT_RECIPE_INGREDIENTS_DS = '6fa6cb41-94a7-4891-aca8-b775571e5b54'
 
 export async function getNotionConfig() {
   const rows = await pool.query(

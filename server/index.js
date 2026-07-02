@@ -143,7 +143,7 @@ async function initSyncEngine() {
     registerAdapter('notion', syncAll)
 
     const r = await pool.query(
-      "SELECT value FROM settings WHERE key IN ('notion_auto_sync_enabled','notion_auto_sync_interval')"
+      "SELECT key, value FROM settings WHERE key IN ('notion_auto_sync_enabled','notion_auto_sync_interval')"
     )
     const cfg = {}
     for (const row of r.rows) cfg[row.key] = row.value
