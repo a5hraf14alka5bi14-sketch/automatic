@@ -11,8 +11,8 @@ import { passwordSchema } from '../validators.js'
 
 const router = express.Router()
 
-function makeTokens(userId, role) {
-  const token = jwt.sign({ id: userId, role }, SECRET, { expiresIn: '2h' })
+function makeTokens(userId, role, mustChange = false) {
+  const token = jwt.sign({ id: userId, role, mustChange }, SECRET, { expiresIn: '2h' })
   const refresh_token = jwt.sign({ id: userId, role, type: 'refresh' }, SECRET, { expiresIn: '30d' })
   return { token, refresh_token }
 }
@@ -36,10 +36,13 @@ router.post('/login', async (req, res, next) => {
     const user = result.rows[0]
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' })
-    const { token, refresh_token } = makeTokens(user.id, user.role)
+    const { token, refresh_token } = makeTokens(user.id, user.role, user.must_change_password || false)
     setAuthCookies(res, token, refresh_token)
     res.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role }
+      user: {
+        id: user.id, name: user.name, email: user.email, role: user.role,
+        must_change_password: user.must_change_password || false,
+      }
     })
   } catch (err) {
     next(err)
@@ -52,10 +55,10 @@ router.post('/refresh', async (req, res) => {
   try {
     const payload = jwt.verify(refresh_token, SECRET)
     if (payload.type !== 'refresh') return res.status(401).json({ error: 'Invalid session' })
-    const result = await pool.query('SELECT id, role FROM users WHERE id = $1', [payload.id])
+    const result = await pool.query('SELECT id, role, must_change_password FROM users WHERE id = $1', [payload.id])
     if (!result.rows.length) return res.status(401).json({ error: 'Session expired' })
-    const { id, role } = result.rows[0]
-    const { token, refresh_token: newRefresh } = makeTokens(id, role)
+    const { id, role, must_change_password } = result.rows[0]
+    const { token, refresh_token: newRefresh } = makeTokens(id, role, must_change_password || false)
     setAuthCookies(res, token, newRefresh)
     res.json({ success: true })
   } catch {
@@ -71,7 +74,7 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', verifyToken, async (req, res, next) => {
   try {
-    const result = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [req.user.id])
+    const result = await pool.query('SELECT id, name, email, role, must_change_password FROM users WHERE id = $1', [req.user.id])
     if (!result.rows.length) return res.status(401).json({ error: 'Session expired' })
     res.json({ user: result.rows[0] })
   } catch (err) {
@@ -94,7 +97,10 @@ router.patch('/password', verifyToken, async (req, res, next) => {
     const valid = await bcrypt.compare(current_password, user.password)
     if (!valid) return res.status(401).json({ error: 'Current password is incorrect' })
     const hash = await bcrypt.hash(new_password, 12)
-    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hash, user.id])
+    await pool.query('UPDATE users SET password = $1, must_change_password = false WHERE id = $2', [hash, user.id])
+    // Re-issue tokens without the mustChange claim so the session regains access.
+    const { token, refresh_token } = makeTokens(user.id, user.role, false)
+    setAuthCookies(res, token, refresh_token)
     res.json({ success: true })
   } catch (err) {
     next(err)

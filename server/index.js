@@ -6,7 +6,7 @@ import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { verifyToken } from './middleware/auth.js'
+import { verifyToken, enforcePasswordChange } from './middleware/auth.js'
 import authRoutes from './routes/auth.js'
 import menuRoutes from './routes/menu.js'
 import ordersRoutes from './routes/orders.js'
@@ -109,6 +109,7 @@ app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api', generalLimiter)
 
 app.use(verifyToken)
+app.use(enforcePasswordChange)
 
 app.use('/api/menu', menuRoutes)
 app.use('/api/orders', ordersRoutes)

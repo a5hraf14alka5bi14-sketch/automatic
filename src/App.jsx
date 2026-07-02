@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Sidebar from './components/Sidebar.jsx'
+import { canAccessRoute } from './utils/auth.js'
 import { ToastProvider } from './context/ToastContext.jsx'
 import { SettingsProvider } from './context/SettingsContext.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -20,10 +21,18 @@ import ChangePassword from './pages/ChangePassword.jsx'
 import Login from './pages/Login.jsx'
 import AIExecutive from './pages/AIExecutive.jsx'
 
+function RequireRole({ routeId, role, children }) {
+  if (!canAccessRoute(routeId, role)) {
+    return <Navigate to="/dashboard" replace />
+  }
+  return children
+}
+
 function AppLayout({ user, onLogout }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
+  const role = user?.role
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
@@ -65,11 +74,11 @@ function AppLayout({ user, onLogout }) {
               <Route path="/inventory" element={<Inventory />} />
               <Route path="/recipes" element={<Recipes />} />
               <Route path="/customers" element={<Customers />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings user={user} />} />
-              <Route path="/integrations" element={<Integrations />} />
-              <Route path="/notion" element={<NotionIntegration />} />
-              <Route path="/ai-executive" element={<AIExecutive />} />
+              <Route path="/reports" element={<RequireRole routeId="reports" role={role}><Reports /></RequireRole>} />
+              <Route path="/settings" element={<RequireRole routeId="settings" role={role}><Settings user={user} /></RequireRole>} />
+              <Route path="/integrations" element={<RequireRole routeId="integrations" role={role}><Integrations /></RequireRole>} />
+              <Route path="/notion" element={<RequireRole routeId="notion" role={role}><NotionIntegration /></RequireRole>} />
+              <Route path="/ai-executive" element={<RequireRole routeId="ai-executive" role={role}><AIExecutive /></RequireRole>} />
               <Route path="/change-password" element={<ChangePassword />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
@@ -117,9 +126,23 @@ export default function App() {
     localStorage.removeItem('auth_user')
   }
 
+  const handlePasswordChanged = () => {
+    const updated = { ...user, must_change_password: false }
+    setUser(updated)
+    localStorage.setItem('auth_user', JSON.stringify(updated))
+  }
+
   if (!user) return (
     <ToastProvider>
       <Login onLogin={handleLogin} />
+    </ToastProvider>
+  )
+
+  // Force a password change before granting access to the rest of the app
+  // (e.g. the seeded default admin account).
+  if (user.must_change_password) return (
+    <ToastProvider>
+      <ForcePasswordChange user={user} onDone={handlePasswordChanged} onLogout={handleLogout} />
     </ToastProvider>
   )
 
@@ -131,5 +154,27 @@ export default function App() {
         </SettingsProvider>
       </ToastProvider>
     </BrowserRouter>
+  )
+}
+
+function ForcePasswordChange({ user, onDone, onLogout }) {
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-white">Set a new password</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            For security, {user?.name || 'your account'} must replace the default password before continuing.
+          </p>
+        </div>
+        <ChangePassword forced onChanged={onDone} />
+        <button
+          onClick={onLogout}
+          className="w-full mt-4 text-slate-500 hover:text-red-400 text-sm transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
   )
 }

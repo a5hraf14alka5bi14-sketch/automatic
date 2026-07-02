@@ -11,8 +11,14 @@ import {
   createProjectInNotion
 } from '../notion.js'
 import { logger } from '../logger.js'
+import { requireRole } from '../middleware/auth.js'
+import { encryptSecret } from '../config/crypto.js'
 
 const router = express.Router()
+
+// Notion project/task sync + config is management-only (backend authority for
+// the frontend route guard on /notion).
+router.use(requireRole('admin', 'manager'))
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -39,7 +45,7 @@ router.put('/config', async (req, res) => {
   const { apiKey, projectsDb, tasksDb } = req.body
   try {
     const updates = []
-    if (apiKey) updates.push(['notion_api_key', apiKey])
+    if (apiKey) updates.push(['notion_api_key', encryptSecret(apiKey)])
     if (projectsDb) updates.push(['notion_projects_db', projectsDb])
     if (tasksDb) updates.push(['notion_tasks_db', tasksDb])
     for (const [key, value] of updates) {

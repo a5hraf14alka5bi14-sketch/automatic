@@ -2,6 +2,7 @@ import express from 'express'
 import { pool } from '../db.js'
 import { logger } from '../logger.js'
 import { requireRole } from '../middleware/auth.js'
+import { encryptSecret } from '../config/crypto.js'
 import { getGitHubToken, testGitHubConnection, fetchGitHubRepos } from '../integrations/github.js'
 import { getOpenAIKey, testOpenAIConnection } from '../integrations/openai.js'
 import { getNotionConfig, getNotionClient } from '../notion.js'
@@ -37,6 +38,10 @@ import {
 } from '../integrations/sync-engine.js'
 
 const router = express.Router()
+
+// The whole integrations hub (config, sync, status, AI) is management-only —
+// backend authority for the frontend route guard on /integrations.
+router.use(requireRole('admin', 'manager'))
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -121,15 +126,15 @@ router.put('/:service/config', requireRole('admin', 'manager'), async (req, res)
   try {
     if (service === 'github') {
       const { token } = req.body
-      if (token?.trim()) await setSetting('github_token', token.trim())
+      if (token?.trim()) await setSetting('github_token', encryptSecret(token.trim()))
     } else if (service === 'notion') {
       const { apiKey, projectsDb, tasksDb } = req.body
-      if (apiKey?.trim()) await setSetting('notion_api_key', apiKey.trim())
+      if (apiKey?.trim()) await setSetting('notion_api_key', encryptSecret(apiKey.trim()))
       if (projectsDb?.trim()) await setSetting('notion_projects_db', projectsDb.trim())
       if (tasksDb?.trim()) await setSetting('notion_tasks_db', tasksDb.trim())
     } else if (service === 'openai') {
       const { apiKey } = req.body
-      if (apiKey?.trim()) await setSetting('openai_api_key', apiKey.trim())
+      if (apiKey?.trim()) await setSetting('openai_api_key', encryptSecret(apiKey.trim()))
     } else {
       return res.status(404).json({ error: 'Unknown service' })
     }

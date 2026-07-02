@@ -1,8 +1,9 @@
 import { pool } from '../db.js'
+import { decryptSecret } from '../config/crypto.js'
 
 export async function getGitHubToken() {
   const row = await pool.query("SELECT value FROM settings WHERE key='github_token'")
-  return row.rows[0]?.value || process.env.GITHUB_TOKEN || ''
+  return decryptSecret(row.rows[0]?.value) || process.env.GITHUB_TOKEN || ''
 }
 
 export async function githubFetch(path, token) {

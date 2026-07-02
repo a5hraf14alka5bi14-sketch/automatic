@@ -1,5 +1,6 @@
 import pkg from '@notionhq/client'
 import { pool } from './db.js'
+import { decryptSecret } from './config/crypto.js'
 
 const { Client } = pkg
 
@@ -37,7 +38,7 @@ export async function getNotionConfig() {
   const cfg = {}
   for (const r of rows.rows) cfg[r.key] = r.value
   return {
-    apiKey: cfg.notion_api_key || process.env.NOTION_API_KEY || '',
+    apiKey: decryptSecret(cfg.notion_api_key) || process.env.NOTION_API_KEY || '',
     projectsDb: cfg.notion_projects_db || DEFAULT_PROJECTS_DS,
     tasksDb: cfg.notion_tasks_db || DEFAULT_TASKS_DS
   }
@@ -58,7 +59,7 @@ export async function getExtendedNotionConfig() {
   const cfg = {}
   for (const r of rows.rows) cfg[r.key] = r.value
   return {
-    apiKey: cfg.notion_api_key || process.env.NOTION_API_KEY || '',
+    apiKey: decryptSecret(cfg.notion_api_key) || process.env.NOTION_API_KEY || '',
     projectsDb: cfg.notion_projects_db || DEFAULT_PROJECTS_DS,
     tasksDb: cfg.notion_tasks_db || DEFAULT_TASKS_DS,
     menuDb: cfg.notion_menu_db || DEFAULT_MENU_DS,

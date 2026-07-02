@@ -34,7 +34,7 @@ function PasswordInput({ label, value, onChange, placeholder }) {
   )
 }
 
-export default function ChangePassword() {
+export default function ChangePassword({ forced = false, onChanged }) {
   const showToast = useToast()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -66,6 +66,7 @@ export default function ChangePassword() {
       if (!res.ok) throw new Error(data.error || 'Failed to change password')
       showToast('Password changed successfully', 'success')
       setCurrent(''); setNext(''); setConfirm('')
+      if (onChanged) onChanged()
     } catch (err) {
       showToast(err.message, 'error')
     } finally {
@@ -74,11 +75,13 @@ export default function ChangePassword() {
   }
 
   return (
-    <div className="p-6 max-w-lg">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Change Password</h1>
-        <p className="text-slate-400 text-sm mt-1">Update your account password. You'll need your current password to confirm.</p>
-      </div>
+    <div className={forced ? '' : 'p-6 max-w-lg'}>
+      {!forced && (
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-white">Change Password</h1>
+          <p className="text-slate-400 text-sm mt-1">Update your account password. You'll need your current password to confirm.</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
         <PasswordInput

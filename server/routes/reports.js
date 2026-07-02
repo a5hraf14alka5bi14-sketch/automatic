@@ -5,6 +5,10 @@ import { logger } from '../logger.js'
 
 const router = express.Router()
 
+// Reports expose aggregated business data — management only (backend authority
+// for the frontend route guard on /reports).
+router.use(requireRole('admin', 'manager'))
+
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function dateFilter(period, alias = 'o') {

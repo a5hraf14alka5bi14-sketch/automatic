@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import logo from '../assets/brand/logo-full.png'
 
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState('admin@automatic.com')
-  const [password, setPassword] = useState('Admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -81,12 +81,6 @@ export default function Login({ onLogin }) {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
-          <div className="mt-4 p-3 bg-slate-800 rounded-lg">
-            <p className="text-xs text-slate-400 font-medium mb-1">Demo credentials:</p>
-            <p className="text-xs text-slate-300">Email: admin@automatic.com</p>
-            <p className="text-xs text-slate-300">Password: Admin123</p>
-          </div>
         </div>
       </div>
     </div>

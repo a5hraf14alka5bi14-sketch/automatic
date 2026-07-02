@@ -56,8 +56,10 @@ export async function initDb() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'staff',
+        must_change_password BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW()
       );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
 
       CREATE TABLE IF NOT EXISTS menu_items (
         id SERIAL PRIMARY KEY,
@@ -336,8 +338,8 @@ export async function initDb() {
       const bcrypt = await import('bcryptjs')
       const hash = await bcrypt.default.hash('Admin123', 10)
       await client.query(
-        'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
-        ['Admin Manager', 'admin@automatic.com', hash, 'admin']
+        'INSERT INTO users (name, email, password, role, must_change_password) VALUES ($1, $2, $3, $4, $5)',
+        ['Admin Manager', 'admin@automatic.com', hash, 'admin', true]
       )
     }
 

@@ -1,6 +1,7 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext.jsx'
+import { canAccessRoute } from '../utils/auth.js'
 import logo from '../assets/brand/logo-full.png'
 
 const NAV_ITEMS = [
@@ -32,6 +33,8 @@ export default function Sidebar({ user, onLogout, collapsed, setCollapsed, mobil
   const showLowStock = lowStockEnabled && lowStockCount > 0
   // On mobile the drawer is always full width; only desktop honors `collapsed`.
   const expanded = mobileOpen || !collapsed
+  // Hide management links the current role can't reach (routes are also guarded).
+  const navItems = NAV_ITEMS.filter(item => canAccessRoute(item.id, user?.role))
 
   return (
     <>
@@ -80,7 +83,7 @@ export default function Sidebar({ user, onLogout, collapsed, setCollapsed, mobil
         </div>
 
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.map(item => (
+          {navItems.map(item => (
             <React.Fragment key={item.id}>
               {item.divider && <div className="border-t border-slate-800/70 my-2 mx-1" />}
               <NavLink

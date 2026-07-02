@@ -1,8 +1,9 @@
 import { pool } from '../db.js'
+import { decryptSecret } from '../config/crypto.js'
 
 export async function getOpenAIKey() {
   const row = await pool.query("SELECT value FROM settings WHERE key='openai_api_key'")
-  return row.rows[0]?.value || process.env.OPENAI_API_KEY || ''
+  return decryptSecret(row.rows[0]?.value) || process.env.OPENAI_API_KEY || ''
 }
 
 export async function testOpenAIConnection() {

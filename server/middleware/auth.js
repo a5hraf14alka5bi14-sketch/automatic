@@ -29,3 +29,13 @@ export function requireRole(...roles) {
     next()
   }
 }
+
+// Blocks all protected API access while the user still owes a password change.
+// Auth routes (login/logout/refresh/me/password) are mounted before verifyToken
+// so they remain reachable and can clear the flag.
+export function enforcePasswordChange(req, res, next) {
+  if (req.user?.mustChange) {
+    return res.status(403).json({ error: 'Password change required', mustChangePassword: true })
+  }
+  next()
+}

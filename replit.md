@@ -48,9 +48,9 @@ server/
 | `NOTION_API_KEY` | Notion internal integration token |
 | `OPENAI_API_KEY` | OpenAI API key for AI features |
 
-### Demo credentials
+### Default admin (first-run)
 - Email: `admin@automatic.com`
-- Password: `Admin123`
+- Password: `Admin123` — seeded with `must_change_password=true`, so the app forces a password change on first login. Not shown in the UI.
 
 ---
 
