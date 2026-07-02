@@ -47,3 +47,5 @@
 - [GitHub remote state](github-remote-state.md) — origin (a5hraf14alka5bi14-sketch/Automatic-) returns 'repository not found'; pushes fail until repo access/remote fixed
 - [Recipe→inventory linking](recipe-inventory-linking.md) — manual-review UI + ranked suggestions, NO auto-apply (no exact matches; token auto-link is unsafe); endpoints before /:id
 - [Recipe data source of truth](recipe-source-of-truth.md) — .local/menu.json (74 dishes/338 lines) is the authoritative seed; use it to reconcile/recover recipe quantities (Notion has none)
+- [Order status reversal symmetry](order-status-reversal-symmetry.md) — leaving 'completed' must restock via recorded stock_movements net (not recipe recompute) AND reverse loyalty exactly (−earned +redeemed)
+- [Inventory seed from file](inventory-seed-from-file.md) — fresh-DB inventory now seeds from server/seed-data/inventory-items.json (349 real Arabic SKUs); English demo rows removed

@@ -155,6 +155,67 @@ describe('Inventory deduction on order completion', () => {
   })
 })
 
+describe('Order status reversal symmetry (stock + loyalty)', () => {
+  it('reverting a completed order restores stock and loyalty, and re-completing does not double-deduct', async () => {
+    // Give the customer a loyalty balance so we can exercise redemption refunds.
+    await pool.query('UPDATE customers SET loyalty_points=100, total_orders=0, total_spent=0 WHERE id=$1', [ids.customer])
+    const snap = async () => {
+      const c = (await pool.query('SELECT loyalty_points, total_orders, total_spent FROM customers WHERE id=$1', [ids.customer])).rows[0]
+      const inv = parseFloat((await pool.query('SELECT quantity FROM inventory WHERE id=$1', [ids.invItem])).rows[0].quantity)
+      return {
+        loyalty: parseInt(c.loyalty_points), orders: parseInt(c.total_orders),
+        spent: parseFloat(c.total_spent), inv,
+      }
+    }
+
+    const base = await snap()
+    expect(base.inv).toBeCloseTo(10, 3) // previous order was cancelled → back to 10 kg
+
+    const create = await admin.post('/api/orders').send({
+      type: 'takeaway', customer_id: ids.customer,
+      items: [{ menu_item_id: ids.menuItem, name: `${TAG} Manoushe`, quantity: 1, price: 2.5 }],
+      subtotal: 2.5, tax: 0, total: 2.5,
+    })
+    expect(create.status).toBe(201)
+    const oid = create.body.id
+
+    // Complete, redeeming 5 points.
+    const done = await admin.patch(`/api/orders/${oid}/status`).send({ status: 'completed', payment_method: 'cash', loyalty_redemption_points: 5 })
+    expect(done.status).toBe(200)
+    const afterComplete = await snap()
+    expect(afterComplete.inv).toBeCloseTo(9.8, 3) // 200 g deducted from 10 kg
+
+    // Revert to an active status (NOT cancelled) — stock and loyalty must fully reverse.
+    const revert = await admin.patch(`/api/orders/${oid}/status`).send({ status: 'pending' })
+    expect(revert.status).toBe(200)
+    const afterRevert = await snap()
+    expect(afterRevert.inv).toBeCloseTo(10, 3)
+    expect(afterRevert.loyalty).toBe(base.loyalty) // earned removed AND redeemed refunded
+    expect(afterRevert.orders).toBe(base.orders)
+    expect(afterRevert.spent).toBeCloseTo(base.spent, 3)
+
+    // Completing again must deduct exactly once more (not stack on the reverted sale).
+    const done2 = await admin.patch(`/api/orders/${oid}/status`).send({ status: 'completed', payment_method: 'cash' })
+    expect(done2.status).toBe(200)
+    const afterRecomplete = await snap()
+    expect(afterRecomplete.inv).toBeCloseTo(9.8, 3) // single deduction, not 9.6
+
+    // Clean up this test's order + its movements.
+    await pool.query("DELETE FROM stock_movements WHERE reference_type='order' AND reference_id=$1", [oid])
+    await pool.query('DELETE FROM order_items WHERE order_id=$1', [oid])
+    await pool.query('DELETE FROM orders WHERE id=$1', [oid])
+  })
+})
+
+describe('Stock availability endpoint', () => {
+  it('reports max sellable per dish from linked ingredients only', async () => {
+    // invItem currently 9.8 kg, recipe uses 200 g/item → floor(9800/200) = 49
+    const res = await admin.get('/api/menu/stock-availability')
+    expect(res.status).toBe(200)
+    expect(res.body[ids.menuItem]).toBe(49)
+  })
+})
+
 describe('Soft delete', () => {
   it('hides a deleted inventory item from the list but keeps the row', async () => {
     const del = await admin.delete(`/api/inventory/${ids.invItem2}`)

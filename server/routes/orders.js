@@ -227,9 +227,9 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
-    const prev = await client.query('SELECT status, total, customer_id FROM orders WHERE id=$1', [req.params.id])
+    const prev = await client.query('SELECT status, total, customer_id, loyalty_discount FROM orders WHERE id=$1', [req.params.id])
     if (!prev.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Not found' }) }
-    const { status: prevStatus, total: orderTotal, customer_id } = prev.rows[0]
+    const { status: prevStatus, total: orderTotal, customer_id, loyalty_discount: prevLoyaltyDiscount } = prev.rows[0]
     const wasCompleted = prevStatus === 'completed'
 
     const extraFields = status === 'completed' && payment_method ? 'payment_method=$3, paid_at=NOW(),' : ''
@@ -296,53 +296,57 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
       }
     }
 
-    if (status === 'cancelled' && wasCompleted) {
-      const orderItems = await client.query(
-        'SELECT menu_item_id, quantity FROM order_items WHERE order_id=$1 AND menu_item_id IS NOT NULL',
-        [req.params.id]
+    // Restock whenever an order LEAVES the completed state (cancelled, or reverted
+    // back to an active status). This keeps stock symmetric with the deduction
+    // above and prevents double-deduction if the order is completed again later.
+    if (wasCompleted && status !== 'completed') {
+      const movementType = status === 'cancelled' ? 'cancellation' : 'reversal'
+      // Reverse EXACTLY what this order applied to stock by replaying its recorded
+      // movement deltas (net per ingredient). This stays symmetric even when the
+      // completion deduction was clamped at zero — recomputing from the recipe
+      // would otherwise over-restock above the pre-sale level.
+      const net = await client.query(
+        `SELECT inventory_item_id, SUM(change) AS net
+         FROM stock_movements
+         WHERE reference_type='order' AND reference_id=$1 AND inventory_item_id IS NOT NULL
+         GROUP BY inventory_item_id
+         HAVING SUM(change) <> 0`,
+        [parseInt(req.params.id)]
       )
-      for (const oi of orderItems.rows) {
-        const recipe = await client.query(
-          `SELECT ri.inventory_item_id, ri.quantity AS ing_qty, ri.unit AS recipe_unit, i.unit AS inv_unit
-           FROM recipe_ingredients ri
-           JOIN inventory i ON i.id = ri.inventory_item_id
-           WHERE ri.menu_item_id=$1 AND ri.inventory_item_id IS NOT NULL`,
-          [oi.menu_item_id]
+      for (const r of net.rows) {
+        const restore = -parseFloat(r.net) // net is negative when stock was consumed
+        if (restore === 0) continue
+        const upd = await client.query(
+          `WITH prev AS (SELECT quantity AS q FROM inventory WHERE id=$2)
+           UPDATE inventory SET quantity = GREATEST(0, quantity + $1), updated_at=NOW()
+           WHERE id=$2
+           RETURNING quantity AS new_q, (SELECT q FROM prev) AS old_q`,
+          [restore, r.inventory_item_id]
         )
-        for (const ri of recipe.rows) {
-          const restock = computeDeductAmount({
-            ingQty: ri.ing_qty, recipeUnit: ri.recipe_unit,
-            invUnit: ri.inv_unit, orderQty: oi.quantity,
+        const row = upd.rows[0]
+        const actualDelta = row ? parseFloat(row.new_q) - parseFloat(row.old_q) : 0
+        if (actualDelta !== 0) {
+          await recordStockMovement(client, {
+            inventoryItemId: r.inventory_item_id, change: actualDelta,
+            quantityAfter: row.new_q, movementType,
+            referenceType: 'order', referenceId: parseInt(req.params.id)
           })
-          const upd = await client.query(
-            `WITH prev AS (SELECT quantity AS q FROM inventory WHERE id=$2)
-             UPDATE inventory SET quantity = quantity + $1, updated_at=NOW()
-             WHERE id=$2
-             RETURNING quantity AS new_q, (SELECT q FROM prev) AS old_q`,
-            [restock, ri.inventory_item_id]
-          )
-          const row = upd.rows[0]
-          const actualDelta = row ? parseFloat(row.new_q) - parseFloat(row.old_q) : 0
-          if (actualDelta !== 0) {
-            await recordStockMovement(client, {
-              inventoryItemId: ri.inventory_item_id, change: actualDelta,
-              quantityAfter: row.new_q, movementType: 'cancellation',
-              referenceType: 'order', referenceId: parseInt(req.params.id)
-            })
-          }
         }
       }
       if (customer_id) {
         const { loyaltyPerDollar } = await getSettings(client)
-        const pointsToDeduct = Math.floor(parseFloat(prev.rows[0].total) * loyaltyPerDollar)
+        // Reverse the completion's loyalty effect exactly: it added
+        // (earned - redeemed), so we subtract earned and refund redeemed.
+        const pointsEarned = Math.floor(parseFloat(orderTotal) * loyaltyPerDollar)
+        const redeemedPoints = Math.round(parseFloat(prevLoyaltyDiscount || 0) * loyaltyPerDollar)
         await client.query(
           `UPDATE customers SET
             total_orders = GREATEST(0, total_orders - 1),
             total_spent = GREATEST(0, total_spent - $1),
-            loyalty_points = GREATEST(0, loyalty_points - $2),
+            loyalty_points = GREATEST(0, loyalty_points - $2 + $3),
             updated_at = NOW()
-           WHERE id = $3`,
-          [parseFloat(prev.rows[0].total), pointsToDeduct, customer_id]
+           WHERE id = $4`,
+          [parseFloat(orderTotal), pointsEarned, redeemedPoints, customer_id]
         )
       }
     }

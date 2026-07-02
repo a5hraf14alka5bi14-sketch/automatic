@@ -372,32 +372,21 @@ export async function initDb() {
 
     const invCheck = await client.query('SELECT id FROM inventory LIMIT 1')
     if (invCheck.rows.length === 0) {
-      const items = [
-        ['Chicken', 'proteins', 15, 'kg', 5, 4.50],
-        ['Lamb', 'proteins', 8, 'kg', 3, 9.00],
-        ['Kafta Mix', 'proteins', 6, 'kg', 2, 7.00],
-        ['Olive Oil', 'pantry', 10, 'L', 3, 6.00],
-        ['Pita Bread', 'bread', 200, 'pcs', 50, 0.30],
-        ['Tomatoes', 'vegetables', 12, 'kg', 4, 1.50],
-        ['Lettuce', 'vegetables', 5, 'kg', 2, 2.00],
-        ['Parsley', 'vegetables', 3, 'kg', 1, 3.00],
-        ['Cucumber', 'vegetables', 4, 'kg', 2, 1.80],
-        ['Onions', 'vegetables', 8, 'kg', 3, 0.80],
-        ['Tahini', 'pantry', 4, 'kg', 1, 5.00],
-        ['Zaatar Mix', 'pantry', 3, 'kg', 1, 8.00],
-        ['Akkawi Cheese', 'dairy', 4, 'kg', 2, 12.00],
-        ['Rice', 'grains', 20, 'kg', 5, 1.20],
-        ['Bulgur', 'grains', 5, 'kg', 2, 1.50],
-        ['Chickpeas', 'legumes', 3, 'kg', 2, 2.50],
-        ['Lemons', 'fruits', 30, 'pcs', 10, 0.20],
-        ['Semolina', 'grains', 4, 'kg', 1, 2.00],
-        ['Kunafa Dough', 'pantry', 5, 'kg', 2, 6.00],
-        ['Sugar', 'pantry', 10, 'kg', 3, 1.00],
-      ]
-      for (const [name, category, quantity, unit, min_quantity, cost] of items) {
+      // Seed the real Arabic supply list (frozen goods, meats, spices, …) from a
+      // data file — mirrors the menu seed so a fresh/production DB starts with the
+      // real inventory instead of generic English demo supplies.
+      let items
+      try {
+        items = JSON.parse(
+          await readFile(new URL('./seed-data/inventory-items.json', import.meta.url), 'utf8')
+        )
+      } catch (err) {
+        throw new Error(`Failed to load inventory seed (server/seed-data/inventory-items.json): ${err.message}`)
+      }
+      for (const item of items) {
         await client.query(
           'INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost) VALUES ($1,$2,$3,$4,$5,$6)',
-          [name, category, quantity, unit, min_quantity, cost]
+          [item.name, item.category ?? null, item.quantity ?? 0, item.unit ?? 'pcs', item.min_quantity ?? 0, item.cost ?? 0]
         )
       }
     }

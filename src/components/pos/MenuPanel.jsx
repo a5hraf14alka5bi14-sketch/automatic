@@ -4,7 +4,7 @@ import { CATS } from './constants.js'
 export default function MenuPanel({
   menu, cartCount, setView, searchRef, search, setSearch,
   selectedCategory, setSelectedCategory, loading, filtered,
-  cart, handleItemClick, modifierLoading, fmtC,
+  cart, handleItemClick, modifierLoading, fmtC, stockAvail = {},
 }) {
   return (
     <div className="flex-1 p-5 overflow-auto flex flex-col min-w-0">
@@ -60,11 +60,16 @@ export default function MenuPanel({
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           {filtered.map(item => {
             const cartQty = cart.filter(c => c.id === item.id).reduce((s, c) => s + c.qty, 0)
+            const max = stockAvail[item.id] // undefined/null = untracked (unlimited)
+            const tracked = max != null
+            const remaining = tracked ? max - cartQty : null
+            const out = tracked && max <= 0
+            const low = tracked && !out && remaining <= 5
             return (
               <button key={item.id} onClick={() => handleItemClick(item)}
                 disabled={modifierLoading}
                 className={`bg-slate-900 border rounded-xl p-4 text-left hover:border-orange-500/50 transition-all group relative ${
-                  cartQty > 0 ? 'border-orange-500/40 bg-orange-500/5' : 'border-slate-800'
+                  out ? 'border-red-500/50 bg-red-500/5' : cartQty > 0 ? 'border-orange-500/40 bg-orange-500/5' : 'border-slate-800'
                 }`}>
                 {cartQty > 0 && (
                   <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-lg">
@@ -73,7 +78,12 @@ export default function MenuPanel({
                 )}
                 <p className="text-white font-semibold text-sm leading-tight">{item.name}</p>
                 <p className="text-orange-400 font-bold text-sm mt-2">{fmtC(item.price)}</p>
-                {item.prep_time && <p className="text-slate-600 text-xs mt-1">⏱ {item.prep_time}m</p>}
+                <div className="flex items-center gap-2 mt-1">
+                  {item.prep_time && <p className="text-slate-600 text-xs">⏱ {item.prep_time}m</p>}
+                  {out
+                    ? <span className="text-red-400 text-xs font-semibold">نفد المخزون</span>
+                    : low && <span className="text-amber-400 text-xs font-medium">متبقّي {remaining}</span>}
+                </div>
               </button>
             )
           })}

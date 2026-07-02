@@ -18,6 +18,7 @@ export default function POS() {
 
   // Core data
   const [menu, setMenu] = useState([])
+  const [stockAvail, setStockAvail] = useState({}) // { menu_item_id: maxSellable | null(unlimited) }
   const [customers, setCustomers] = useState([])
   const [settings, setSettings] = useState({ tax_rate: '5', currency_symbol: 'OMR', tables_count: '10', loyalty_points_per_omr: '1' })
   const [loading, setLoading] = useState(true)
@@ -58,15 +59,17 @@ export default function POS() {
   // ── Load initial data ──────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
-      const [menuRes, custRes, settingsRes] = await Promise.all([
+      const [menuRes, custRes, settingsRes, availRes] = await Promise.all([
         apiFetch('/api/menu/all'),
         apiFetch('/api/customers'),
         apiFetch('/api/settings'),
+        apiFetch('/api/menu/stock-availability'),
       ])
-      const [menuData, custData, settingsData] = await Promise.all([menuRes.json(), custRes.json(), settingsRes.json()])
+      const [menuData, custData, settingsData, availData] = await Promise.all([menuRes.json(), custRes.json(), settingsRes.json(), availRes.json()])
       setMenu(Array.isArray(menuData) ? menuData.filter(m => m.available) : [])
       setCustomers(Array.isArray(custData) ? custData : [])
       if (settingsData && !settingsData.error) setSettings(s => ({ ...s, ...settingsData }))
+      setStockAvail(availData && !availData.error ? availData : {})
     } catch (e) { console.error(e) }
     setLoading(false)
   }, [])
@@ -117,6 +120,20 @@ export default function POS() {
     const unitPrice = parseFloat(item.price || 0) + extraPrice
     const modKey = selectedModifiers.map(m => m.id).sort().join(',')
     const cartId = `${item.id}:${modKey}`
+    // Warn (but don't block) if selling this dish would drive a linked
+    // ingredient's stock negative. `null`/undefined availability = untracked.
+    const max = stockAvail[item.id]
+    if (max != null) {
+      const alreadyInCart = cart.filter(c => c.id === item.id).reduce((s, c) => s + c.qty, 0)
+      if (alreadyInCart + 1 > max) {
+        showToast(
+          max <= 0
+            ? `⚠️ ${item.name}: نفد المخزون — البيع سيجعل مخزون أحد المكوّنات بالسالب`
+            : `⚠️ ${item.name}: الكمية المتاحة ${max} فقط حسب المخزون`,
+          'error'
+        )
+      }
+    }
     setCart(prev => {
       const exists = prev.find(c => c.cartId === cartId)
       if (exists) return prev.map(c => c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c)
@@ -341,6 +358,7 @@ export default function POS() {
         handleItemClick={handleItemClick}
         modifierLoading={modifierLoading}
         fmtC={fmtC}
+        stockAvail={stockAvail}
       />
 
       {/* ── Right: Cart + Order ────────────────────────────────────────── */}

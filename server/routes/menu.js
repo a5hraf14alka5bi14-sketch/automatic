@@ -5,6 +5,7 @@ import { requireRole } from '../middleware/auth.js'
 import { menuCreateSchema, menuUpdateSchema } from '../validators.js'
 import { logger } from '../logger.js'
 import { rankInventory, prepareInventory } from '../utils/ingredientMatch.js'
+import { computeDeductAmount } from '../lib/inventory.js'
 
 const router = express.Router()
 
@@ -208,6 +209,42 @@ router.get('/recipe/unlinked', async (req, res) => {
       suggestions: rankInventory(g.ingredient_name, prepared, 6),
     }))
     res.json(result)
+  } catch (err) {
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ── GET /api/menu/stock-availability — max sellable qty per dish ──────────────
+// For every dish that has at least one recipe ingredient LINKED to inventory,
+// computes how many can still be sold before the first ingredient hits zero.
+// Dishes with no linked ingredients are omitted (their stock is untracked, so
+// they are treated as unlimited by the POS). Used to warn cashiers before a
+// sale would drive an ingredient negative.
+router.get('/stock-availability', async (req, res) => {
+  try {
+    const rows = (await pool.query(
+      `SELECT ri.menu_item_id, ri.quantity AS ing_qty, ri.unit AS recipe_unit,
+              i.quantity AS inv_qty, i.unit AS inv_unit
+       FROM recipe_ingredients ri
+       JOIN inventory i ON i.id = ri.inventory_item_id
+       WHERE ri.inventory_item_id IS NOT NULL AND i.deleted_at IS NULL`
+    )).rows
+    const avail = {}
+    for (const r of rows) {
+      const perItem = computeDeductAmount({
+        ingQty: r.ing_qty, recipeUnit: r.recipe_unit,
+        invUnit: r.inv_unit, orderQty: 1,
+      })
+      // A non-consuming ingredient (perItem <= 0) never limits availability.
+      const maxForIng = perItem > 0 ? Math.floor(parseFloat(r.inv_qty) / perItem) : Infinity
+      const cur = avail[r.menu_item_id]
+      avail[r.menu_item_id] = cur == null ? maxForIng : Math.min(cur, maxForIng)
+    }
+    // Serialise Infinity (unlimited) as null.
+    const out = {}
+    for (const [id, v] of Object.entries(avail)) out[id] = Number.isFinite(v) ? v : null
+    res.json(out)
   } catch (err) {
     logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
