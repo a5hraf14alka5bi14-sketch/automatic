@@ -1,0 +1,35 @@
+- [Notion SDK compatibility](notion-sdk-compat.md) — this SDK version has no databases.query; sync must go through MCP notionQueryDataSources
+- [Notion sync architecture](notion-sync-arch.md) — MCP(OAuth)=full access agent-only; REST bot "Replit" blocked until parent page "🚀 Automatic Restaurant" shared; push local→Notion (Notion was empty)
+- [Notion select options](notion-select-options.md) — select/status options are NOT auto-created by create_pages; must ALTER data source schema first; case-only-duplicate option names rejected
+- [Integrations hub architecture](integrations-arch.md) — unified /api/integrations route; secrets read from env first, DB settings as override; node --watch needs full restart to pick up new route imports
+- [DB migration pattern](db-migration-pattern.md) — existing tables need ALTER TABLE ADD COLUMN IF NOT EXISTS; CREATE TABLE IF NOT EXISTS only adds new tables, not columns
+- [Inventory deduction pattern](inventory-deduction.md) — orders route PATCH /:id/status checks prev status before deducting; prevents double-deduction; cancelling completed order re-stocks
+- [Auth token flow](auth-token-flow.md) — localStorage JSON {id,name,email,role,token,refresh_token}; apiFetch auto-refreshes on 401 then retries; refresh endpoint: POST /api/auth/refresh; change-password: PATCH /api/auth/password (verifyToken applied inline in auth router).
+- [WebSocket architecture](websocket-arch.md) — ws package on http.createServer(app); path /ws; Vite proxy '/ws':{target:ws://localhost:3001,ws:true}; Kitchen.jsx connects via wss?://location.host/ws with polling fallback on close.
+- [POS order + payment flow](pos-order-flow.md) — POST /api/orders → PaymentModal → PATCH /:id/status {status:'completed',payment_method}; tax/tables from /api/settings.
+- [Settings API shape](settings-api.md) — GET /api/settings returns flat {key:value} object; PUT accepts partial updates; keys: tax_rate, tables_count, currency_symbol, restaurant_name, loyalty_points_per_dollar.
+- [Notion REST sync module](notion-rest-sync.md) — server/integrations/notion.js uses native fetch to api.notion.com/v1 (bypasses SDK); queryDatabase() paginates; maps Arabic+English status names.
+- [Sync engine pattern](sync-engine-pattern.md) — server/integrations/sync-engine.js: registerAdapter(service,fn), startAutoSync(), stopAutoSync(); logs to sync_log table; timer.unref() so it won't block exit.
+- [Notion Main Page Update Strategy](notion-main-page-update.md) — use replace_content (not update_content) for main page; include all embedded DB/page tags in new_str
+- [Notion full sync architecture](notion-sync-architecture.md) — all 12 DS IDs, bi-directional sync (pull+push), notion_id columns on menu_items/inventory/customers, all P1 schema fixes applied
+- [Modifier system architecture](modifier-system.md) — modifier_groups+modifiers tables, cartId keying, on-demand fetch cache, POS/Menu/Orders/Kitchen/Receipt all updated
+- [Router chunk build dependency](router-chunk-build.md) — vite `router` manualChunk fails `vite build` if react-router-dom not installed; v7 used with v6 API
+- [Settings context + low-stock badge](settings-context.md) — SettingsContext gives live settings (useCurrency wraps it); low-stock badge on sidebar Inventory item, not a header
+- [Stock movements audit](stock-movements-audit.md) — log actual applied delta (RETURNING old+new), not requested amount, since inventory clamps at 0; create+initial movement must be one txn
+- [API validation & pagination](api-validation-pagination.md) — Joi via validate() middleware (allowUnknown, convert, reassign); list GETs take optional limit/offset + X-Total-Count, no params = full array
+- [Notion rollup/formula mapping](notion-rollup-mapping.md) — use getNumeric (not .number) for Food Cost/Cost per Unit; rollups zero out otherwise
+- [Notion components split](notion-components-split.md) — 8 sub-components in src/components/notion/; shared file must be .jsx (not .js) because it exports React components
+- [Reports heatmap and trend data](reports-heatmap-trend.md) — /api/reports includes heatmap+trend keys; CSV export at /api/reports/export; all in one Promise.all round trip
+- [PDF export](pdf-export.md) — jsPDF + jspdf-autotable, client-side (no Puppeteer); dark-themed branded; doc.lastAutoTable.finalY to stack tables
+- [Loyalty redemption](loyalty-redemption.md) — loyalty_discount column on orders; PATCH body loyalty_redemption_points; PaymentModal toggle with live "Amount Due"; single UPDATE nets earned−redeemed
+- [Role-based access control](role-based-access.md) — router-level middleware for menu/inventory (all non-GET); per-route for customers (DELETE+points PATCH); frontend gating via src/utils/auth.js useRole()+canManage(); cashier sees read-only views
+- [Staff performance report](staff-reports.md) — orders.user_id INTEGER; GET /api/reports/staff requireRole(admin,manager); ORDERS_SELECT LEFT JOINs users; GROUP BY must include u.name or queries fail silently
+- [Brand logo / branding assets](brand-logo.md) — logo-full.png used across app; dark-theme placements wrap it in a white plate; PDF uses cached getLogoDataUrl()
+- [OpenAI daily summary](openai-summary.md) — generateDailySummary() in server/integrations/openai.js; GET+POST /api/integrations/openai/summary; stored in settings table as last_ai_summary + last_ai_summary_at; Integrations.jsx shows card + Generate button
+- [Recipe + food cost system](recipe-foodcost.md) — GET /api/menu/food-cost (all items with pct), PATCH /:id/recipe/:rid (update), GET /api/inventory/impact (low-stock → affected dishes); Recipes.jsx at /recipes; Inventory has Stocktake+Impact tabs
+- [Server logging standard](server-logging.md) — all routes import logger from ../logger.js; use logger.error(msg, {path:req.path}) not console.error; index.js global error handler keeps console.error as intentional fallback
+- [DB FK + precision migrations](db-fk-precision.md) — orders.total/subtotal/tax + customers.total_spent upgraded to NUMERIC(10,3); FK fk_orders_user + fk_orders_customer added via idempotent DO $$ block; orphan cleanup done before constraint add
+- [Orders route ordering](orders-route-ordering.md) — /table/:n and /customer/:customerId MUST come before /:id in Express; otherwise 'table'/'customer' match /:id first
+- [POS + KDS discount & rush schema](pos-kds-upgrade.md) — orders has discount/discount_type/rush/station; order_items has item_notes/done/station; POS sends discountedSub+tax+total; KDS uses Web Audio API beep (no files); cash change calculator in PaymentModal
+- [Route authz convention](route-authz-convention.md) — verifyToken is global but NOT sufficient; every mutating/paid integration & AI route needs an explicit requireRole guard
+- [GitHub remote state](github-remote-state.md) — origin (a5hraf14alka5bi14-sketch/Automatic-) returns 'repository not found'; pushes fail until repo access/remote fixed

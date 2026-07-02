@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.npm
+
+# Build output
+dist/
+build/
+.vite/
+
+# Environment variables — never commit real secrets
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Replit internals (keep .replit for config, ignore caches)
+.cache/
+.upm/
+.local/state/
+
+# TypeScript cache
+*.tsbuildinfo
