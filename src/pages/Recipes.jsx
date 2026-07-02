@@ -392,6 +392,163 @@ function FoodCostAnalysis({ items, fmt }) {
   )
 }
 
+function InventoryLinkTab({ invItems, isManager, onLinked }) {
+  const toast = useToast()
+  const [groups, setGroups] = useState([])
+  const [summary, setSummary] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [picks, setPicks] = useState({})       // ingredient_name -> inventory_item_id
+  const [applyCost, setApplyCost] = useState({}) // ingredient_name -> bool
+  const [busy, setBusy] = useState(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [uRes, sRes] = await Promise.all([
+        apiFetch('/api/menu/recipe/unlinked'),
+        apiFetch('/api/menu/recipe/link-summary'),
+      ])
+      if (!uRes.ok || !sRes.ok) throw new Error()
+      setGroups(await uRes.json())
+      setSummary(await sRes.json())
+    } catch { toast('Failed to load link status', 'error') }
+    setLoading(false)
+  }, [toast])
+
+  useEffect(() => { load() }, [load])
+
+  const handleLink = async (name) => {
+    const invId = picks[name]
+    if (!invId) { toast('Choose an inventory item first', 'error'); return }
+    setBusy(name)
+    try {
+      const res = await apiFetch('/api/menu/recipe/link', {
+        method: 'PATCH',
+        body: JSON.stringify({ ingredient_name: name, inventory_item_id: parseInt(invId), apply_cost: !!applyCost[name] }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      const data = await res.json()
+      toast(`Linked — ${data.updated} line(s) across ${data.affected_dishes} dish(es)`, 'success')
+      setPicks(p => { const n = { ...p }; delete n[name]; return n })
+      await load()
+      onLinked?.()
+    } catch (e) { toast(e.message || 'Failed to link', 'error') }
+    setBusy(null)
+  }
+
+  const filtered = groups.filter(g => !search || g.ingredient_name.includes(search))
+  const pct = summary && summary.total > 0 ? Math.round((summary.linked / summary.total) * 100) : 0
+
+  return (
+    <div>
+      {/* Progress summary */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-white text-sm font-medium">Inventory linking progress</p>
+          <p className="text-slate-400 text-xs">
+            {summary ? `${summary.linked} of ${summary.total} ingredient lines linked` : '—'}
+          </p>
+        </div>
+        <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-full bg-orange-500 transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex items-center justify-between mt-2 text-xs">
+          <span className="text-slate-500">{summary ? `${summary.distinct_unlinked} distinct ingredients still need linking` : ''}</span>
+          <span className="text-orange-400 font-medium">{pct}%</span>
+        </div>
+      </div>
+
+      <p className="text-slate-400 text-xs mb-4">
+        Link each recipe ingredient to a supplier inventory item so selling a dish deducts real stock.
+        Linking applies to <span className="text-slate-300">every dish</span> that uses the same ingredient name.
+      </p>
+
+      {/* Search */}
+      <div className="relative mb-4 max-w-md">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ingredient name…"
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500" />
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl h-24 animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-4xl mb-2">✅</p>
+          <p className="text-white font-medium">{groups.length === 0 ? 'All ingredients are linked to inventory' : 'No matching ingredients'}</p>
+          <p className="text-slate-500 text-sm mt-1">{groups.length === 0 ? 'Sales will now deduct real stock for every recipe.' : 'Try a different search.'}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(g => {
+            const pick = picks[g.ingredient_name] || ''
+            return (
+              <div key={g.ingredient_name} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="min-w-0">
+                    <p className="text-white font-semibold text-base" dir="rtl">{g.ingredient_name}</p>
+                    <p className="text-slate-500 text-xs mt-0.5">
+                      used in {g.occurrences} dish{g.occurrences !== 1 ? 'es' : ''} · unit {g.unit || '—'}
+                    </p>
+                  </div>
+                  <span className="flex-shrink-0 bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 text-xs px-2 py-0.5 rounded-full">Unlinked</span>
+                </div>
+
+                {/* Suggestions */}
+                {g.suggestions.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-slate-400 text-xs mb-1.5">Suggested matches:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {g.suggestions.map(s => {
+                        const active = String(pick) === String(s.id)
+                        return (
+                          <button key={s.id} disabled={!isManager}
+                            onClick={() => setPicks(p => ({ ...p, [g.ingredient_name]: s.id }))}
+                            className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${active
+                              ? 'bg-orange-500 border-orange-500 text-white'
+                              : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-orange-500/60'} disabled:opacity-60 disabled:cursor-not-allowed`}
+                            dir="rtl" title={`match ${(s.score * 100).toFixed(0)}%`}>
+                            {s.name} <span className="opacity-60">({(s.score * 100).toFixed(0)}%)</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Full picker + action */}
+                {isManager && (
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <select value={pick} onChange={e => setPicks(p => ({ ...p, [g.ingredient_name]: e.target.value }))}
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" dir="rtl">
+                      <option value="">— pick any inventory item —</option>
+                      {invItems.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+                    </select>
+                    <label className="flex items-center gap-1.5 text-xs text-slate-400 whitespace-nowrap">
+                      <input type="checkbox" checked={!!applyCost[g.ingredient_name]}
+                        onChange={e => setApplyCost(a => ({ ...a, [g.ingredient_name]: e.target.checked }))}
+                        className="accent-orange-500" />
+                      sync cost
+                    </label>
+                    <button onClick={() => handleLink(g.ingredient_name)} disabled={!pick || busy === g.ingredient_name}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap">
+                      {busy === g.ingredient_name && <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />}
+                      Link
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Recipes() {
   const { fmt } = useCurrency()
   const toast = useToast()
@@ -442,7 +599,7 @@ export default function Recipes() {
           <p className="text-slate-400 text-sm mt-0.5">Build recipes, track ingredient costs, analyse profitability</p>
         </div>
         <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-0.5">
-          {[['builder', '🧪 Recipe Builder'], ['analysis', '📊 Food Cost Analysis']].map(([id, label]) => (
+          {[['builder', '🧪 Recipe Builder'], ['links', '🔗 Inventory Links'], ['analysis', '📊 Food Cost Analysis']].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === id ? 'bg-orange-500 text-white' : 'text-slate-400 hover:text-white'}`}>
               {label}
@@ -459,6 +616,8 @@ export default function Recipes() {
         ) : (
           <FoodCostAnalysis items={menuItems} fmt={fmt} />
         )
+      ) : tab === 'links' ? (
+        <InventoryLinkTab invItems={invItems} isManager={isManager} onLinked={handleFoodCostUpdate} />
       ) : (
         /* Recipe Builder — split layout */
         <div className="flex gap-5 h-[calc(100vh-180px)]">

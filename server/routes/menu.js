@@ -4,6 +4,7 @@ import { validate } from '../middleware/validate.js'
 import { requireRole } from '../middleware/auth.js'
 import { menuCreateSchema, menuUpdateSchema } from '../validators.js'
 import { logger } from '../logger.js'
+import { rankInventory, prepareInventory } from '../utils/ingredientMatch.js'
 
 const router = express.Router()
 
@@ -150,6 +151,120 @@ router.get('/food-cost', async (req, res) => {
       ORDER BY food_cost_pct DESC NULLS LAST
     `)
     res.json(result.rows)
+  } catch (err) {
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ── GET /api/menu/recipe/link-summary — inventory-link coverage ──────────────
+router.get('/recipe/link-summary', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE inventory_item_id IS NOT NULL)::int AS linked,
+        COUNT(*) FILTER (WHERE inventory_item_id IS NULL)::int AS unlinked,
+        COUNT(DISTINCT ingredient_name) FILTER (WHERE inventory_item_id IS NOT NULL)::int AS distinct_linked,
+        COUNT(DISTINCT ingredient_name) FILTER (WHERE inventory_item_id IS NULL)::int AS distinct_unlinked
+      FROM recipe_ingredients
+    `)
+    res.json(r.rows[0])
+  } catch (err) {
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ── GET /api/menu/recipe/unlinked — distinct unlinked ingredients + matches ──
+// Groups unlinked recipe_ingredients by ingredient_name and attaches ranked
+// inventory suggestions so staff can pick the correct item per ingredient.
+router.get('/recipe/unlinked', async (req, res) => {
+  try {
+    const grp = await pool.query(`
+      SELECT ri.ingredient_name,
+             MIN(ri.unit) AS unit,
+             COUNT(*)::int AS occurrences,
+             SUM(ri.quantity)::float AS total_quantity,
+             MAX(ri.cost)::float AS cost,
+             json_agg(DISTINCT m.name) FILTER (WHERE m.name IS NOT NULL) AS dishes
+      FROM recipe_ingredients ri
+      LEFT JOIN menu_items m ON m.id = ri.menu_item_id
+      WHERE ri.inventory_item_id IS NULL
+      GROUP BY ri.ingredient_name
+      ORDER BY COUNT(*) DESC, ri.ingredient_name
+    `)
+    const inv = await pool.query('SELECT id, name, unit, cost, quantity, category FROM inventory')
+    const prepared = prepareInventory(inv.rows)
+    const result = grp.rows.map(g => ({
+      ingredient_name: g.ingredient_name,
+      unit: g.unit,
+      occurrences: g.occurrences,
+      total_quantity: g.total_quantity,
+      cost: g.cost,
+      dishes: g.dishes || [],
+      suggestions: rankInventory(g.ingredient_name, prepared, 6),
+    }))
+    res.json(result)
+  } catch (err) {
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ── PATCH /api/menu/recipe/link — link an ingredient name to an inventory item ─
+// Links every recipe_ingredients row sharing `ingredient_name` to the chosen
+// inventory item so all dishes using it will deduct real stock. Optionally
+// syncs the ingredient cost from the inventory item and recalculates food cost.
+router.patch('/recipe/link', async (req, res) => {
+  const { ingredient_name, inventory_item_id, apply_cost } = req.body
+  if (!ingredient_name?.trim() || !inventory_item_id) {
+    return res.status(400).json({ error: 'ingredient_name and inventory_item_id are required' })
+  }
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const inv = await client.query('SELECT id, cost, unit FROM inventory WHERE id=$1', [inventory_item_id])
+    if (!inv.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Inventory item not found' }) }
+    const invCost = parseFloat(inv.rows[0].cost || 0)
+
+    const setCost = apply_cost && invCost > 0 ? ', cost=$3' : ''
+    const params = apply_cost && invCost > 0
+      ? [inventory_item_id, ingredient_name.trim(), invCost]
+      : [inventory_item_id, ingredient_name.trim()]
+    const upd = await client.query(
+      `UPDATE recipe_ingredients SET inventory_item_id=$1${setCost}
+       WHERE ingredient_name=$2 RETURNING menu_item_id`,
+      params
+    )
+    const affected = [...new Set(upd.rows.map(r => r.menu_item_id).filter(Boolean))]
+    for (const mid of affected) {
+      await client.query(
+        `UPDATE menu_items SET food_cost=(
+          SELECT COALESCE(SUM(cost*quantity),0) FROM recipe_ingredients WHERE menu_item_id=$1
+        ) WHERE id=$1`,
+        [mid]
+      )
+    }
+    await client.query('COMMIT')
+    res.json({ updated: upd.rows.length, affected_dishes: affected.length })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  } finally { client.release() }
+})
+
+// ── PATCH /api/menu/recipe/unlink — remove inventory link from an ingredient ──
+router.patch('/recipe/unlink', async (req, res) => {
+  const { ingredient_name } = req.body
+  if (!ingredient_name?.trim()) return res.status(400).json({ error: 'ingredient_name is required' })
+  try {
+    const upd = await pool.query(
+      'UPDATE recipe_ingredients SET inventory_item_id=NULL WHERE ingredient_name=$1 RETURNING id',
+      [ingredient_name.trim()]
+    )
+    res.json({ updated: upd.rows.length })
   } catch (err) {
     logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
@@ -329,18 +444,22 @@ router.delete('/:id/recipe/:rid', async (req, res) => {
 
 // ── PATCH /api/menu/:id/recipe/:rid — update ingredient ───────────────────────
 router.patch('/:id/recipe/:rid', async (req, res) => {
-  const { quantity, unit, cost } = req.body
+  const { quantity, unit, cost, inventory_item_id } = req.body
+  // inventory_item_id: undefined = leave unchanged, null = clear link, number = set link
+  const linkProvided = Object.prototype.hasOwnProperty.call(req.body, 'inventory_item_id')
   try {
     const result = await pool.query(
       `UPDATE recipe_ingredients SET
         quantity=COALESCE($1,quantity),
         unit=COALESCE($2,unit),
-        cost=COALESCE($3,cost)
+        cost=COALESCE($3,cost),
+        inventory_item_id=CASE WHEN $6 THEN $7 ELSE inventory_item_id END
        WHERE id=$4 AND menu_item_id=$5 RETURNING *`,
       [quantity !== undefined ? parseFloat(quantity) : null,
        unit || null,
        cost !== undefined ? parseFloat(cost) : null,
-       req.params.rid, req.params.id]
+       req.params.rid, req.params.id,
+       linkProvided, inventory_item_id ? parseInt(inventory_item_id) : null]
     )
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     await pool.query(

@@ -35,3 +35,5 @@
 - [POS + KDS discount & rush schema](pos-kds-upgrade.md) — orders has discount/discount_type/rush/station; order_items has item_notes/done/station; POS sends discountedSub+tax+total; KDS uses Web Audio API beep (no files); cash change calculator in PaymentModal
 - [Route authz convention](route-authz-convention.md) — verifyToken is global but NOT sufficient; every mutating/paid integration & AI route needs an explicit requireRole guard
 - [GitHub remote state](github-remote-state.md) — origin (a5hraf14alka5bi14-sketch/Automatic-) returns 'repository not found'; pushes fail until repo access/remote fixed
+- [Recipe→inventory linking](recipe-inventory-linking.md) — manual-review UI + ranked suggestions, NO auto-apply (no exact matches; token auto-link is unsafe); endpoints before /:id
+- [Recipe data source of truth](recipe-source-of-truth.md) — .local/menu.json (74 dishes/338 lines) is the authoritative seed; use it to reconcile/recover recipe quantities (Notion has none)
