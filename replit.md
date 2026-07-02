@@ -54,6 +54,13 @@ server/
 
 ---
 
+### Branding assets
+- Official logo (color Lebanese-food mark, Arabic "الأوتوماتيك اللبناني · مأكولات لبنانية"):
+  `src/assets/brand/logo-full.png` (full color) and `logo.png` (transparent). Favicon in `public/`.
+- On the dark theme the logo sits on a white rounded "plate" so its black text stays legible; print/PDF surfaces use it directly on white.
+
+---
+
 ## User Preferences
 
 - Dark theme (slate-950 background) with orange-500 accents — maintain this palette

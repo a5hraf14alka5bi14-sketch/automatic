@@ -3,6 +3,26 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
+import logoUrl from '../assets/brand/logo-full.png'
+
+// Cache the logo as a data URL so repeated PDF exports don't re-fetch.
+let _logoDataUrl = null
+async function getLogoDataUrl() {
+  if (_logoDataUrl) return _logoDataUrl
+  try {
+    const res = await fetch(logoUrl)
+    const blob = await res.blob()
+    _logoDataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+    return _logoDataUrl
+  } catch {
+    return null
+  }
+}
 
 const fmtN = (val, dec = 0) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })
 
@@ -467,7 +487,7 @@ function downloadCSV(period) {
 }
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
-function downloadPDF(data, period, fmtFn) {
+async function downloadPDF(data, period, fmtFn) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const periodLabel = { today: 'Today', week: 'Last 7 Days', month: 'This Month' }[period] || period
   const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -480,6 +500,18 @@ function downloadPDF(data, period, fmtFn) {
   // Header banner
   doc.setFillColor(...dark)
   doc.rect(0, 0, 210, 38, 'F')
+
+  // Brand logo on a white plate (top-right)
+  const logoData = await getLogoDataUrl()
+  if (logoData) {
+    const props = doc.getImageProperties(logoData)
+    const h = 26
+    const w = (props.width / props.height) * h
+    doc.setFillColor(255, 255, 255)
+    doc.roundedRect(210 - w - 12, 6, w + 4, h + 2, 2, 2, 'F')
+    doc.addImage(logoData, 'PNG', 210 - w - 10, 7, w, h)
+  }
+
   doc.setTextColor(...orange)
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
@@ -649,7 +681,7 @@ export default function Reports() {
             {exporting ? '⏳' : '⬇'} CSV
           </button>
           <button
-            onClick={() => data && downloadPDF(data, period, fmt)}
+            onClick={() => { if (data) downloadPDF(data, period, fmt).catch(() => {}) }}
             disabled={!data || loading}
             className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors">
             📄 PDF

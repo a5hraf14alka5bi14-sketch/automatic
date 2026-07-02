@@ -1,6 +1,7 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext.jsx'
+import logo from '../assets/brand/logo-full.png'
 
 const NAV_ITEMS = [
   { id: 'dashboard',    label: 'Dashboard',      icon: '◉' },
@@ -51,13 +52,13 @@ export default function Sidebar({ user, onLogout, collapsed, setCollapsed, mobil
         `}
       >
         <div className="p-4 border-b border-slate-800 flex items-center gap-3">
-          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-lg shadow-orange-500/30">
-            A
+          <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-black/30 ring-1 ring-white/10 p-1">
+            <img src={logo} alt="الأوتوماتيك اللبناني" className="w-full h-full object-contain" />
           </div>
           {expanded && (
             <div className="min-w-0">
               <h1 className="text-white font-bold text-sm truncate">Automatic</h1>
-              <p className="text-slate-400 text-xs truncate">Restaurant OS</p>
+              <p className="text-slate-400 text-xs truncate">الأوتوماتيك اللبناني</p>
             </div>
           )}
           {/* Desktop collapse toggle */}

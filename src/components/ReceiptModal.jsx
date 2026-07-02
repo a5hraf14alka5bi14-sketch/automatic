@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import logo from '../assets/brand/logo-full.png'
 
 const PAPER_PX = { '58mm': '219px', '80mm': '302px' }
 
@@ -24,6 +25,7 @@ function CustomerReceipt({ order, settings, currency }) {
   return (
     <div style={{ fontFamily: '"Courier New", Courier, monospace', fontSize: 11, color: '#000', lineHeight: 1.5 }}>
       <div style={{ textAlign: 'center', marginBottom: 8 }}>
+        <img src={logo} alt="" style={{ height: 56, width: 'auto', margin: '0 auto 4px', display: 'block' }} />
         <div style={{ fontWeight: 'bold', fontSize: 15, letterSpacing: 1 }}>{name.toUpperCase()}</div>
         <div style={{ fontSize: 10, color: '#555' }}>{tagline}</div>
         <div style={{ fontSize: 10, marginTop: 4 }}>{dateStr} · {timeStr}</div>

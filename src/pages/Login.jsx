@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import logo from '../assets/brand/logo-full.png'
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('admin@automatic.com')
@@ -31,11 +32,11 @@ export default function Login({ onLogin }) {
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/30">
-            <span className="text-white font-bold text-2xl">A</span>
+          <div className="inline-flex items-center justify-center bg-white rounded-3xl p-5 mx-auto mb-5 shadow-2xl shadow-black/40 ring-1 ring-white/10">
+            <img src={logo} alt="الأوتوماتيك اللبناني — Lebanese Food" className="h-24 w-auto" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Automatic</h1>
-          <p className="text-slate-400 mt-1">Restaurant Operating System</p>
+          <h1 className="text-3xl font-bold text-white">Automatic Restaurant OS</h1>
+          <p className="text-slate-400 mt-1">الأوتوماتيك اللبناني · مأكولات لبنانية</p>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">

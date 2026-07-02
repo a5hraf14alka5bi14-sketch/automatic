@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
 import { useToast } from '../context/ToastContext.jsx'
+import logo from '../assets/brand/logo-full.png'
 
 const StatCard = ({ label, value, sub, color, icon }) => (
   <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -57,9 +58,14 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-slate-400 text-sm mt-1">Welcome back — here's what's happening today.</p>
+      <div className="mb-6 flex items-center gap-4">
+        <div className="hidden sm:flex items-center justify-center bg-white rounded-2xl p-2 shadow-lg shadow-black/30 ring-1 ring-white/10 flex-shrink-0">
+          <img src={logo} alt="الأوتوماتيك اللبناني" className="h-14 w-auto" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-slate-400 text-sm mt-1">Welcome back — here's what's happening today.</p>
+        </div>
       </div>
 
       {loading ? (

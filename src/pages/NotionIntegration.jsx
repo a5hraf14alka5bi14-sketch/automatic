@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
+import logo from '../assets/brand/logo-full.png'
 import { API, INT_API, STATUS_META, fmt } from '../components/notion/notionShared.jsx'
 import ConnectionStatus from '../components/notion/ConnectionStatus.jsx'
 import SyncPanel from '../components/notion/SyncPanel.jsx'
@@ -142,9 +143,14 @@ export default function NotionIntegration() {
     <div className="p-6 max-w-6xl mx-auto space-y-5">
 
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Notion Integration</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Sync Projects and Tasks with your Notion workspace</p>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center justify-center bg-white rounded-xl p-1.5 shadow-lg shadow-black/30 ring-1 ring-white/10 flex-shrink-0">
+            <img src={logo} alt="الأوتوماتيك اللبناني" className="h-10 w-auto" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">Notion Integration</h1>
+            <p className="text-slate-400 text-sm mt-0.5">Sync Projects and Tasks with your Notion workspace</p>
+          </div>
         </div>
         {connected && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
