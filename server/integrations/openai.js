@@ -1,5 +1,16 @@
 import { pool } from '../db.js'
 import { decryptSecret } from '../config/crypto.js'
+import { logger } from '../logger.js'
+
+// Classified error codes — safe to send to client
+export class OpenAIError extends Error {
+  constructor(message, code, status = 500) {
+    super(message)
+    this.code   = code   // 'no_key' | 'invalid_key' | 'quota_exceeded' | 'rate_limit' | 'service_unavailable'
+    this.status = status
+    this.name   = 'OpenAIError'
+  }
+}
 
 export async function getOpenAIKey() {
   const row = await pool.query("SELECT value FROM settings WHERE key='openai_api_key'")
@@ -8,13 +19,13 @@ export async function getOpenAIKey() {
 
 export async function testOpenAIConnection() {
   const key = await getOpenAIKey()
-  if (!key) throw new Error('OpenAI API key not configured')
+  if (!key) throw new OpenAIError('OpenAI API key not configured', 'no_key', 400)
   const res = await fetch('https://api.openai.com/v1/models', {
     headers: { Authorization: `Bearer ${key}` }
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.error?.message || `OpenAI API error ${res.status}`)
+    throw classifyOpenAIError(res.status, err.error?.message)
   }
   const data = await res.json()
   const gptModels = (data.data || [])
@@ -22,6 +33,53 @@ export async function testOpenAIConnection() {
     .map(m => m.id)
     .slice(0, 5)
   return { models_available: data.data?.length || 0, gpt_models: gptModels }
+}
+
+function classifyOpenAIError(httpStatus, apiMessage) {
+  if (httpStatus === 401) {
+    return new OpenAIError(apiMessage || 'Invalid API key', 'invalid_key', 401)
+  }
+  if (httpStatus === 429) {
+    const isQuota = (apiMessage || '').toLowerCase().includes('quota')
+    return new OpenAIError(
+      apiMessage || 'Rate limit exceeded',
+      isQuota ? 'quota_exceeded' : 'rate_limit',
+      429
+    )
+  }
+  if (httpStatus >= 500) {
+    return new OpenAIError(apiMessage || 'OpenAI service error', 'service_unavailable', 503)
+  }
+  return new OpenAIError(apiMessage || `OpenAI API error ${httpStatus}`, 'service_unavailable', 500)
+}
+
+export async function openAIChat(messages, model = 'gpt-4o-mini') {
+  const key = await getOpenAIKey()
+  if (!key) throw new OpenAIError('OpenAI API key not configured', 'no_key', 400)
+
+  let res
+  try {
+    res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model, messages, max_tokens: 500 }),
+    })
+  } catch (networkErr) {
+    logger.error('[openai] network error', { err: networkErr?.message })
+    throw new OpenAIError('Could not reach OpenAI servers', 'service_unavailable', 503)
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const classified = classifyOpenAIError(res.status, err.error?.message)
+    logger.error('[openai] API error', { code: classified.code, status: res.status, msg: err.error?.message })
+    throw classified
+  }
+
+  return res.json()
 }
 
 export async function generateDailySummary(kpis) {
@@ -37,29 +95,8 @@ ${kpis.lowStock?.length ? `- Low Stock Alert: ${kpis.lowStock.map(i => i.name).j
 
 Write a 3-sentence executive summary: (1) overall performance, (2) top highlight or concern, (3) one specific recommendation. Be concise and data-driven.`
 
-  const response = await openAIChat(
-    [{ role: 'user', content: prompt }],
-    'gpt-4o-mini'
-  )
+  const response = await openAIChat([{ role: 'user', content: prompt }], 'gpt-4o-mini')
   return response.choices[0]?.message?.content?.trim() || ''
-}
-
-export async function openAIChat(messages, model = 'gpt-4o-mini') {
-  const key = await getOpenAIKey()
-  if (!key) throw new Error('OpenAI API key not configured')
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ model, messages, max_tokens: 500 })
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error?.message || `OpenAI API error ${res.status}`)
-  }
-  return res.json()
 }
 
 export async function generateExecutiveInsights(data) {

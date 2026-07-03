@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
 
@@ -8,6 +8,50 @@ const fmtDay = (s) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+// Maps server error codes to friendly Arabic/English UI messages
+const ERROR_UI = {
+  no_key: {
+    icon: '🔑',
+    title: 'AI Service Not Configured',
+    body:  'The OpenAI API key has not been set up yet. Add it from the Integrations page to enable AI analysis.',
+    hint:  null,
+    color: 'border-slate-700 text-slate-400',
+    iconBg: 'bg-slate-800',
+  },
+  invalid_key: {
+    icon: '🔐',
+    title: 'Invalid API Key',
+    body:  'The OpenAI API key is incorrect or expired. Please update it in the Integrations page.',
+    hint:  'Go to Integrations → OpenAI → update the key.',
+    color: 'border-amber-500/30 text-amber-400',
+    iconBg: 'bg-amber-500/10',
+  },
+  quota_exceeded: {
+    icon: '💳',
+    title: 'AI Service Quota Reached',
+    body:  'Your OpenAI account has reached its usage limit. Please top up your balance at platform.openai.com.',
+    hint:  'The rest of the dashboard continues working normally.',
+    color: 'border-amber-500/30 text-amber-400',
+    iconBg: 'bg-amber-500/10',
+  },
+  rate_limit: {
+    icon: '⏳',
+    title: 'Too Many Requests',
+    body:  'The AI service is busy right now. Please wait a moment and try again.',
+    hint:  null,
+    color: 'border-blue-500/30 text-blue-400',
+    iconBg: 'bg-blue-500/10',
+  },
+  service_unavailable: {
+    icon: '🌐',
+    title: 'AI Service Temporarily Unavailable',
+    body:  'The AI analysis service is not reachable at the moment. All other dashboard features are working normally.',
+    hint:  'This is usually a temporary issue. Try again in a few minutes.',
+    color: 'border-slate-700 text-slate-400',
+    iconBg: 'bg-slate-800',
+  },
+}
+
 function KpiCard({ label, value, icon, color = 'text-white', sub }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -15,13 +59,13 @@ function KpiCard({ label, value, icon, color = 'text-white', sub }) {
         <p className="text-slate-400 text-xs">{label}</p>
         {icon && <span className="text-base">{icon}</span>}
       </div>
-      <p className={`text-xl font-bold ${color}`}>{value}</p>
+      <p className={`text-xl font-bold ${color}`}>{value ?? '—'}</p>
       {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
     </div>
   )
 }
 
-function InsightCard({ insights, generating, error }) {
+function InsightCard({ insights, generating, errorCode, onRetry }) {
   if (generating) {
     return (
       <div className="bg-slate-900 border border-orange-500/30 rounded-xl p-6">
@@ -31,26 +75,41 @@ function InsightCard({ insights, generating, error }) {
           </div>
           <div>
             <h2 className="text-white font-semibold">AI Analysis in Progress</h2>
-            <p className="text-slate-400 text-xs">Processing business data with GPT-4o Mini...</p>
+            <p className="text-slate-400 text-xs">Processing business data with GPT-4o Mini…</p>
           </div>
         </div>
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className={`h-4 bg-slate-800 rounded animate-pulse`} style={{ width: `${70 + i * 8}%` }} />
+            <div key={i} className="h-4 bg-slate-800 rounded animate-pulse" style={{ width: `${70 + i * 8}%` }} />
           ))}
         </div>
       </div>
     )
   }
 
-  if (error) {
+  // Show friendly unavailable card instead of a red technical error
+  if (errorCode) {
+    const ui = ERROR_UI[errorCode] || ERROR_UI.service_unavailable
     return (
-      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
-        <div className="flex items-center gap-2 text-red-400 font-semibold mb-1">
-          <span>⚠️</span> AI Analysis Error
+      <div className={`bg-slate-900 border rounded-xl p-5 ${ui.color}`}>
+        <div className="flex items-start gap-3">
+          <div className={`w-9 h-9 ${ui.iconBg} rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5`}>
+            <span className="text-lg">{ui.icon}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm mb-1">{ui.title}</p>
+            <p className="text-slate-400 text-sm leading-relaxed">{ui.body}</p>
+            {ui.hint && <p className="text-slate-500 text-xs mt-2">{ui.hint}</p>}
+          </div>
+          {onRetry && (errorCode === 'rate_limit' || errorCode === 'service_unavailable') && (
+            <button
+              onClick={onRetry}
+              className="flex-shrink-0 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-colors"
+            >
+              Retry
+            </button>
+          )}
         </div>
-        <p className="text-slate-400 text-sm">{error}</p>
-        <p className="text-slate-500 text-xs mt-1">Check that your OpenAI API key is configured in Integrations.</p>
       </div>
     )
   }
@@ -60,7 +119,9 @@ function InsightCard({ insights, generating, error }) {
       <div className="bg-slate-900 border border-slate-700 border-dashed rounded-xl p-8 text-center">
         <span className="text-4xl block mb-3">🤖</span>
         <p className="text-slate-300 font-semibold mb-1">No AI Analysis Yet</p>
-        <p className="text-slate-500 text-sm">Click <strong className="text-orange-400">Generate Insights</strong> to get AI-powered recommendations based on your current business data.</p>
+        <p className="text-slate-500 text-sm">
+          Click <strong className="text-orange-400">Generate Insights</strong> to get AI-powered recommendations based on your current business data.
+        </p>
       </div>
     )
   }
@@ -74,7 +135,7 @@ function InsightCard({ insights, generating, error }) {
           </div>
           <div>
             <p className="text-orange-400 text-xs font-medium uppercase tracking-wide mb-0.5">AI Executive Summary</p>
-            <h2 className="text-white font-bold text-lg leading-tight">{insights.headline}</h2>
+            <h2 className="text-white font-bold text-lg leading-tight">{insights.headline || 'Analysis Ready'}</h2>
           </div>
         </div>
         {insights.generatedAt && (
@@ -115,15 +176,18 @@ function InsightCard({ insights, generating, error }) {
 }
 
 function ForecastChart({ history, forecast, stats, fmt }) {
-  const allData = [...history.slice(-21), ...forecast.slice(0, 21)]
-  const maxRev = Math.max(...allData.map(d => d.revenue || 0), ...forecast.map(d => d.upper || 0), 1)
-  const histCount = Math.min(history.length, 21)
+  const safeHistory  = Array.isArray(history)  ? history  : []
+  const safeForecast = Array.isArray(forecast) ? forecast : []
+  const allData = [...safeHistory.slice(-21), ...safeForecast.slice(0, 21)]
+  const maxRev = Math.max(...allData.map(d => d.revenue || 0), ...safeForecast.map(d => d.upper || 0), 1)
+  const histCount = Math.min(safeHistory.length, 21)
 
   if (!allData.length) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-slate-500">
         <p className="text-3xl mb-2">📈</p>
         <p>Not enough data for forecast yet</p>
+        <p className="text-xs mt-1">Complete some orders to see revenue projections here.</p>
       </div>
     )
   }
@@ -148,10 +212,8 @@ function ForecastChart({ history, forecast, stats, fmt }) {
       <div className="flex items-end gap-px" style={{ height: 140 }}>
         {allData.map((d, i) => {
           const isHistory = i < histCount
-          const heightPct = maxRev > 0 ? Math.max(2, (d.revenue / maxRev) * 100) : 2
-          const upperPct  = maxRev > 0 ? (((d.upper  || d.revenue) / maxRev) * 100) : heightPct
-          const lowerPct  = maxRev > 0 ? (((d.lower  || d.revenue) / maxRev) * 100) : heightPct
-
+          const heightPct = maxRev > 0 ? Math.max(2, ((d.revenue || 0) / maxRev) * 100) : 2
+          const upperPct  = maxRev > 0 ? ((((d.upper  || d.revenue) || 0) / maxRev) * 100) : heightPct
           return (
             <div key={i} className="flex-1 flex flex-col items-center justify-end relative group"
               title={`${fmtDay(d.date)}: ${fmt(d.revenue)}${!isHistory ? ` (${fmt(d.lower)}–${fmt(d.upper)})` : ''}`}
@@ -171,7 +233,7 @@ function ForecastChart({ history, forecast, stats, fmt }) {
 
       <div className="flex items-center gap-2 mt-2">
         <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${histCount}, 1fr)` }}>
-          {history.slice(-histCount).filter((_, i) => i % Math.max(1, Math.floor(histCount / 5)) === 0).map(d => (
+          {safeHistory.slice(-histCount).filter((_, i) => i % Math.max(1, Math.floor(histCount / 5)) === 0).map(d => (
             <span key={d.date} className="text-slate-600 text-[9px] truncate">{fmtDay(d.date)}</span>
           ))}
         </div>
@@ -206,17 +268,17 @@ function ForecastStats({ stats, fmt }) {
         { label: '30-Day Forecast',   value: fmt(stats.forecast30Total), icon: '📅', accent: true },
         {
           label: 'Revenue Trend',
-          value: `${growing ? '▲' : '▼'} ${Math.abs(Number(stats.trendSlope)).toFixed(3)} OMR/day`,
+          value: `${growing ? '▲' : '▼'} ${Math.abs(Number(stats.trendSlope || 0)).toFixed(3)} OMR/day`,
           icon: growing ? '📈' : '📉',
           color: growing ? 'text-green-400' : 'text-red-400',
         },
         {
           label: 'Weekly Growth',
-          value: `${stats.weeklyGrowthPct > 0 ? '+' : ''}${stats.weeklyGrowthPct}%`,
-          icon: stats.weeklyGrowthPct >= 0 ? '🟢' : '🔴',
-          color: stats.weeklyGrowthPct >= 0 ? 'text-green-400' : 'text-red-400',
+          value: `${stats.weeklyGrowthPct > 0 ? '+' : ''}${stats.weeklyGrowthPct || 0}%`,
+          icon: (stats.weeklyGrowthPct || 0) >= 0 ? '🟢' : '🔴',
+          color: (stats.weeklyGrowthPct || 0) >= 0 ? 'text-green-400' : 'text-red-400',
         },
-        { label: 'Data Points', value: `${stats.dataPoints} days`, icon: '📊', color: 'text-slate-400' },
+        { label: 'Data Points', value: `${stats.dataPoints || 0} days`, icon: '📊', color: 'text-slate-400' },
       ].map(row => (
         <div key={row.label} className="flex items-center justify-between">
           <span className="text-slate-400 text-xs flex items-center gap-1.5">{row.icon} {row.label}</span>
@@ -228,17 +290,19 @@ function ForecastStats({ stats, fmt }) {
 }
 
 const QUADRANT_META = {
-  star:      { label: 'Stars',       emoji: '⭐', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/25',  desc: 'Promote actively' },
-  plowhorse: { label: 'Plowhorses',  emoji: '🐴', color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/25',    desc: 'Optimize costs' },
-  puzzle:    { label: 'Puzzles',     emoji: '❓', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/25', desc: 'Market better' },
-  dog:       { label: 'Dogs',        emoji: '🐕', color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/25',       desc: 'Review/remove' },
+  star:      { label: 'Stars',      emoji: '⭐', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/25',   desc: 'Promote actively' },
+  plowhorse: { label: 'Plowhorses', emoji: '🐴', color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/25',     desc: 'Optimize costs' },
+  puzzle:    { label: 'Puzzles',    emoji: '❓', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/25', desc: 'Market better' },
+  dog:       { label: 'Dogs',       emoji: '🐕', color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/25',       desc: 'Review/remove' },
 }
 
 function MatrixSummary({ summary, items, fmt }) {
+  if (!summary) return null
   const topPerQuadrant = {}
   for (const q of ['star', 'plowhorse', 'puzzle', 'dog']) {
     topPerQuadrant[q] = (items || []).filter(i => i.quadrant === q).slice(0, 2)
   }
+  const total = Object.values(summary).reduce((a, b) => a + (Number(b) || 0), 0)
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -246,13 +310,14 @@ function MatrixSummary({ summary, items, fmt }) {
         <h3 className="text-white font-semibold text-sm">Menu Engineering Matrix</h3>
         <span className="text-slate-500 text-xs">This month</span>
       </div>
-
       <div className="grid grid-cols-2 gap-2 mb-4">
         {Object.entries(QUADRANT_META).map(([q, meta]) => (
           <div key={q} className={`rounded-xl border p-3 ${meta.bg}`}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-semibold">{meta.emoji} <span className={meta.color}>{meta.label}</span></span>
-              <span className={`text-lg font-bold ${meta.color}`}>{summary?.[q === 'plowhorse' ? 'plowhorses' : q + 's'] ?? summary?.[q] ?? 0}</span>
+              <span className={`text-lg font-bold ${meta.color}`}>
+                {summary?.[q === 'plowhorse' ? 'plowhorses' : q + 's'] ?? summary?.[q] ?? 0}
+              </span>
             </div>
             <p className="text-slate-500 text-xs">{meta.desc}</p>
             {topPerQuadrant[q]?.map(item => (
@@ -261,16 +326,21 @@ function MatrixSummary({ summary, items, fmt }) {
           </div>
         ))}
       </div>
-
-      <p className="text-slate-500 text-xs text-center">
-        Total: {Object.values(summary || {}).reduce((a, b) => a + b, 0)} menu items analyzed
-      </p>
+      <p className="text-slate-500 text-xs text-center">{total} menu items analyzed</p>
     </div>
   )
 }
 
 function TopItems({ items, fmt }) {
-  if (!items?.length) return null
+  if (!items?.length) return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <h3 className="text-white font-semibold mb-4">🏆 Best Sellers</h3>
+      <div className="text-center py-6 text-slate-500">
+        <p className="text-3xl mb-2">📊</p>
+        <p className="text-sm">No sales data yet for this period.</p>
+      </div>
+    </div>
+  )
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
       <h3 className="text-white font-semibold mb-4">🏆 Best Sellers</h3>
@@ -284,11 +354,11 @@ function TopItems({ items, fmt }) {
               <p className="text-white text-sm truncate">{item.name}</p>
               <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1">
                 <div className="bg-orange-500 h-1.5 rounded-full"
-                  style={{ width: `${Math.min(100, (item.qty / items[0].qty) * 100)}%` }} />
+                  style={{ width: `${Math.min(100, ((item.qty || 0) / (items[0].qty || 1)) * 100)}%` }} />
               </div>
             </div>
             <div className="text-right flex-shrink-0">
-              <p className="text-white text-sm font-medium">{item.qty} sold</p>
+              <p className="text-white text-sm font-medium">{item.qty || 0} sold</p>
               <p className="text-slate-500 text-xs">{fmt(item.revenue)}</p>
             </div>
           </div>
@@ -299,10 +369,11 @@ function TopItems({ items, fmt }) {
 }
 
 function StockAlerts({ lowStock }) {
+  const items = Array.isArray(lowStock) ? lowStock : []
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
       <h3 className="text-white font-semibold mb-4">📦 Stock Status</h3>
-      {lowStock.length === 0 ? (
+      {items.length === 0 ? (
         <div className="text-center py-6">
           <span className="text-4xl block mb-2">✅</span>
           <p className="text-green-400 font-medium text-sm">All stock levels healthy</p>
@@ -312,9 +383,9 @@ function StockAlerts({ lowStock }) {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-yellow-400 text-xs font-semibold mb-3">
             <span>⚠️</span>
-            <span>{lowStock.length} item{lowStock.length > 1 ? 's' : ''} need restocking</span>
+            <span>{items.length} item{items.length > 1 ? 's' : ''} need restocking</span>
           </div>
-          {lowStock.map((item, i) => {
+          {items.map((item, i) => {
             const pct = parseFloat(item.min_quantity) > 0
               ? Math.round((parseFloat(item.quantity) / parseFloat(item.min_quantity)) * 100) : 0
             const isEmpty = parseFloat(item.quantity) === 0
@@ -341,23 +412,22 @@ function StockAlerts({ lowStock }) {
 
 export default function AIExecutive() {
   const { fmt } = useCurrency()
-  const [kpis, setKpis] = useState(null)
+  const [kpis, setKpis]               = useState(null)
   const [forecastData, setForecastData] = useState(null)
-  const [matrixData, setMatrixData] = useState(null)
-  const [insights, setInsights] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const [error, setError] = useState(null)
-  const [period, setPeriod] = useState('today')
+  const [matrixData, setMatrixData]   = useState(null)
+  const [insights, setInsights]       = useState(null)
+  const [loading, setLoading]         = useState(true)
+  const [generating, setGenerating]   = useState(false)
+  const [aiErrorCode, setAiErrorCode] = useState(null)  // error code, not raw message
+  const [period, setPeriod]           = useState('today')
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     setLoading(true)
-    setError(null)
     Promise.all([
-      apiFetch(`/api/reports?period=${period}`).then(r => r.json()).catch(() => null),
-      apiFetch('/api/reports/forecast').then(r => r.json()).catch(() => null),
-      apiFetch('/api/reports/menu-matrix?period=month').then(r => r.json()).catch(() => null),
-      apiFetch('/api/ai/insights').then(r => r.json()).catch(() => null),
+      apiFetch(`/api/reports?period=${period}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      apiFetch('/api/reports/forecast').then(r => r.ok ? r.json() : null).catch(() => null),
+      apiFetch('/api/reports/menu-matrix?period=month').then(r => r.ok ? r.json() : null).catch(() => null),
+      apiFetch('/api/ai/insights').then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([k, f, m, i]) => {
       setKpis(k)
       setForecastData(f)
@@ -367,12 +437,14 @@ export default function AIExecutive() {
     })
   }, [period])
 
+  useEffect(() => { loadData() }, [loadData])
+
   const generateInsights = async () => {
     setGenerating(true)
-    setError(null)
+    setAiErrorCode(null)
     try {
       const body = {
-        kpis:          kpis          || {},
+        kpis:          kpis                 || {},
         forecastStats: forecastData?.stats  || {},
         matrixSummary: matrixData?.summary  || {},
       }
@@ -381,10 +453,19 @@ export default function AIExecutive() {
         body: JSON.stringify(body),
       })
       const data = await r.json()
-      if (r.ok) setInsights(data)
-      else setError(data.error || 'Failed to generate insights')
-    } catch (e) {
-      setError(e.message || 'Failed to generate insights')
+      if (r.ok) {
+        setInsights(data)
+        setAiErrorCode(null)
+      } else {
+        // Server always returns { code, error, ai_unavailable } for AI failures
+        const code = data.code || 'service_unavailable'
+        setAiErrorCode(code)
+        // Log for debugging — never shown in UI
+        console.error('[AIExecutive] insight generation failed:', data.code, data.error)
+      }
+    } catch (networkErr) {
+      setAiErrorCode('service_unavailable')
+      console.error('[AIExecutive] network error:', networkErr?.message)
     } finally {
       setGenerating(false)
     }
@@ -420,7 +501,7 @@ export default function AIExecutive() {
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-orange-500/20"
           >
             <span className={generating ? 'animate-spin inline-block' : ''}>✨</span>
-            {generating ? 'Analyzing...' : 'Generate Insights'}
+            {generating ? 'Analyzing…' : 'Generate Insights'}
           </button>
         </div>
       </div>
@@ -438,45 +519,48 @@ export default function AIExecutive() {
         </div>
       ) : (
         <div className="space-y-5">
-          <InsightCard insights={insights} generating={generating} error={error} />
+          {/* AI Insight card — shows friendly message if AI is unavailable */}
+          <InsightCard
+            insights={insights}
+            generating={generating}
+            errorCode={aiErrorCode}
+            onRetry={aiErrorCode === 'rate_limit' || aiErrorCode === 'service_unavailable' ? generateInsights : null}
+          />
 
-          {kpis && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <KpiCard label="Revenue"      value={fmt(kpis.revenue)}          icon="💵" color="text-orange-400" />
-              <KpiCard label="Orders"       value={fmtN(kpis.totalOrders)}     icon="📋" color="text-blue-400" />
-              <KpiCard label="Avg Order"    value={fmt(kpis.avgOrderValue)}     icon="🧾" color="text-purple-400" />
-              <KpiCard label="Gross Profit" value={fmt(kpis.grossProfit)}       icon="📈"
-                color={kpis.grossProfit >= 0 ? 'text-green-400' : 'text-red-400'} />
-              <KpiCard label="Margin"       value={`${kpis.grossMargin}%`}      icon="%"
-                color={kpis.grossMargin >= 65 ? 'text-green-400' : kpis.grossMargin >= 45 ? 'text-yellow-400' : 'text-red-400'}
-                sub="gross margin" />
-              <KpiCard label="Customers"    value={fmtN(kpis.customersServed)} icon="👥" color="text-cyan-400" />
-            </div>
-          )}
+          {/* KPI cards — always shown; '—' for missing values */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <KpiCard label="Revenue"      value={kpis ? fmt(kpis.revenue)                : '—'} icon="💵" color="text-orange-400" />
+            <KpiCard label="Orders"       value={kpis ? fmtN(kpis.totalOrders)           : '—'} icon="📋" color="text-blue-400" />
+            <KpiCard label="Avg Order"    value={kpis ? fmt(kpis.avgOrderValue)           : '—'} icon="🧾" color="text-purple-400" />
+            <KpiCard label="Gross Profit" value={kpis ? fmt(kpis.grossProfit)             : '—'} icon="📈"
+              color={!kpis ? 'text-slate-400' : kpis.grossProfit >= 0 ? 'text-green-400' : 'text-red-400'} />
+            <KpiCard label="Margin"       value={kpis ? `${kpis.grossMargin ?? 0}%`      : '—'} icon="%"
+              color={!kpis ? 'text-slate-400' : (kpis.grossMargin ?? 0) >= 65 ? 'text-green-400' : (kpis.grossMargin ?? 0) >= 45 ? 'text-yellow-400' : 'text-red-400'}
+              sub="gross margin" />
+            <KpiCard label="Customers"    value={kpis ? fmtN(kpis.customersServed)       : '—'} icon="👥" color="text-cyan-400" />
+          </div>
 
+          {/* Forecast chart — always shown, empty state if no data */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2">
               <ForecastChart
-                history={forecastData?.history || []}
+                history={forecastData?.history   || []}
                 forecast={forecastData?.forecast || []}
                 stats={forecastData?.stats}
                 fmt={fmt}
               />
             </div>
             <div className="space-y-4">
-              {forecastData?.stats && <ForecastStats stats={forecastData.stats} fmt={fmt} />}
-              {matrixData?.summary && (
-                <MatrixSummary summary={matrixData.summary} items={matrixData.items} fmt={fmt} />
-              )}
+              <ForecastStats stats={forecastData?.stats || null} fmt={fmt} />
+              <MatrixSummary summary={matrixData?.summary || null} items={matrixData?.items || []} fmt={fmt} />
             </div>
           </div>
 
-          {kpis && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <TopItems items={kpis.topItems || []} fmt={fmt} />
-              <StockAlerts lowStock={kpis.lowStock || []} />
-            </div>
-          )}
+          {/* Bottom row — always shown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <TopItems   items={kpis?.topItems  || []} fmt={fmt} />
+            <StockAlerts lowStock={kpis?.lowStock || []} />
+          </div>
         </div>
       )}
     </div>
