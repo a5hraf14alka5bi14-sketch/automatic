@@ -8,7 +8,7 @@ import { logger } from '../logger.js'
 const router = express.Router()
 
 // Optional pagination: ?limit=&offset= (omit for full list). Sets X-Total-Count.
-router.get('/', async (req, res) => {
+router.get('/', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const { search, limit, offset } = req.query
     let where = ' WHERE deleted_at IS NULL'
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM customers WHERE id=$1 AND deleted_at IS NULL', [req.params.id])
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
@@ -36,7 +36,7 @@ router.get('/:id', async (req, res) => {
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
-router.post('/', validate(customerCreateSchema), async (req, res) => {
+router.post('/', requireRole('admin', 'manager'), validate(customerCreateSchema), async (req, res) => {
   const { name, email, phone, address, notes } = req.body
   try {
     const result = await pool.query(
@@ -50,7 +50,7 @@ router.post('/', validate(customerCreateSchema), async (req, res) => {
   }
 })
 
-router.patch('/:id', validate(customerUpdateSchema), async (req, res) => {
+router.patch('/:id', requireRole('admin', 'manager'), validate(customerUpdateSchema), async (req, res) => {
   const { name, email, phone, address, notes } = req.body
   try {
     const result = await pool.query(

@@ -19,6 +19,7 @@ export function canAdmin(role) {
 // Routes not listed here are available to any authenticated user; mutations
 // on those pages are still gated in the UI and enforced by the backend.
 export const ROUTE_ROLES = {
+  customers: ['admin', 'manager'],
   reports: ['admin', 'manager'],
   settings: ['admin', 'manager'],
   integrations: ['admin', 'manager'],

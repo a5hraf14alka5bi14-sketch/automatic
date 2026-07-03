@@ -77,7 +77,7 @@ function AppLayout({ user, onLogout }) {
               <Route path="/menu" element={<Menu />} />
               <Route path="/inventory" element={<Inventory />} />
               <Route path="/recipes" element={<Recipes />} />
-              <Route path="/customers" element={<Customers />} />
+              <Route path="/customers" element={<RequireRole routeId="customers" role={role}><Customers /></RequireRole>} />
               <Route path="/reports" element={<RequireRole routeId="reports" role={role}><Reports /></RequireRole>} />
               <Route path="/settings" element={<RequireRole routeId="settings" role={role}><Settings user={user} /></RequireRole>} />
               <Route path="/integrations" element={<RequireRole routeId="integrations" role={role}><Integrations /></RequireRole>} />

@@ -3,6 +3,7 @@ import { pool, recordStockMovement } from '../db.js'
 import { computeDeductAmount } from '../lib/inventory.js'
 import { broadcast } from '../events.js'
 import { validate } from '../middleware/validate.js'
+import { requireRole } from '../middleware/auth.js'
 import {
   orderCreateSchema, orderStatusSchema,
   orderDiscountSchema, orderRushSchema, orderItemDoneSchema
@@ -85,7 +86,7 @@ router.get('/table/:n', async (req, res) => {
 })
 
 // GET orders by customer — must be before /:id
-router.get('/customer/:customerId', async (req, res) => {
+router.get('/customer/:customerId', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const result = await pool.query(
       `${ORDERS_SELECT} WHERE o.customer_id=$1 GROUP BY o.id, u.name ORDER BY o.created_at DESC LIMIT 20`,
