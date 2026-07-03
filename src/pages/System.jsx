@@ -29,6 +29,9 @@ export default function System() {
   const [msg, setMsg] = useState(null)
   const [backups, setBackups] = useState([])
   const [runningBackup, setRunningBackup] = useState(false)
+  const [restoreFile, setRestoreFile] = useState(null)
+  const [restoring, setRestoring] = useState(false)
+  const [restoreResult, setRestoreResult] = useState(null)
 
   const loadMetrics = useCallback(async () => {
     try {
@@ -99,6 +102,29 @@ export default function System() {
     }
   }
 
+  const restoreBackup = async () => {
+    if (!restoreFile) return
+    if (!confirm(`⚠️ This will overwrite the database with "${restoreFile.name}". This cannot be undone. Continue?`)) return
+    setRestoring(true)
+    setRestoreResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('backup', restoreFile)
+      const res = await fetch('/api/admin/backups/restore', {
+        method: 'POST',
+        credentials: 'include',
+        body: fd,
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || d.detail || 'Restore failed')
+      setRestoreResult({ ok: true, text: d.message || 'Database restored successfully. Please refresh.' })
+      setRestoreFile(null)
+    } catch (err) {
+      setRestoreResult({ ok: false, text: err.message })
+    }
+    setRestoring(false)
+  }
+
   const req = metrics?.requests
 
   return (
@@ -164,6 +190,46 @@ export default function System() {
               </tbody>
             </table>
           )}
+        </div>
+      </section>
+
+      {/* Restore Backup */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-300">Restore Database · استعادة قاعدة البيانات</h2>
+            <p className="text-slate-500 text-xs mt-0.5">Upload a .sql backup file to restore. ⚠️ This will overwrite all current data.</p>
+          </div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+          {restoreResult && (
+            <div className={`rounded-lg px-4 py-2.5 text-sm border ${restoreResult.ok ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+              {restoreResult.text}
+            </div>
+          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer border transition-colors text-sm ${
+              restoreFile ? 'border-orange-500/40 bg-orange-500/10 text-orange-300' : 'border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700'
+            }`}>
+              <span>📁</span>
+              <span>{restoreFile ? restoreFile.name : 'Choose .sql file'}</span>
+              <input type="file" accept=".sql" className="hidden" onChange={e => { setRestoreFile(e.target.files[0] || null); setRestoreResult(null) }} />
+            </label>
+            {restoreFile && (
+              <>
+                <span className="text-slate-500 text-xs">{(restoreFile.size / 1024).toFixed(0)} KB</span>
+                <button onClick={restoreBackup} disabled={restoring}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors">
+                  {restoring ? '⟳ Restoring…' : '↩ Restore Database'}
+                </button>
+                <button onClick={() => { setRestoreFile(null); setRestoreResult(null) }}
+                  className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+          <p className="text-slate-600 text-xs">Only admin accounts can perform restores. All active sessions will be disrupted after a restore.</p>
         </div>
       </section>
 

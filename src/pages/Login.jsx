@@ -4,6 +4,8 @@ import logo from '../assets/brand/logo-full.png'
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [totpToken, setTotpToken] = useState('')
+  const [requiresTotp, setRequiresTotp] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -12,13 +14,21 @@ export default function Login({ onLogin }) {
     setError('')
     setLoading(true)
     try {
+      const body = { email, password }
+      if (requiresTotp) body.totp_token = totpToken
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify(body)
       })
       const data = await res.json()
+      if (data.requires_totp) {
+        setRequiresTotp(true)
+        setError('')
+        setLoading(false)
+        return
+      }
       if (!res.ok) throw new Error(data.error || 'Login failed')
       onLogin(data.user)
     } catch (err) {
@@ -40,7 +50,9 @@ export default function Login({ onLogin }) {
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
-          <h2 className="text-xl font-semibold text-white mb-6">Sign In</h2>
+          <h2 className="text-xl font-semibold text-white mb-6">
+            {requiresTotp ? '🔐 Two-Factor Authentication' : 'Sign In'}
+          </h2>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-4 text-sm">
@@ -48,39 +60,54 @@ export default function Login({ onLogin }) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Email</label>
+          {requiresTotp ? (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <p className="text-slate-400 text-sm">
+                Enter the 6-digit code from your authenticator app.
+              </p>
               <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
-                placeholder="admin@restaurant.com"
+                type="text"
+                maxLength={6}
+                value={totpToken}
+                onChange={e => setTotpToken(e.target.value.replace(/\D/g, ''))}
+                className="w-full text-center text-3xl font-mono bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 tracking-[0.5em]"
+                placeholder="000000"
+                autoFocus
                 required
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 mt-2"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
+              <button type="submit" disabled={loading || totpToken.length !== 6}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50">
+                {loading ? 'Verifying…' : 'Verify'}
+              </button>
+              <button type="button" onClick={() => { setRequiresTotp(false); setTotpToken(''); setError('') }}
+                className="w-full text-slate-500 hover:text-slate-300 text-sm transition-colors">
+                ← Back to login
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1.5">Email</label>
+                <input
+                  type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+                  placeholder="admin@restaurant.com" required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
+                <input
+                  type="password" value={password} onChange={e => setPassword(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+                  placeholder="••••••••" required
+                />
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 mt-2">
+                {loading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>

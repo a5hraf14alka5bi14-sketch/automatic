@@ -78,6 +78,67 @@ export default function POS() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // ── Barcode scanner support (HID keyboard-wedge) ──────────────────────────
+  // Accumulates rapid key presses (< 80 ms apart); on Enter or pause, looks up
+  // by barcode and adds to cart. Ignores when focus is on an input/textarea.
+  useEffect(() => {
+    let buffer = ''
+    let lastAt = 0
+
+    const onKey = async (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase()
+      // Don't intercept when user is typing in an input / textarea / select
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+
+      const now = Date.now()
+      if (now - lastAt > 80) buffer = '' // reset on slow typing
+      lastAt = now
+
+      if (e.key === 'Enter') {
+        const code = buffer.trim()
+        buffer = ''
+        if (code.length >= 3) {
+          try {
+            const res = await apiFetch(`/api/menu/barcode/${encodeURIComponent(code)}`)
+            if (res.ok) {
+              const item = await res.json()
+              if (item?.available) {
+                // Reuse existing addToCart logic via synthetic click is complex;
+                // directly push to cart state using the same shape
+                setCart(prev => {
+                  const existing = prev.find(c => c.id === item.id && !c.modifiers?.length)
+                  if (existing) {
+                    return prev.map(c => c.id === item.id && !c.modifiers?.length
+                      ? { ...c, qty: c.qty + 1 } : c)
+                  }
+                  return [...prev, {
+                    id: item.id,
+                    cartId: `${item.id}-${Date.now()}`,
+                    name: item.name,
+                    price: parseFloat(item.price),
+                    qty: 1,
+                    modifiers: [],
+                  }]
+                })
+                showToast(`📦 ${item.name} added via barcode`, 'success')
+              } else {
+                showToast('Item not available', 'error')
+              }
+            } else {
+              showToast(`Barcode not found: ${code}`, 'error')
+            }
+          } catch { /* network error — ignore */ }
+        }
+        return
+      }
+
+      if (e.key.length === 1) buffer += e.key
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showToast])
+
   // ── Load open orders for Tables view ──────────────────────────────────────
   const fetchOpenOrders = useCallback(async () => {
     setTablesLoading(true)
@@ -469,6 +530,7 @@ export default function POS() {
           total={total}
           currency={currency}
           onClose={() => setSplitModal(false)}
+          onAllPaid={() => setSplitModal(false)}
         />
       )}
 

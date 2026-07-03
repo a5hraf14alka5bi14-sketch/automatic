@@ -217,6 +217,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
     tags: item?.tags || '',
     food_cost: item?.food_cost || 0,
     available: item?.available !== false,
+    barcode: item?.barcode || '',
   })
   const [recipe, setRecipe] = useState(item?.recipe || [])
   const [newIng, setNewIng] = useState({ inventory_item_id: '', ingredient_name: '', quantity: 1, unit: 'pcs', cost: 0 })
@@ -355,6 +356,12 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                     </div>
                     <span className="text-slate-300 text-sm">Available on POS</span>
                   </label>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-slate-400 text-xs mb-1 block">Barcode (scan or type)</label>
+                  <input value={form.barcode} onChange={e => set('barcode', e.target.value)}
+                    placeholder="e.g. 6283001234567"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-orange-500" />
                 </div>
               </div>
             </>

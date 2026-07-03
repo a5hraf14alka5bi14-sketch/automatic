@@ -392,4 +392,35 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
   } finally { client.release() }
 })
 
+// ── POST /api/orders/:id/split-payment ────────────────────────────────────────
+router.post('/:id/split-payment', async (req, res, next) => {
+  const { method, amount, notes } = req.body
+  const METHODS = ['cash', 'card', 'other']
+  if (!method || !METHODS.includes(method)) return res.status(400).json({ error: 'Invalid payment method' })
+  const amt = parseFloat(amount)
+  if (!amt || amt <= 0) return res.status(400).json({ error: 'Amount must be positive' })
+  try {
+    const order = await pool.query('SELECT id, total FROM orders WHERE id=$1', [req.params.id])
+    if (!order.rows.length) return res.status(404).json({ error: 'Order not found' })
+    const r = await pool.query(
+      'INSERT INTO split_payments (order_id, method, amount, notes) VALUES ($1,$2,$3,$4) RETURNING *',
+      [req.params.id, method, amt.toFixed(3), notes || null]
+    )
+    // Check if order is now fully paid → auto-complete
+    const paid = await pool.query(
+      'SELECT COALESCE(SUM(amount),0) AS total_paid FROM split_payments WHERE order_id=$1',
+      [req.params.id]
+    )
+    const totalPaid = parseFloat(paid.rows[0].total_paid)
+    const orderTotal = parseFloat(order.rows[0].total)
+    if (totalPaid >= orderTotal - 0.001) {
+      await pool.query(
+        "UPDATE orders SET status='completed', paid_at=NOW(), payment_method=$1 WHERE id=$2",
+        ['split', req.params.id]
+      )
+    }
+    res.status(201).json({ payment: r.rows[0], total_paid: totalPaid, order_total: orderTotal })
+  } catch (err) { next(err) }
+})
+
 export default router

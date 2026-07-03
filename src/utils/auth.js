@@ -25,6 +25,8 @@ export const ROUTE_ROLES = {
   notion: ['admin', 'manager'],
   'ai-executive': ['admin', 'manager'],
   system: ['admin'],
+  suppliers: ['admin', 'manager'],
+  profile: ['admin', 'manager', 'cashier', 'kitchen', 'staff'],
 }
 
 export function canAccessRoute(routeId, role) {

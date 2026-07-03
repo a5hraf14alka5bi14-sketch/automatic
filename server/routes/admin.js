@@ -3,11 +3,15 @@
 import { Router }                                   from 'express'
 import { spawn }                                    from 'node:child_process'
 import { createReadStream, existsSync }              from 'node:fs'
+import multer                                       from 'multer'
 import { requireRole }                              from '../middleware/auth.js'
 import { pool }                                     from '../db.js'
 import { getMetrics }                               from '../lib/observability.js'
 import { logger }                                   from '../logger.js'
 import { listBackups, backupFilePath, runBackup }   from '../lib/backup-scheduler.js'
+import { getHealth }                                from '../lib/health-monitor.js'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } })
 
 const router = Router()
 
@@ -124,6 +128,60 @@ router.get('/backups/:name', (req, res) => {
   res.setHeader('Content-Type', 'application/sql')
   res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
   createReadStream(fp).pipe(res)
+})
+
+// ── Health check ──────────────────────────────────────────────────────────────
+router.get('/health', async (_req, res, next) => {
+  try {
+    const h = await getHealth()
+    res.status(h.ok ? 200 : 503).json(h)
+  } catch (err) { next(err) }
+})
+
+// ── Backup restore (upload .sql → psql) ───────────────────────────────────────
+router.post('/backups/restore', upload.single('backup'), async (req, res, next) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
+  if (!req.file.originalname.endsWith('.sql')) return res.status(400).json({ error: 'Only .sql files accepted' })
+
+  const url = process.env.DATABASE_URL
+  if (!url) return res.status(500).json({ error: 'DATABASE_URL not configured' })
+
+  let pgEnv
+  try {
+    const u = new URL(url)
+    pgEnv = {
+      ...process.env,
+      PGHOST: u.hostname, PGPORT: u.port || '5432',
+      PGUSER: decodeURIComponent(u.username),
+      PGPASSWORD: decodeURIComponent(u.password),
+      PGDATABASE: u.pathname.replace(/^\//, ''),
+    }
+    const sslmode = u.searchParams.get('sslmode')
+    if (sslmode) pgEnv.PGSSLMODE = sslmode
+  } catch (err) {
+    return res.status(500).json({ error: 'Invalid DATABASE_URL' })
+  }
+
+  logger.warn('[restore] starting DB restore from uploaded file', { filename: req.file.originalname, bytes: req.file.size })
+  const child = spawn('psql', ['--no-password', '-q'], { env: pgEnv })
+  let stderr = ''
+  child.stderr.on('data', d => { stderr += d.toString() })
+  child.stdin.write(req.file.buffer)
+  child.stdin.end()
+
+  child.on('close', (code) => {
+    if (code !== 0) {
+      logger.error('[restore] psql exited non-zero', { code, stderr: stderr.slice(0, 500) })
+      return res.status(500).json({ error: 'Restore failed', detail: stderr.slice(0, 300) })
+    }
+    logger.info('[restore] restore completed', { filename: req.file.originalname })
+    res.json({ ok: true, message: 'Database restored successfully' })
+  })
+
+  child.on('error', (err) => {
+    logger.error('[restore] psql spawn failed', { msg: err.message })
+    if (!res.headersSent) res.status(500).json({ error: 'Restore failed to start' })
+  })
 })
 
 export default router

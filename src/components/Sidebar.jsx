@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { id: 'menu',         label: 'Menu & Recipes',  icon: '🍽️' },
   { id: 'inventory',    label: 'Inventory',       icon: '📦' },
   { id: 'recipes',      label: 'Recipes',         icon: '🧪' },
+  { id: 'suppliers',    label: 'Suppliers',       icon: '🏪' },
   { id: 'customers',    label: 'Customers',       icon: '👥' },
   { id: 'reports',      label: 'Reports',         icon: '📊' },
   { id: 'ai-executive', label: 'AI Executive',    icon: '🤖' },
@@ -156,6 +157,18 @@ export default function Sidebar({ user, onLogout, collapsed, setCollapsed, mobil
               >
                 <span>🔐</span>
                 <span>Change Password</span>
+              </NavLink>
+              <NavLink
+                to="/profile"
+                onClick={() => setMobileOpen(false)}
+                className={({ isActive }) => `w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${
+                  isActive
+                    ? 'text-orange-400 bg-orange-500/10'
+                    : 'text-slate-600 hover:text-slate-300 hover:bg-slate-800/50'
+                }`}
+              >
+                <span>🛡️</span>
+                <span>2FA Security</span>
               </NavLink>
             </div>
           ) : (

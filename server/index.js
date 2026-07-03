@@ -21,6 +21,7 @@ import usersRoutes from './routes/users.js'
 import aiRoutes from './routes/ai.js'
 import adminRoutes from './routes/admin.js'
 import shiftsRoutes from './routes/shifts.js'
+import suppliersRoutes from './routes/suppliers.js'
 import { startBackupScheduler } from './lib/backup-scheduler.js'
 import { requestLogger } from './lib/observability.js'
 import { auditMutations } from './lib/audit.js'
@@ -173,6 +174,7 @@ app.use('/api/users', usersRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/shifts', shiftsRoutes)
+app.use('/api/suppliers', suppliersRoutes)
 
 // ── Global error handler — hide internal details from clients ─────────────────
 // eslint-disable-next-line no-unused-vars

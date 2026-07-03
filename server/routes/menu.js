@@ -49,6 +49,23 @@ router.get('/all', async (req, res) => {
   }
 })
 
+// ── GET /api/menu/barcode/:code — look up item by barcode (POS scanner) ──────
+router.get('/barcode/:code', async (req, res) => {
+  try {
+    const { code } = req.params
+    if (!code || code.length < 3) return res.status(400).json({ error: 'Invalid barcode' })
+    const r = await pool.query(
+      'SELECT * FROM menu_items WHERE barcode = $1 AND deleted_at IS NULL',
+      [code.trim()]
+    )
+    if (!r.rows.length) return res.status(404).json({ error: 'Item not found' })
+    res.json(r.rows[0])
+  } catch (err) {
+    logger.error(err?.message || 'Server error', { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 // ── GET /api/menu/stats ───────────────────────────────────────────────────────
 router.get('/stats', async (req, res) => {
   try {
