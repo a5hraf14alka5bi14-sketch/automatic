@@ -19,3 +19,7 @@ The app is a plain manual PWA (no vite-plugin-pwa, avoids Vite/Rolldown build qu
 - Navigations: network-first; only cache `/` when `res.ok && content-type is text/html`; offline fallback to cached `/`.
 - Static: only cache when `request.destination` ∈ {script,style,image,font} AND `res.ok && res.type==='basic' && NOT text/html`.
 - Server defense-in-depth: in the IS_PROD SPA fallback, return 404 (not index.html) for any path with a file extension so missing hashed assets never return HTML.
+
+## "App won't open / works wrong on mobile" is usually a stale service worker
+**Why:** if users installed/loaded the PWA during a broken deploy (e.g. prod ran in dev mode serving `/src/main.jsx`), the old SW keeps serving a stale/broken app shell. This looks like a mobile layout bug but is a caching bug.
+**How to apply:** (1) bump `CACHE` (`auto-os-vN`) to evict poisoned caches; (2) `src/main.jsx` self-updates via `controllerchange` — reload once, guarded by `hadController` (skip the first-ever install so no reload on fresh visit) + a `refreshing` flag (no reload loop). SW already does `skipWaiting()`+`clients.claim()`. Tell affected users to fully close/reopen (or reinstall) once after deploy.

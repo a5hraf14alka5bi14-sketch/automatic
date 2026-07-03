@@ -11,8 +11,21 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 // Register the service worker so the app is installable on iPhone, Android and
 // Windows and keeps working (app shell) when the connection drops.
+// When a new version is deployed the SW calls skipWaiting()/clients.claim(),
+// which fires `controllerchange`. We reload once (only if a controller already
+// existed) so installed phones/desktops never get stuck on a stale build.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {})
+    const hadController = !!navigator.serviceWorker.controller
+    let refreshing = false
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing || !hadController) return
+      refreshing = true
+      window.location.reload()
+    })
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => { reg.update?.() })
+      .catch(() => {})
   })
 }

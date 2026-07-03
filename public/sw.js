@@ -1,5 +1,5 @@
 /* Automatic Restaurant OS — service worker (installability + offline app shell) */
-const CACHE = 'auto-os-v2'
+const CACHE = 'auto-os-v3'
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
