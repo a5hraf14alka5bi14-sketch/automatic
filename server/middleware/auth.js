@@ -14,7 +14,11 @@ export function verifyToken(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized — authentication required' })
   }
   try {
-    req.user = jwt.verify(token, SECRET)
+    const payload = jwt.verify(token, SECRET)
+    if (payload.type === 'refresh') {
+      return res.status(401).json({ error: 'Invalid or expired session' })
+    }
+    req.user = payload
     next()
   } catch {
     return res.status(401).json({ error: 'Invalid or expired session' })

@@ -346,12 +346,21 @@ export async function initDb() {
 
     const userCheck = await client.query('SELECT id FROM users WHERE email = $1', ['admin@automatic.com'])
     if (userCheck.rows.length === 0) {
-      const bcrypt = await import('bcryptjs')
-      const hash = await bcrypt.default.hash('Admin123', 10)
-      await client.query(
-        'INSERT INTO users (name, email, password, role, must_change_password) VALUES ($1, $2, $3, $4, $5)',
-        ['Admin Manager', 'admin@automatic.com', hash, 'admin', true]
-      )
+      const bootstrapSecret = process.env.BOOTSTRAP_ADMIN_SECRET
+      if (IS_PROD_DB && !bootstrapSecret) {
+        console.warn(
+          '[db] Production environment detected with no admin account and no BOOTSTRAP_ADMIN_SECRET set. ' +
+          'Skipping default admin seed. Set BOOTSTRAP_ADMIN_SECRET to create an initial admin on first run.'
+        )
+      } else {
+        const initialPassword = bootstrapSecret || 'Admin123'
+        const bcrypt = await import('bcryptjs')
+        const hash = await bcrypt.default.hash(initialPassword, 10)
+        await client.query(
+          'INSERT INTO users (name, email, password, role, must_change_password) VALUES ($1, $2, $3, $4, $5)',
+          ['Admin Manager', 'admin@automatic.com', hash, 'admin', true]
+        )
+      }
     }
 
     const menuCheck = await client.query('SELECT id FROM menu_items LIMIT 1')
