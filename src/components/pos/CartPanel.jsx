@@ -9,9 +9,15 @@ export default function CartPanel({
   subtotal, discountedSub, tax, total, settings,
   note, setNote, rush, setRush, setSplitModal,
   error, placeOrder, placing, clearCart,
+  showCart, setShowCart,
 }) {
   return (
-    <div className="w-80 xl:w-96 border-l border-slate-800 flex flex-col bg-slate-950/30 flex-shrink-0">
+    <div className={`${showCart ? 'flex' : 'hidden'} md:flex fixed md:static inset-0 z-50 md:z-auto w-full md:w-80 xl:w-96 border-l border-slate-800 flex-col bg-slate-950 md:bg-slate-950/30 flex-shrink-0`}>
+      {/* Mobile: cart header with close button */}
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 flex-shrink-0">
+        <span className="text-white font-bold">🛒 السلة / Cart</span>
+        <button onClick={() => setShowCart(false)} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
       {/* Order type + table */}
       <div className="p-4 border-b border-slate-800 flex-shrink-0">
         <div className="flex gap-1 bg-slate-900 rounded-xl p-1 mb-3">

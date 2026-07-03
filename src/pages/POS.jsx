@@ -52,6 +52,7 @@ export default function POS() {
   const [modifierModal, setModifierModal] = useState(null)
   const [modifierLoading, setModifierLoading] = useState(false)
   const [splitModal, setSplitModal] = useState(false)
+  const [showCart, setShowCart] = useState(false) // mobile: cart overlay toggle
 
   const modifierCache = useRef({})
   const searchRef = useRef(null)
@@ -221,6 +222,7 @@ export default function POS() {
       }))
 
       clearCart()
+      setShowCart(false) // close the mobile cart overlay so the payment modal is clear
       showToast(`Order #${order.id} placed — awaiting payment`, 'info')
       setPayModal({
         ...order,
@@ -341,7 +343,7 @@ export default function POS() {
 
   // ── POS view ───────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
       {/* ── Left: Menu panel ──────────────────────────────────────────── */}
       <MenuPanel
         menu={menu}
@@ -397,7 +399,19 @@ export default function POS() {
         placeOrder={placeOrder}
         placing={placing}
         clearCart={clearCart}
+        showCart={showCart}
+        setShowCart={setShowCart}
       />
+
+      {/* Mobile: floating button to open the cart overlay */}
+      {!showCart && (
+        <button
+          onClick={() => setShowCart(true)}
+          className="md:hidden fixed bottom-4 inset-x-4 z-30 py-3.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
+        >
+          🛒 السلة{cartCount > 0 ? ` · ${cartCount}` : ''}{cart.length > 0 ? ` · ${fmtC(total)}` : ''}
+        </button>
+      )}
 
       {/* Modals */}
       {modifierModal && (

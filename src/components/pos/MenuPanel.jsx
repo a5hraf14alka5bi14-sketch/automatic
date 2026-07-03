@@ -9,24 +9,24 @@ export default function MenuPanel({
   return (
     <div className="flex-1 p-5 overflow-auto flex flex-col min-w-0">
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <div>
             <h1 className="text-xl font-bold text-white">Point of Sale</h1>
             <p className="text-slate-400 text-xs mt-0.5">{menu.length} items · {cartCount > 0 ? `${cartCount} in cart` : 'cart empty'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {/* View toggle */}
           <button onClick={() => setView('tables')}
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5">
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 flex-shrink-0">
             🪑 Tables
           </button>
           {/* Search */}
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
             <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search menu… ( / )"
-              className="bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500 w-48" />
+              className="bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500 w-full sm:w-48" />
           </div>
         </div>
       </div>

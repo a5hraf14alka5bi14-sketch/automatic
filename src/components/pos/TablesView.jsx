@@ -27,7 +27,7 @@ export default function TablesView({
       </div>
 
       {tablesLoading ? (
-        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-8 gap-3">
           {[...Array(tablesCount)].map((_, i) => (
             <div key={i} className="aspect-square bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />
           ))}
@@ -35,7 +35,7 @@ export default function TablesView({
       ) : (
         <>
           {/* Table grid */}
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3 mb-8">
+          <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-8 gap-3 mb-8">
             {Array.from({ length: tablesCount }, (_, i) => i + 1).map(n => {
               const orders = tableMap[n] || []
               const occupied = orders.length > 0

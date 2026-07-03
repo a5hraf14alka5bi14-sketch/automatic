@@ -257,8 +257,8 @@ function StockMovementsView() {
   )
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-      <table className="w-full">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
+      <table className="w-full min-w-[640px]">
         <thead>
           <tr className="border-b border-slate-800 bg-slate-800/50">
             <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">When</th>
@@ -369,8 +369,8 @@ function StocktakeView() {
         </div>
       )}
 
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-        <table className="w-full">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-800/50">
               <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">Item</th>
@@ -628,8 +628,8 @@ export default function Inventory() {
           <p className="text-slate-400 text-sm">No items found</p>
         </div>
       ) : (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-800/50">
                 <th className="text-left py-3 px-4 text-slate-400 text-xs font-medium">Item</th>

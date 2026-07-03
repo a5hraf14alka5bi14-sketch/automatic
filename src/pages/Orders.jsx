@@ -30,7 +30,7 @@ function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, fmt }
   return (
     <div className="fixed inset-0 z-40 flex" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="flex-1 bg-black/50" onClick={onClose} />
-      <div className="w-96 bg-slate-900 border-l border-slate-800 flex flex-col h-full shadow-2xl">
+      <div className="w-full max-w-md bg-slate-900 border-l border-slate-800 flex flex-col h-full shadow-2xl">
         {/* Header */}
         <div className="p-5 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
           <div>
