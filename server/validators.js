@@ -80,8 +80,10 @@ const orderItemSchema = Joi.object({
   menu_item_id: Joi.number().integer().allow(null),
   name: Joi.string().max(255).allow('', null),
   quantity: Joi.number().integer().min(1).required(),
+  // price is accepted from client but IGNORED for items with menu_item_id (server reprices from DB)
   price: money.allow(null),
   notes: Joi.string().max(500).allow('', null),
+  item_notes: Joi.string().max(500).allow('', null),
   modifiers: Joi.array(),
   station: Joi.string().max(50).allow('', null),
 })
@@ -90,9 +92,7 @@ export const orderCreateSchema = Joi.object({
   type: Joi.string().max(50),
   table_number: Joi.number().integer().min(0).allow(null),
   items: Joi.array().items(orderItemSchema).min(1).required(),
-  subtotal: money.allow(null),
-  tax: money.allow(null),
-  total: money.allow(null),
+  // subtotal / tax / total from client are IGNORED — server recomputes from menu prices + settings
   customer_id: Joi.number().integer().allow(null),
   notes: Joi.string().max(2000).allow('', null),
   discount: money.allow(null),

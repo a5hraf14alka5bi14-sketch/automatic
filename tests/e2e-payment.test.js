@@ -77,24 +77,30 @@ describe('Discount types', () => {
     const res = await admin.post('/api/orders').send({
       type: 'takeaway',
       items: [{ menu_item_id: ids.menu, name: `${TAG} Mixed Grill`, quantity: 1, price: 5 }],
-      subtotal: 5, discount: 20, discount_type: 'percent',
-      tax: 0, total: 4.0,
+      discount: 20, discount_type: 'percent',
     })
     expect(res.status).toBe(201)
-    expect(parseFloat(res.body.total)).toBeCloseTo(4.0, 2)
     orderIds.push(res.body.id)
+    // Server reprices from DB (price=5) and applies tax from settings.
+    // 20% discount on 5 = 1.0; subtotal after discount = 4.0
+    expect(parseFloat(res.body.discount)).toBeCloseTo(1.0, 2)
+    expect(res.body.discount_type).toBe('percent')
+    expect(parseFloat(res.body.subtotal)).toBeCloseTo(4.0, 2)
   })
 
   it('applies flat (fixed) amount discount correctly', async () => {
     const res = await admin.post('/api/orders').send({
       type: 'takeaway',
       items: [{ menu_item_id: ids.menu, name: `${TAG} Mixed Grill`, quantity: 1, price: 5 }],
-      subtotal: 5, discount: 1.5, discount_type: 'fixed',
-      tax: 0, total: 3.5,
+      discount: 1.5, discount_type: 'fixed',
     })
     expect(res.status).toBe(201)
-    expect(parseFloat(res.body.total)).toBeCloseTo(3.5, 2)
     orderIds.push(res.body.id)
+    // Server reprices from DB (price=5) and applies tax from settings.
+    // Fixed discount 1.5 off 5 = subtotal 3.5
+    expect(parseFloat(res.body.discount)).toBeCloseTo(1.5, 2)
+    expect(res.body.discount_type).toBe('fixed')
+    expect(parseFloat(res.body.subtotal)).toBeCloseTo(3.5, 2)
   })
 })
 

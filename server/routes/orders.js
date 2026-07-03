@@ -367,8 +367,35 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
       if (customer_id) {
         const { loyaltyPerDollar } = await getSettings(client)
         const pointsEarned = Math.floor(parseFloat(orderTotal) * loyaltyPerDollar)
-        const pointsToRedeem = loyalty_redemption_points && loyalty_redemption_points > 0 ? parseInt(loyalty_redemption_points) : 0
-        const loyaltyDiscount = loyaltyPerDollar > 0 ? parseFloat((pointsToRedeem / loyaltyPerDollar).toFixed(3)) : 0
+
+        // Cap redemption points to (a) the customer's actual balance and
+        // (b) the maximum points that can be absorbed by the order total.
+        // Both caps operate on the point count so the stored monetary discount
+        // stays perfectly consistent with the deducted points — ensuring the
+        // reversal path can reconstruct the exact point count from the stored
+        // discount without rounding drift.
+        let requestedRedemption = loyalty_redemption_points && loyalty_redemption_points > 0
+          ? parseInt(loyalty_redemption_points) : 0
+        if (requestedRedemption > 0) {
+          const custRow = await client.query(
+            'SELECT loyalty_points FROM customers WHERE id=$1',
+            [customer_id]
+          )
+          const actualBalance = parseInt(custRow.rows[0]?.loyalty_points ?? 0)
+          // Cap 1: never redeem more than the customer actually has
+          requestedRedemption = Math.min(requestedRedemption, Math.max(0, actualBalance))
+          // Cap 2: never redeem more points than the order total can absorb
+          const maxRedeemable = loyaltyPerDollar > 0
+            ? Math.floor(parseFloat(orderTotal) * loyaltyPerDollar) : 0
+          requestedRedemption = Math.min(requestedRedemption, maxRedeemable)
+        }
+        const pointsToRedeem = requestedRedemption
+
+        // Monetary discount derived directly from capped pointsToRedeem so
+        // round-tripping (points → discount → points) is always exact.
+        const loyaltyDiscount = loyaltyPerDollar > 0
+          ? parseFloat((pointsToRedeem / loyaltyPerDollar).toFixed(3)) : 0
+
         if (loyaltyDiscount > 0) {
           await client.query('UPDATE orders SET loyalty_discount=$1 WHERE id=$2', [loyaltyDiscount, req.params.id])
         }
