@@ -32,7 +32,11 @@ import { logger } from './logger.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const server = http.createServer(app)
-const IS_PROD = process.env.NODE_ENV === 'production'
+// Treat a Replit deployment as production even when NODE_ENV isn't set — Replit
+// deployments do NOT auto-set NODE_ENV, but they DO set REPLIT_DEPLOYMENT. Without
+// this, the deployed app runs in dev mode and never serves the built frontend, so
+// the healthcheck on `/` 401s and the site is unusable.
+const IS_PROD = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1'
 // In production the whole app (API + built frontend + WebSocket) is served from a
 // single port. Replit's deployment forwards external port 80 → localPort 5000, so
 // we must listen on 5000 there. In development the API stays on 3001 and Vite
