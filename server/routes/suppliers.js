@@ -29,6 +29,14 @@ router.post('/', requireRole('admin', 'manager'), async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+router.get('/:id', async (req, res, next) => {
+  try {
+    const r = await pool.query('SELECT * FROM suppliers WHERE id=$1', [req.params.id])
+    if (!r.rows.length) return res.status(404).json({ error: 'Not found' })
+    res.json(r.rows[0])
+  } catch (err) { next(err) }
+})
+
 router.patch('/:id', requireRole('admin', 'manager'), async (req, res, next) => {
   const { name, contact_name, phone, email, address, notes, active } = req.body
   try {

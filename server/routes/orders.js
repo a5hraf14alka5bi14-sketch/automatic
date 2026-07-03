@@ -233,7 +233,8 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
-    const prev = await client.query('SELECT status, total, customer_id, loyalty_discount FROM orders WHERE id=$1', [req.params.id])
+    // FOR UPDATE locks the row so concurrent status transitions serialize — prevents double-deduction
+    const prev = await client.query('SELECT status, total, customer_id, loyalty_discount FROM orders WHERE id=$1 FOR UPDATE', [req.params.id])
     if (!prev.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Not found' }) }
     const { status: prevStatus, total: orderTotal, customer_id, loyalty_discount: prevLoyaltyDiscount } = prev.rows[0]
     const wasCompleted = prevStatus === 'completed'

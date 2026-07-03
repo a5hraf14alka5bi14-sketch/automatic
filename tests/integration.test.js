@@ -148,7 +148,7 @@ describe('Inventory deduction on order completion', () => {
   })
 
   it('restocks when a completed order is cancelled', async () => {
-    const cancel = await admin.patch(`/api/orders/${ids.order}/status`).send({ status: 'cancelled' })
+    const cancel = await admin.patch(`/api/orders/${ids.order}/status`).send({ status: 'cancelled', void_reason: 'Test cleanup' })
     expect(cancel.status).toBe(200)
     const after = await pool.query('SELECT quantity FROM inventory WHERE id=$1', [ids.invItem])
     expect(parseFloat(after.rows[0].quantity)).toBeCloseTo(10, 3)
@@ -186,7 +186,7 @@ describe('Order status reversal symmetry (stock + loyalty)', () => {
     expect(afterComplete.inv).toBeCloseTo(9.8, 3) // 200 g deducted from 10 kg
 
     // Revert to an active status (NOT cancelled) — stock and loyalty must fully reverse.
-    const revert = await admin.patch(`/api/orders/${oid}/status`).send({ status: 'pending' })
+    const revert = await admin.patch(`/api/orders/${oid}/status`).send({ status: 'pending', void_reason: 'Reversal test' })
     expect(revert.status).toBe(200)
     const afterRevert = await snap()
     expect(afterRevert.inv).toBeCloseTo(10, 3)
