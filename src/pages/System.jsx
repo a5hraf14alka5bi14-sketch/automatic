@@ -23,20 +23,25 @@ function fmtUptime(sec) {
 
 export default function System() {
   const [metrics, setMetrics] = useState(null)
-  const [audit, setAudit] = useState([])
+  const [health, setHealth]   = useState(null)
+  const [audit, setAudit]     = useState([])
   const [loading, setLoading] = useState(true)
   const [backing, setBacking] = useState(false)
-  const [msg, setMsg] = useState(null)
+  const [msg, setMsg]         = useState(null)
   const [backups, setBackups] = useState([])
   const [runningBackup, setRunningBackup] = useState(false)
-  const [restoreFile, setRestoreFile] = useState(null)
-  const [restoring, setRestoring] = useState(false)
+  const [restoreFile, setRestoreFile]     = useState(null)
+  const [restoring, setRestoring]         = useState(false)
   const [restoreResult, setRestoreResult] = useState(null)
 
   const loadMetrics = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/admin/metrics')
-      if (res.ok) setMetrics(await res.json())
+      const [mRes, hRes] = await Promise.all([
+        apiFetch('/api/admin/metrics'),
+        apiFetch('/api/admin/health'),
+      ])
+      if (mRes.ok) setMetrics(await mRes.json())
+      if (hRes.ok) setHealth(await hRes.json())
     } catch { /* transient */ }
   }, [])
 
@@ -59,7 +64,7 @@ export default function System() {
       await Promise.all([loadMetrics(), loadAudit(), loadBackups()])
       setLoading(false)
     })()
-    const t = setInterval(loadMetrics, 10000)
+    const t = setInterval(loadMetrics, 15000)
     return () => clearInterval(t)
   }, [loadMetrics, loadAudit, loadBackups])
 
@@ -233,9 +238,56 @@ export default function System() {
         </div>
       </section>
 
-      {/* Monitoring */}
+      {/* Health & Monitoring */}
       <section>
-        <h2 className="text-sm font-semibold text-slate-300 mb-3">Monitoring</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-slate-300">Health &amp; Monitoring · صحة النظام</h2>
+          <button onClick={loadMetrics} className="text-slate-400 hover:text-white text-xs">↻ Refresh</button>
+        </div>
+
+        {/* DB + pool health */}
+        {health && (() => {
+          const db   = health.checks?.database ?? {}
+          const pool = health.checks?.pool ?? {}
+          const mem  = health.checks?.memory ?? {}
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">DB Status</p>
+                <p className={`text-lg font-bold mt-1 ${db.ok ? 'text-green-400' : 'text-red-400'}`}>
+                  {db.ok ? '● Online' : '● Error'}
+                </p>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  {db.latencyMs != null ? `${db.latencyMs} ms ping` : db.error || '—'}
+                </p>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">DB Pool</p>
+                <p className="text-white text-lg font-bold mt-1">{pool.total ?? '—'} conns</p>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  {pool.total != null ? `${pool.idle} idle · ${pool.waiting} waiting` : '—'}
+                </p>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Heap Memory</p>
+                <p className={`text-lg font-bold mt-1 ${mem.ok === false ? 'text-red-400' : 'text-white'}`}>
+                  {mem.heapUsedMb != null ? `${mem.heapUsedMb} MB` : '—'}
+                </p>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  {mem.heapPct != null ? `${mem.heapPct}% of ${mem.heapTotalMb} MB` : '—'}
+                </p>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Server</p>
+                <p className="text-white text-lg font-bold mt-1">{fmtUptime(health.uptimeSeconds)}</p>
+                <p className={`text-xs mt-0.5 ${health.ok ? 'text-green-500' : 'text-red-400'}`}>
+                  {health.ok ? '● All systems OK' : '● Degraded'}
+                </p>
+              </div>
+            </div>
+          )
+        })()}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Stat label="Uptime" value={fmtUptime(metrics?.uptimeSeconds)} />
           <Stat label="Requests" value={req?.total ?? '—'} sub={req ? `${req.errors} errors · avg ${req.avgDurationMs}ms` : undefined} />

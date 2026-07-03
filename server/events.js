@@ -1,6 +1,7 @@
 import { WebSocketServer } from 'ws'
 import jwt from 'jsonwebtoken'
 import { SECRET, ACCESS_COOKIE } from './config/secret.js'
+import { logger } from './logger.js'
 
 let wss = null
 const clients = new Set()
@@ -44,7 +45,7 @@ export function initWebSocketServer(server) {
       ws.send(JSON.stringify({ type: 'connected', ts: Date.now() }))
     } catch {}
 
-    console.log(`[ws] Client connected. Active: ${clients.size}`)
+    logger.info(`[ws] Client connected. Active: ${clients.size}`)
   })
 
   const heartbeat = setInterval(() => {
@@ -56,7 +57,7 @@ export function initWebSocketServer(server) {
   }, 30000)
 
   if (heartbeat.unref) heartbeat.unref()
-  console.log('[ws] WebSocket server ready on /ws')
+  logger.info('[ws] WebSocket server ready on /ws')
 }
 
 export function broadcast(type, data = {}) {

@@ -25,6 +25,7 @@ export const menuCreateSchema = Joi.object({
   tags: Joi.string().max(500).allow('', null),
   food_cost: money.allow(null),
   available: Joi.boolean(),
+  barcode: Joi.string().max(100).allow('', null),
 })
 
 export const menuUpdateSchema = Joi.object({
@@ -37,6 +38,7 @@ export const menuUpdateSchema = Joi.object({
   tags: Joi.string().max(500).allow('', null),
   food_cost: money.allow(null),
   available: Joi.boolean(),
+  barcode: Joi.string().max(100).allow('', null),
 })
 
 export const inventoryCreateSchema = Joi.object({

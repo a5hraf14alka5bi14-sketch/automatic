@@ -145,7 +145,47 @@ router.post('/', validate(inventoryCreateSchema), async (req, res) => {
   } finally { client.release() }
 })
 
-// ── PATCH /api/inventory/:id ──────────────────────────────────────────────────
+// ── PATCH /api/inventory/bulk-stocktake — MUST come before /:id ───────────────
+// Body: { items: [{ id, quantity }] }  — sets quantities in a single transaction
+router.patch('/bulk-stocktake', async (req, res, next) => {
+  const { items } = req.body
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'items array is required' })
+  }
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const results = []
+    for (const { id, quantity } of items) {
+      const qty = parseFloat(quantity)
+      if (!id || isNaN(qty) || qty < 0) continue
+      const prev = await client.query('SELECT quantity, unit, name FROM inventory WHERE id=$1 AND deleted_at IS NULL', [id])
+      if (!prev.rows.length) continue
+      const { quantity: oldQty, unit } = prev.rows[0]
+      const r = await client.query(
+        'UPDATE inventory SET quantity=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+        [qty.toFixed(3), id]
+      )
+      const delta = qty - parseFloat(oldQty)
+      if (Math.abs(delta) > 0.0001) {
+        await recordStockMovement(client, {
+          inventoryItemId: id,
+          change: parseFloat(delta.toFixed(3)),
+          quantityAfter: qty,
+          movementType: 'stocktake',
+          note: `Stocktake: ${parseFloat(oldQty).toFixed(3)} → ${qty.toFixed(3)} ${unit}`,
+        })
+      }
+      results.push(r.rows[0])
+    }
+    await client.query('COMMIT')
+    res.json({ updated: results.length, items: results })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    next(err)
+  } finally { client.release() }
+})
+
 router.patch('/:id', validate(inventoryUpdateSchema), async (req, res) => {
   const { name, category, quantity, unit, min_quantity, cost, adjust } = req.body
   const client = await pool.connect()

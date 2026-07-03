@@ -317,23 +317,22 @@ function StocktakeView() {
   const handleApply = async () => {
     if (changes.length === 0) return
     setApplying(true)
-    let ok = 0, fail = 0
-    for (const item of changes) {
-      try {
-        const res = await apiFetch(`/api/inventory/${item.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ quantity: parseFloat(counts[item.id]) })
-        })
-        if (res.ok) ok++; else fail++
-      } catch { fail++ }
+    try {
+      const payload = changes.map(item => ({ id: item.id, quantity: parseFloat(counts[item.id]) }))
+      const res = await apiFetch('/api/inventory/bulk-stocktake', {
+        method: 'PATCH',
+        body: JSON.stringify({ items: payload })
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || 'Failed')
+      toast(`Stocktake applied — ${d.updated} item(s) updated`, 'success')
+      const fresh = await apiFetch('/api/inventory').then(r => r.json())
+      setItems(Array.isArray(fresh) ? fresh : [])
+      setCounts({})
+    } catch (err) {
+      toast(err.message || 'Stocktake failed', 'error')
     }
     setApplying(false)
-    if (fail > 0) toast(`${ok} updated, ${fail} failed`, 'error')
-    else toast(`Stocktake applied — ${ok} item(s) updated`, 'success')
-    apiFetch('/api/inventory').then(r => r.json()).then(d => {
-      setItems(Array.isArray(d) ? d : [])
-      setCounts({})
-    }).catch(() => {})
   }
 
   if (loading) return (

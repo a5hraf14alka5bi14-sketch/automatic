@@ -345,17 +345,18 @@ router.get('/:id', async (req, res) => {
 
 // ── POST /api/menu ────────────────────────────────────────────────────────────
 router.post('/', validate(menuCreateSchema), async (req, res) => {
-  const { name, category, price, description, image_url, prep_time, tags, food_cost, available } = req.body
+  const { name, category, price, description, image_url, prep_time, tags, food_cost, available, barcode } = req.body
   try {
     const result = await pool.query(
-      `INSERT INTO menu_items (name, category, price, description, image_url, prep_time, tags, food_cost, available)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      `INSERT INTO menu_items (name, category, price, description, image_url, prep_time, tags, food_cost, available, barcode)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [name, category, parseFloat(price), description || null, image_url || null,
        prep_time ? parseInt(prep_time) : 15, tags || '', parseFloat(food_cost || 0),
-       available !== false]
+       available !== false, barcode?.trim() || null]
     )
     res.status(201).json(result.rows[0])
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A menu item with this barcode already exists' })
     logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
@@ -363,7 +364,7 @@ router.post('/', validate(menuCreateSchema), async (req, res) => {
 
 // ── PATCH /api/menu/:id ───────────────────────────────────────────────────────
 router.patch('/:id', validate(menuUpdateSchema), async (req, res) => {
-  const { name, category, price, description, available, image_url, prep_time, tags, food_cost } = req.body
+  const { name, category, price, description, available, image_url, prep_time, tags, food_cost, barcode } = req.body
   try {
     const result = await pool.query(
       `UPDATE menu_items SET
@@ -371,16 +372,19 @@ router.patch('/:id', validate(menuUpdateSchema), async (req, res) => {
         price=COALESCE($3,price), description=COALESCE($4,description),
         available=COALESCE($5,available), image_url=COALESCE($6,image_url),
         prep_time=COALESCE($7,prep_time), tags=COALESCE($8,tags),
-        food_cost=COALESCE($9,food_cost)
-       WHERE id=$10 RETURNING *`,
+        food_cost=COALESCE($9,food_cost),
+        barcode=CASE WHEN $10::text IS NOT NULL THEN NULLIF(TRIM($10::text),'') ELSE barcode END
+       WHERE id=$11 RETURNING *`,
       [name, category, price ? parseFloat(price) : null, description,
        available, image_url, prep_time ? parseInt(prep_time) : null,
        tags, food_cost !== undefined ? parseFloat(food_cost) : null,
+       barcode !== undefined ? barcode : null,
        req.params.id]
     )
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A menu item with this barcode already exists' })
     logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
