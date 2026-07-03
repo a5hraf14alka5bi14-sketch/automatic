@@ -372,9 +372,10 @@ export async function initDb() {
 
     const invCheck = await client.query('SELECT id FROM inventory LIMIT 1')
     if (invCheck.rows.length === 0) {
-      // Seed the real Arabic supply list (frozen goods, meats, spices, …) from a
-      // data file — mirrors the menu seed so a fresh/production DB starts with the
-      // real inventory instead of generic English demo supplies.
+      // Seed the real Arabic inventory (frozen goods, dairy, spices, etc.) from
+      // the exported stock list. Keeping it in a data file avoids a large
+      // hardcoded array and keeps a fresh/production DB in sync with the real
+      // inventory instead of generic English demo supplies.
       let items
       try {
         items = JSON.parse(
@@ -386,7 +387,10 @@ export async function initDb() {
       for (const item of items) {
         await client.query(
           'INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost) VALUES ($1,$2,$3,$4,$5,$6)',
-          [item.name, item.category ?? null, item.quantity ?? 0, item.unit ?? 'pcs', item.min_quantity ?? 0, item.cost ?? 0]
+          [
+            item.name, item.category ?? null, item.quantity ?? 0, item.unit ?? 'kg',
+            item.min_quantity ?? 0, item.cost ?? 0,
+          ]
         )
       }
     }
