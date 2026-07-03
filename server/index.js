@@ -133,6 +133,10 @@ if (IS_PROD) {
   app.use(express.static(distPath))
   app.use((req, res, next) => {
     if (req.method !== 'GET' || req.path.startsWith('/api/')) return next()
+    // A request for a file that has an extension (e.g. a hashed .js/.css) that
+    // wasn't matched by express.static above is a genuine 404 — don't answer it
+    // with the HTML shell (that can poison the service-worker asset cache).
+    if (/\.[a-z0-9]+$/i.test(req.path)) return res.status(404).end()
     res.sendFile(path.join(distPath, 'index.html'))
   })
 }
