@@ -293,3 +293,66 @@ describe('Rush orders and KDS station routing', () => {
     expect(rushOrder.rush).toBe(true)
   })
 })
+
+// ── 7. Modifier security: reject forged / cross-item modifier ids ─────────────
+describe('Order pricing security — modifier validation', () => {
+  // Use a modifier id that exists but belongs to a different menu item than
+  // the one being ordered.  The server must reject the request rather than
+  // silently using 0 delta (undercharge) or trusting the submitted price.
+  it('rejects an order where modifier id does not belong to the ordered menu item', async () => {
+    // First, find any modifier that is NOT linked to ids.menu
+    const foreignMod = await pool.query(
+      `SELECT m.id
+         FROM modifiers m
+         JOIN modifier_groups mg ON mg.id = m.group_id
+        WHERE mg.menu_item_id <> $1
+        LIMIT 1`,
+      [ids.menu]
+    )
+    if (!foreignMod.rows.length) {
+      // No cross-item modifiers exist in this DB — test is vacuously safe; skip
+      return
+    }
+    const foreignModId = foreignMod.rows[0].id
+
+    const res = await admin.post('/api/orders').send({
+      type: 'takeaway',
+      items: [{
+        menu_item_id: ids.menu,
+        name: `${TAG} Security Test`,
+        quantity: 1,
+        modifiers: [{ id: foreignModId, name: 'Forged modifier' }],
+      }],
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/not valid/)
+  })
+
+  it('rejects an order with a completely non-existent modifier id', async () => {
+    const res = await admin.post('/api/orders').send({
+      type: 'takeaway',
+      items: [{
+        menu_item_id: ids.menu,
+        name: `${TAG} Security Test 2`,
+        quantity: 1,
+        modifiers: [{ id: 999999999, name: 'Ghost modifier' }],
+      }],
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/not valid/)
+  })
+
+  it('accepts an order with no modifiers and prices from DB', async () => {
+    const res = await admin.post('/api/orders').send({
+      type: 'takeaway',
+      items: [{ menu_item_id: ids.menu, name: `${TAG} Clean Order`, quantity: 1 }],
+    })
+    expect(res.status).toBe(201)
+    orderIds.push(res.body.id)
+    // Price must match DB price, not client-supplied
+    const dbItem = await pool.query('SELECT price FROM menu_items WHERE id=$1', [ids.menu])
+    const dbPrice = parseFloat(dbItem.rows[0].price)
+    // subtotal = dbPrice * 1 * (1 - tax portion handled in total)
+    expect(parseFloat(res.body.subtotal)).toBeCloseTo(dbPrice, 2)
+  })
+})

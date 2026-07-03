@@ -139,18 +139,30 @@ router.post('/', validate(orderCreateSchema), async (req, res) => {
         unitPrice = parseFloat(m.rows[0].price)
         itemName = itemName || m.rows[0].name
 
-        // Sum authoritative modifier price-deltas (by modifier id)
+        // Validate and sum modifier price-deltas from authoritative source.
+        // Each submitted modifier id is verified to belong to a modifier_group
+        // that is linked to this menu_item_id.  Any modifier id that is
+        // missing, belongs to a different menu item, or is otherwise
+        // unrecognised causes the entire order to be rejected so an
+        // attacker cannot present a real menu_item_id while omitting valid
+        // modifier ids to undercharge the order.
         const mods = Array.isArray(item.modifiers) ? item.modifiers : []
         for (const mod of mods) {
-          if (mod.id) {
-            const modRow = await client.query(
-              'SELECT price_delta FROM modifiers WHERE id=$1',
-              [mod.id]
-            )
-            if (modRow.rows.length) {
-              unitPrice += parseFloat(modRow.rows[0].price_delta || 0)
-            }
+          if (!mod.id) continue // modifiers without an id carry no price (display-only)
+          const modRow = await client.query(
+            `SELECT m.price_delta
+               FROM modifiers m
+               JOIN modifier_groups mg ON mg.id = m.group_id
+              WHERE m.id = $1 AND mg.menu_item_id = $2`,
+            [mod.id, item.menu_item_id]
+          )
+          if (!modRow.rows.length) {
+            await client.query('ROLLBACK')
+            return res.status(400).json({
+              error: `Modifier ${mod.id} is not valid for menu item ${item.menu_item_id}`
+            })
           }
+          unitPrice += parseFloat(modRow.rows[0].price_delta || 0)
         }
       } else {
         // Custom / open-priced item (no menu_item_id) — no authoritative source; clamp to ≥ 0
