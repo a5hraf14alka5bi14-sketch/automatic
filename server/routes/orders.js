@@ -109,10 +109,68 @@ router.get('/:id', async (req, res) => {
 
 // POST create order
 router.post('/', validate(orderCreateSchema), async (req, res) => {
-  const { type, table_number, items, subtotal, tax, total, customer_id, notes, discount, discount_type, rush, station } = req.body
+  // NOTE: client-supplied subtotal / tax / total are intentionally ignored.
+  // The server recomputes all financial values from authoritative DB records.
+  const { type, table_number, items, customer_id, notes, discount, discount_type, rush, station } = req.body
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
+
+    // Fetch authoritative tax rate from settings
+    const { taxRate } = await getSettings(client)
+
+    // Reprice every line item from authoritative menu / modifier data
+    const repricedItems = []
+    let rawSubtotal = 0
+
+    for (const item of items) {
+      let unitPrice = 0
+      let itemName = item.name || null
+
+      if (item.menu_item_id) {
+        const m = await client.query(
+          'SELECT name, price FROM menu_items WHERE id=$1 AND deleted_at IS NULL',
+          [item.menu_item_id]
+        )
+        if (!m.rows.length) {
+          await client.query('ROLLBACK')
+          return res.status(400).json({ error: `Menu item ${item.menu_item_id} not found` })
+        }
+        unitPrice = parseFloat(m.rows[0].price)
+        itemName = itemName || m.rows[0].name
+
+        // Sum authoritative modifier price-deltas (by modifier id)
+        const mods = Array.isArray(item.modifiers) ? item.modifiers : []
+        for (const mod of mods) {
+          if (mod.id) {
+            const modRow = await client.query(
+              'SELECT price_delta FROM modifiers WHERE id=$1',
+              [mod.id]
+            )
+            if (modRow.rows.length) {
+              unitPrice += parseFloat(modRow.rows[0].price_delta || 0)
+            }
+          }
+        }
+      } else {
+        // Custom / open-priced item (no menu_item_id) — no authoritative source; clamp to ≥ 0
+        unitPrice = Math.max(0, parseFloat(item.price || 0))
+      }
+
+      rawSubtotal += unitPrice * (item.quantity || 1)
+      repricedItems.push({ ...item, _authPrice: unitPrice, name: itemName || 'Item' })
+    }
+
+    // Apply discount server-side (cap fixed discount to subtotal)
+    const discountVal = Math.max(0, parseFloat(discount || 0))
+    const discountType = discount_type === 'percent' ? 'percent' : 'fixed'
+    const discountAmt = discountType === 'percent'
+      ? rawSubtotal * discountVal / 100
+      : Math.min(discountVal, rawSubtotal)
+    const discountedSub = Math.max(0, rawSubtotal - discountAmt)
+    const serverTax   = parseFloat((discountedSub * taxRate).toFixed(3))
+    const serverTotal = parseFloat((discountedSub + serverTax).toFixed(3))
+
     const orderResult = await client.query(
       `INSERT INTO orders
          (type, table_number, status, subtotal, tax, total, customer_id, notes,
@@ -120,33 +178,30 @@ router.post('/', validate(orderCreateSchema), async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [
         type || 'dine-in', table_number || null, 'pending',
-        subtotal || 0, tax || 0, total || 0,
+        parseFloat(discountedSub.toFixed(3)), serverTax, serverTotal,
         customer_id || null, notes || null,
-        discount || 0, discount_type || 'fixed',
+        parseFloat(discountAmt.toFixed(3)), discountType,
         rush || false, station || 'kitchen',
         req.user?.id || null
       ]
     )
     const order = orderResult.rows[0]
-    for (const item of items) {
-      let itemName = item.name
-      if (!itemName && item.menu_item_id) {
-        const m = await client.query('SELECT name FROM menu_items WHERE id=$1', [item.menu_item_id])
-        itemName = m.rows[0]?.name
-      }
+
+    for (const item of repricedItems) {
       await client.query(
         `INSERT INTO order_items
            (order_id, menu_item_id, quantity, price, name, notes, item_notes, modifiers, station)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [
           order.id, item.menu_item_id || null, item.quantity || 1,
-          item.price || 0, itemName || 'Item',
+          item._authPrice, item.name,
           item.notes || null, item.item_notes || null,
           JSON.stringify(Array.isArray(item.modifiers) ? item.modifiers : []),
           item.station || 'kitchen'
         ]
       )
     }
+
     await client.query('COMMIT')
     broadcast('order_created', { id: order.id, type: order.type, table_number: order.table_number, status: 'pending', rush: order.rush })
     res.status(201).json(order)
