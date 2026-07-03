@@ -37,6 +37,7 @@
 - [Integration test infra](integration-test-infra.md) — index.js exports app + isEntryPoint guard; supertest against dev DB with self-cleaning itest_<ts> rows
 - [Secret encryption at rest](secret-encryption-at-rest.md) — integration API keys AES-256-GCM encrypted (enc:v1: prefix) in settings; decryptSecret passes plaintext/env values through
 - [Force password change](force-password-change.md) — users.must_change_password gates app; seeded admin=true; App.jsx forces ChangePassword before router mounts
+- [Prod admin password recovery](prod-admin-recovery.md) — dev/prod are SEPARATE DBs; prod is read-only to tooling; recover via RESET_ADMIN_PASSWORD deployment secret + republish
 - [Vite 8 / Rolldown manualChunks](vite8-rolldown-manualchunks.md) — Vite 8 build needs manualChunks as a function, not object; plugin-react v6+
 - [RBAC backend authority + pw-change enforcement](rbac-backend-authority.md) — frontend guards are UX only; reports/notion/integrations routers requireRole; JWT mustChange claim + enforcePasswordChange middleware block APIs until pw reset
 - [Recipe + food cost system](recipe-foodcost.md) — GET /api/menu/food-cost (all items with pct), PATCH /:id/recipe/:rid (update), GET /api/inventory/impact (low-stock → affected dishes); Recipes.jsx at /recipes; Inventory has Stocktake+Impact tabs

@@ -363,6 +363,25 @@ export async function initDb() {
       }
     }
 
+    // Owner-controlled admin password recovery. When RESET_ADMIN_PASSWORD is
+    // set (as a deployment secret), reset the admin account's password to that
+    // value on startup and force a change on next login. This exists so the
+    // account owner can recover access to a deployed instance where the admin
+    // password was changed and forgotten. Remove the secret after use.
+    const resetPassword = process.env.RESET_ADMIN_PASSWORD
+    if (resetPassword) {
+      const bcryptR = await import('bcryptjs')
+      const resetHash = await bcryptR.default.hash(resetPassword, 10)
+      const upd = await client.query(
+        'UPDATE users SET password = $1, must_change_password = true WHERE email = $2',
+        [resetHash, 'admin@automatic.com']
+      )
+      console.warn(
+        `[db] RESET_ADMIN_PASSWORD is set — admin@automatic.com password reset (${upd.rowCount} row). ` +
+        'Remove this secret after logging in.'
+      )
+    }
+
     const menuCheck = await client.query('SELECT id FROM menu_items LIMIT 1')
     if (menuCheck.rows.length === 0) {
       // Seed the real Arabic menu (names, real prices, drinks & desserts) from
