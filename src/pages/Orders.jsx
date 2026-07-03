@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
 import { useToast } from '../context/ToastContext.jsx'
+import ShiftCloseModal from '../components/ShiftCloseModal.jsx'
 
 const STATUS_STYLES = {
   pending:   'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
@@ -205,6 +206,82 @@ function SimplePayModal({ order, onClose, onPay, fmt }) {
   )
 }
 
+// ── Void Approval Modal ───────────────────────────────────────────────────────
+function VoidApprovalModal({ orderId, wasCompleted, userRole, onConfirm, onClose }) {
+  const [reason, setReason]   = useState('')
+  const [pin, setPin]         = useState('')
+  const [error, setError]     = useState('')
+  const [loading, setLoading] = useState(false)
+  const needsPin = !['admin', 'manager'].includes(userRole) && wasCompleted
+
+  const handleConfirm = async () => {
+    if (!reason.trim()) { setError('A cancellation reason is required.'); return }
+    if (needsPin && !pin.trim()) { setError('Manager PIN is required.'); return }
+    setLoading(true); setError('')
+    try {
+      await onConfirm({ void_reason: reason.trim(), void_manager_pin: needsPin ? pin.trim() : undefined })
+    } catch (e) { setError(e.message || 'Error'); setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm">
+        <div className="p-5 border-b border-slate-800">
+          <h2 className="text-white font-bold text-lg">⚠️ Cancel Order #{String(orderId).padStart(4,'0')}</h2>
+          {wasCompleted && (
+            <span className="inline-block mt-1 text-xs bg-red-500/15 text-red-400 px-2 py-0.5 rounded-full border border-red-500/20">
+              Completed — will reverse inventory &amp; loyalty
+            </span>
+          )}
+        </div>
+        <div className="p-5 space-y-4">
+          {wasCompleted && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-300 text-sm">
+              ⚠️ This order was already completed and payment was collected. Voiding will reverse stock and loyalty adjustments.
+            </div>
+          )}
+          <div>
+            <label className="block text-slate-300 text-sm mb-1.5 font-medium">
+              Cancellation reason <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              autoFocus
+              value={reason} onChange={e => setReason(e.target.value)}
+              placeholder="e.g. Customer changed mind, wrong item…"
+              rows={3}
+              className="w-full bg-slate-800 border border-slate-600 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 resize-none"
+            />
+          </div>
+          {needsPin && (
+            <div>
+              <label className="block text-slate-300 text-sm mb-1.5 font-medium">
+                Manager override PIN <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="password" value={pin} onChange={e => setPin(e.target.value)}
+                placeholder="Enter manager PIN"
+                maxLength={20}
+                className="w-full bg-slate-800 border border-slate-600 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500"
+              />
+              <p className="text-slate-500 text-xs mt-1">Required to void a completed order (set in Settings → Operations → Security)</p>
+            </div>
+          )}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+        </div>
+        <div className="flex gap-3 p-5 border-t border-slate-800">
+          <button onClick={onClose} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm transition-colors">
+            Keep Order
+          </button>
+          <button onClick={handleConfirm} disabled={loading || !reason.trim()}
+            className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors">
+            {loading ? 'Cancelling…' : 'Cancel Order'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Orders Page ──────────────────────────────────────────────────────────
 export default function Orders() {
   const { fmt } = useCurrency()
@@ -213,6 +290,9 @@ export default function Orders() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [payModal, setPayModal] = useState(null)
+  const [voidModal, setVoidModal] = useState(null)     // { orderId, wasCompleted }
+  const [showShiftModal, setShowShiftModal] = useState(false)
+  const userRole = (() => { try { return JSON.parse(localStorage.getItem('auth_user') || '{}').role || 'staff' } catch { return 'staff' } })()
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('all')
@@ -297,6 +377,28 @@ export default function Orders() {
     } catch (err) { toast('Failed to update rush flag', 'error') }
   }
 
+  // Open void-approval modal instead of cancelling inline
+  const requestVoid = useCallback((order) => {
+    setVoidModal({ orderId: order.id, wasCompleted: order.status === 'completed' })
+  }, [])
+
+  // Called by VoidApprovalModal on confirm
+  const confirmVoid = useCallback(async ({ void_reason, void_manager_pin }) => {
+    if (!voidModal) return
+    const res = await apiFetch(`/api/orders/${voidModal.orderId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'cancelled', void_reason, void_manager_pin })
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Failed to cancel order')
+    }
+    setVoidModal(null)
+    fetchOrders()
+    if (selectedOrder?.id === voidModal.orderId) setSelectedOrder(null)
+    toast('Order cancelled', 'info')
+  }, [voidModal, fetchOrders, selectedOrder])
+
   const handlePay = async (orderId, method) => {
     await updateStatus(orderId, 'completed', { payment_method: method })
     setPayModal(null)
@@ -340,9 +442,17 @@ export default function Orders() {
           </div>
           <p className="text-slate-400 text-sm mt-1">{orders.length} total orders</p>
         </div>
-        <button onClick={fetchOrders} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors">
-          ↻ Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {['admin', 'manager'].includes(userRole) && (
+            <button onClick={() => setShowShiftModal(true)}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-orange-400 rounded-lg text-sm font-medium transition-colors">
+              🕐 Z-Report
+            </button>
+          )}
+          <button onClick={fetchOrders} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors">
+            ↻ Refresh
+          </button>
+        </div>
       </div>
 
       {/* Status tabs */}
@@ -456,7 +566,7 @@ export default function Orders() {
                 <div className="flex gap-2 mt-3 flex-wrap items-center" onClick={e => e.stopPropagation()}>
                   {(STATUS_FLOW[order.status] || []).map(s => (
                     <button key={s}
-                      onClick={() => s === 'completed' ? setPayModal(order) : updateStatus(order.id, s)}
+                      onClick={() => s === 'completed' ? setPayModal(order) : s === 'cancelled' ? requestVoid(order) : updateStatus(order.id, s)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${
                         s === 'completed' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
                         : s === 'cancelled' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
@@ -492,9 +602,31 @@ export default function Orders() {
         <OrderDetailDrawer
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
-          onUpdateStatus={updateStatus}
+          onUpdateStatus={(id, s) => s === 'cancelled' ? requestVoid(orders.find(o => o.id === id) || { id, status: selectedOrder?.status }) : updateStatus(id, s)}
           onToggleRush={toggleRush}
           fmt={fmt}
+        />
+      )}
+
+      {/* Void approval modal */}
+      {voidModal && (
+        <VoidApprovalModal
+          orderId={voidModal.orderId}
+          wasCompleted={voidModal.wasCompleted}
+          userRole={userRole}
+          onConfirm={confirmVoid}
+          onClose={() => setVoidModal(null)}
+        />
+      )}
+
+      {/* Shift close / Z-Report modal */}
+      {showShiftModal && (
+        <ShiftCloseModal
+          onClose={() => setShowShiftModal(false)}
+          onDone={(action) => {
+            setShowShiftModal(false)
+            toast(action === 'opened' ? 'Shift opened' : 'Shift closed — Z-Report generated', 'success')
+          }}
         />
       )}
 

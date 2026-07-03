@@ -15,6 +15,8 @@
   },
   "dependencies": {
     "@notionhq/client": "^5.22.0",
+    "@sentry/node": "^10.63.0",
+    "@sentry/react": "^10.63.0",
     "@tailwindcss/postcss": "^4.3.2",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",

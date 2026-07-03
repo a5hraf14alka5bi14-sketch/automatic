@@ -11,6 +11,7 @@ import ProfitabilityTab from '../components/reports/ProfitabilityTab.jsx'
 import MenuTab from '../components/reports/MenuTab.jsx'
 import InventoryTab from '../components/reports/InventoryTab.jsx'
 import StaffTab from '../components/reports/StaffTab.jsx'
+import VoidsTab from '../components/reports/VoidsTab.jsx'
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Reports() {
@@ -80,6 +81,7 @@ export default function Reports() {
     { id: 'trends',         label: '📈 Trends' },
     { id: 'inventory',      label: '⚠️ Stock' },
     { id: 'staff',          label: '👤 Staff' },
+    { id: 'voids',          label: '🚫 Voids' },
   ]
 
   return (
@@ -142,6 +144,8 @@ export default function Reports() {
           {activeTab === 'staff' && (
             <StaffTab staffData={staffData} staffLoading={staffLoading} period={period} periods={periods} fmt={fmt} />
           )}
+
+          {activeTab === 'voids' && <VoidsTab period={period} fmt={fmt} />}
         </>
       )}
     </div>

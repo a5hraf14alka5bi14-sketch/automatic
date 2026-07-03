@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { enqueueOfflineOrder } from '../components/OfflineBanner.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { useSettings } from '../context/SettingsContext.jsx'
 import ReceiptModal from '../components/ReceiptModal.jsx'
@@ -188,30 +189,44 @@ export default function POS() {
   const placeOrder = async () => {
     if (cart.length === 0) return
     setPlacing(true); setError('')
+
+    const payload = {
+      type: orderType,
+      table_number: orderType === 'dine-in' ? tableNum : null,
+      customer_id: customerId ? parseInt(customerId) : null,
+      notes: note.trim() || null,
+      rush,
+      discount: parseFloat(discountVal.toFixed(3)),
+      discount_type: discount.type,
+      items: cart.map(c => ({
+        menu_item_id: c.id,
+        quantity: c.qty,
+        price: parseFloat(c.price),
+        name: c.name,
+        modifiers: c.modifiers || [],
+        item_notes: itemNotes[c.cartId] || null,
+      })),
+      subtotal: parseFloat(discountedSub.toFixed(3)),
+      tax: parseFloat(tax.toFixed(3)),
+      total: parseFloat(total.toFixed(3)),
+    }
+
+    // If offline, queue locally and bail out with a friendly notice
+    if (!navigator.onLine) {
+      try {
+        await enqueueOfflineOrder(payload)
+        clearCart()
+        setShowCart(false)
+        showToast('Offline — order saved locally and will sync when connection returns', 'info')
+      } catch {
+        showToast('Could not save order offline', 'error')
+      }
+      setPlacing(false)
+      return
+    }
+
     try {
-      const res = await apiFetch('/api/orders', {
-        method: 'POST',
-        body: JSON.stringify({
-          type: orderType,
-          table_number: orderType === 'dine-in' ? tableNum : null,
-          customer_id: customerId ? parseInt(customerId) : null,
-          notes: note.trim() || null,
-          rush,
-          discount: parseFloat(discountVal.toFixed(3)),
-          discount_type: discount.type,
-          items: cart.map(c => ({
-            menu_item_id: c.id,
-            quantity: c.qty,
-            price: parseFloat(c.price),
-            name: c.name,
-            modifiers: c.modifiers || [],
-            item_notes: itemNotes[c.cartId] || null,
-          })),
-          subtotal: parseFloat(discountedSub.toFixed(3)),
-          tax: parseFloat(tax.toFixed(3)),
-          total: parseFloat(total.toFixed(3)),
-        })
-      })
+      const res = await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(payload) })
       const order = await res.json()
       if (!res.ok) throw new Error(order.error || 'Failed to place order')
 
@@ -222,7 +237,7 @@ export default function POS() {
       }))
 
       clearCart()
-      setShowCart(false) // close the mobile cart overlay so the payment modal is clear
+      setShowCart(false)
       showToast(`Order #${order.id} placed — awaiting payment`, 'info')
       setPayModal({
         ...order,
@@ -236,8 +251,21 @@ export default function POS() {
         loyalty_per_omr: parseInt(settings.loyalty_points_per_omr || '1'),
       })
     } catch (err) {
-      setError(err.message)
-      showToast(err.message, 'error')
+      // Network failure while navigator.onLine may be stale — offer offline queue
+      if (!navigator.onLine || err.name === 'TypeError') {
+        try {
+          await enqueueOfflineOrder(payload)
+          clearCart()
+          setShowCart(false)
+          showToast('Network lost — order queued offline and will sync on reconnect', 'info')
+        } catch {
+          setError(err.message)
+          showToast(err.message, 'error')
+        }
+      } else {
+        setError(err.message)
+        showToast(err.message, 'error')
+      }
     }
     setPlacing(false)
   }

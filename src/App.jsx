@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import OfflineBanner from './components/OfflineBanner.jsx'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Sidebar from './components/Sidebar.jsx'
@@ -152,6 +153,7 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <SettingsProvider>
+          <OfflineBanner />
           <AppLayout user={user} onLogout={handleLogout} />
         </SettingsProvider>
       </ToastProvider>

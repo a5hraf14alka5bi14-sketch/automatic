@@ -27,6 +27,8 @@ export default function System() {
   const [loading, setLoading] = useState(true)
   const [backing, setBacking] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [backups, setBackups] = useState([])
+  const [runningBackup, setRunningBackup] = useState(false)
 
   const loadMetrics = useCallback(async () => {
     try {
@@ -42,14 +44,36 @@ export default function System() {
     } catch { /* transient */ }
   }, [])
 
+  const loadBackups = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/admin/backups')
+      if (res.ok) setBackups(await res.json())
+    } catch { /* transient */ }
+  }, [])
+
   useEffect(() => {
     ;(async () => {
-      await Promise.all([loadMetrics(), loadAudit()])
+      await Promise.all([loadMetrics(), loadAudit(), loadBackups()])
       setLoading(false)
     })()
     const t = setInterval(loadMetrics, 10000)
     return () => clearInterval(t)
-  }, [loadMetrics, loadAudit])
+  }, [loadMetrics, loadAudit, loadBackups])
+
+  const runBackupNow = async () => {
+    setRunningBackup(true)
+    try {
+      const res = await apiFetch('/api/admin/backups/run', { method: 'POST' })
+      const d = await res.json()
+      if (res.ok) {
+        setMsg({ ok: true, text: `Backup created: ${d.filename}` })
+        await loadBackups()
+      } else {
+        setMsg({ ok: false, text: d.error || 'Backup failed' })
+      }
+    } catch { setMsg({ ok: false, text: 'Backup request failed' }) }
+    setRunningBackup(false)
+  }
 
   const downloadBackup = async () => {
     setBacking(true)
@@ -99,6 +123,49 @@ export default function System() {
           {msg.text}
         </div>
       )}
+
+      {/* Scheduled Backups */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-slate-300">Scheduled Backups · النسخ الاحتياطي التلقائي</h2>
+          <button onClick={runBackupNow} disabled={runningBackup}
+            className="text-xs px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-medium rounded-lg transition-colors">
+            {runningBackup ? '⟳ Running…' : '+ Run Backup Now'}
+          </button>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          {backups.length === 0 ? (
+            <p className="text-center py-8 text-slate-500 text-sm">No backups yet — first runs 30 s after server start.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 text-xs uppercase tracking-wide border-b border-slate-800">
+                  <th className="px-4 py-2.5 font-medium">File</th>
+                  <th className="px-4 py-2.5 font-medium">Created</th>
+                  <th className="px-4 py-2.5 font-medium">Size</th>
+                  <th className="px-4 py-2.5 font-medium">Download</th>
+                </tr>
+              </thead>
+              <tbody>
+                {backups.map(b => (
+                  <tr key={b.name} className="border-b border-slate-800/60 hover:bg-slate-800/30">
+                    <td className="px-4 py-2.5 text-slate-300 font-mono text-xs">{b.name}</td>
+                    <td className="px-4 py-2.5 text-slate-400 whitespace-nowrap">{new Date(b.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-slate-400">{(b.size / 1024).toFixed(0)} KB</td>
+                    <td className="px-4 py-2.5">
+                      <a href={`/api/admin/backups/${b.name}`}
+                        className="text-orange-400 hover:text-orange-300 text-xs font-medium transition-colors"
+                        download>
+                        ⬇ Download
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
 
       {/* Monitoring */}
       <section>

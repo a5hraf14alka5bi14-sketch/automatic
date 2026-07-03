@@ -1,10 +1,13 @@
-// Admin-only operational endpoints: metrics, audit log, and on-demand DB backup.
-import { Router } from 'express'
-import { spawn } from 'node:child_process'
-import { requireRole } from '../middleware/auth.js'
-import { pool } from '../db.js'
-import { getMetrics } from '../lib/observability.js'
-import { logger } from '../logger.js'
+// Admin-only operational endpoints: metrics, audit log, on-demand DB backup,
+// and scheduled-backup list/download.
+import { Router }                                   from 'express'
+import { spawn }                                    from 'node:child_process'
+import { createReadStream, existsSync }              from 'node:fs'
+import { requireRole }                              from '../middleware/auth.js'
+import { pool }                                     from '../db.js'
+import { getMetrics }                               from '../lib/observability.js'
+import { logger }                                   from '../logger.js'
+import { listBackups, backupFilePath, runBackup }   from '../lib/backup-scheduler.js'
 
 const router = Router()
 
@@ -96,6 +99,31 @@ router.get('/backup', (req, res) => {
       logger.info('[backup] completed', { filename })
     }
   })
+})
+
+// ── Scheduled-backup list, on-demand trigger, and single-file download ────────
+router.get('/backups', (_req, res) => {
+  res.json(listBackups())
+})
+
+router.post('/backups/run', async (_req, res) => {
+  try {
+    const result = await runBackup()
+    res.json({ ok: true, filename: result.filename })
+  } catch (err) {
+    logger.error('[backup] manual trigger failed', { msg: err.message })
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.get('/backups/:name', (req, res) => {
+  const name = req.params.name.replace(/[^a-zA-Z0-9._-]/g, '')
+  if (!name.endsWith('.sql')) return res.status(400).json({ error: 'Invalid backup name' })
+  const fp = backupFilePath(name)
+  if (!existsSync(fp)) return res.status(404).json({ error: 'Not found' })
+  res.setHeader('Content-Type', 'application/sql')
+  res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
+  createReadStream(fp).pipe(res)
 })
 
 export default router

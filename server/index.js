@@ -20,6 +20,8 @@ import settingsRoutes from './routes/settings.js'
 import usersRoutes from './routes/users.js'
 import aiRoutes from './routes/ai.js'
 import adminRoutes from './routes/admin.js'
+import shiftsRoutes from './routes/shifts.js'
+import { startBackupScheduler } from './lib/backup-scheduler.js'
 import { requestLogger } from './lib/observability.js'
 import { auditMutations } from './lib/audit.js'
 import { initDb, pool } from './db.js'
@@ -28,6 +30,17 @@ import { registerAdapter, startAutoSync } from './integrations/sync-engine.js'
 import { syncAll } from './integrations/notion.js'
 import { initWebSocketServer } from './events.js'
 import { logger } from './logger.js'
+import * as Sentry from '@sentry/node'
+
+// Optional Sentry error monitoring — activate by setting SENTRY_DSN env var
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    tracesSampleRate: 0.1,
+    environment: process.env.NODE_ENV || 'development',
+  })
+  logger.info('[sentry] initialized')
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -159,11 +172,15 @@ app.use('/api/settings', settingsRoutes)
 app.use('/api/users', usersRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/shifts', shiftsRoutes)
 
 // ── Global error handler — hide internal details from clients ─────────────────
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error('[error]', req.method, req.path, '—', err?.stack || err?.message || err)
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(err, { extra: { method: req.method, path: req.path } })
+  }
   if (res.headersSent) return
   res.status(err?.status || 500).json({ error: 'An unexpected error occurred. Please try again.' })
 })
@@ -208,6 +225,7 @@ if (isEntryPoint) {
       await initSyncEngine()
       server.listen(PORT, IS_PROD ? '0.0.0.0' : 'localhost', () => {
         initWebSocketServer(server)
+        startBackupScheduler()
         logger.info(`API server running on port ${PORT}`, { env: IS_PROD ? 'production' : 'development' })
       })
     }).catch(err => {

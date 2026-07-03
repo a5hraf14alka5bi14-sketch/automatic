@@ -1,3 +1,4 @@
+- [Production-readiness features](production-readiness.md) — void enforcement, shifts/Z-Report, daily backup scheduler, Sentry, offline POS queue all implemented; see topic for architecture details.
 - [Task-merge DB propagation](task-merge-db-propagation.md) — task-agent data changes are unreliable in main DB; merges can inject duplicate/placeholder rows. Re-query main DB after merges; apply data fixes as main agent.
 - [Notion SDK compatibility](notion-sdk-compat.md) — this SDK version has no databases.query; sync must go through MCP notionQueryDataSources
 - [Notion sync architecture](notion-sync-arch.md) — MCP(OAuth)=full access agent-only; REST bot "Replit" blocked until parent page "🚀 Automatic Restaurant" shared; push local→Notion (Notion was empty)

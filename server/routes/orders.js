@@ -223,7 +223,13 @@ router.patch('/:id/items/:itemId/done', validate(orderItemDoneSchema), async (re
 
 // PATCH update order status
 router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
-  const { status, payment_method, loyalty_redemption_points } = req.body
+  const { status, payment_method, loyalty_redemption_points, void_reason, void_manager_pin } = req.body
+
+  // Every cancellation requires an explicit reason
+  if (status === 'cancelled' && !void_reason?.trim()) {
+    return res.status(400).json({ error: 'A reason is required when cancelling an order.' })
+  }
+
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -232,10 +238,36 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
     const { status: prevStatus, total: orderTotal, customer_id, loyalty_discount: prevLoyaltyDiscount } = prev.rows[0]
     const wasCompleted = prevStatus === 'completed'
 
-    const extraFields = status === 'completed' && payment_method ? 'payment_method=$3, paid_at=NOW(),' : ''
-    const params = status === 'completed' && payment_method ? [status, req.params.id, payment_method] : [status, req.params.id]
+    // Voiding a COMPLETED order requires manager/admin role or the correct override PIN
+    if (status === 'cancelled' && wasCompleted) {
+      if (!['admin', 'manager'].includes(req.user?.role)) {
+        const pinRow = await client.query("SELECT value FROM settings WHERE key='void_manager_pin'")
+        const storedPin = pinRow.rows[0]?.value
+        if (storedPin && (!void_manager_pin || void_manager_pin !== storedPin)) {
+          await client.query('ROLLBACK')
+          return res.status(403).json({ error: 'Manager override PIN required to void a completed order.' })
+        }
+      }
+    }
+
+    // Build UPDATE dynamically to include void/payment fields only when relevant
+    const sets   = []
+    const params = [status, req.params.id]
+
+    if (status === 'completed' && payment_method) {
+      params.push(payment_method)
+      sets.push(`payment_method=$${params.length}`, 'paid_at=NOW()')
+    }
+    if (status === 'cancelled') {
+      params.push(void_reason.trim())
+      sets.push(`void_reason=$${params.length}`)
+      params.push(req.user?.id ?? null)
+      sets.push(`voided_by=$${params.length}`, 'voided_at=NOW()')
+    }
+
+    const extraSQL = sets.length ? sets.join(', ') + ', ' : ''
     const result = await client.query(
-      `UPDATE orders SET status=$1, ${extraFields} updated_at=NOW() WHERE id=$2 RETURNING *`,
+      `UPDATE orders SET status=$1, ${extraSQL}updated_at=NOW() WHERE id=$2 RETURNING *`,
       params
     )
 

@@ -448,4 +448,57 @@ router.get('/forecast', async (req, res) => {
   }
 })
 
+// ── GET /api/reports/voids — cancelled-order audit report ────────────────────
+router.get('/voids', async (req, res) => {
+  const { period = 'today' } = req.query
+  const df = dateFilter(period)
+  try {
+    const rows = await pool.query(`
+      SELECT
+        o.id, o.total, o.subtotal, o.discount, o.status,
+        o.void_reason, o.voided_at, o.updated_at, o.paid_at,
+        o.created_at, o.payment_method,
+        u.name AS voided_by_name,
+        (o.paid_at IS NOT NULL OR o.payment_method IS NOT NULL) AS was_completed
+      FROM orders o
+      LEFT JOIN users u ON u.id = o.voided_by
+      WHERE o.status = 'cancelled'
+        AND ${df}
+      ORDER BY COALESCE(o.voided_at, o.updated_at) DESC
+      LIMIT 500
+    `)
+
+    const orders = rows.rows
+
+    // summary
+    const total_voids     = orders.length
+    const voided_value    = orders.reduce((s, r) => s + parseFloat(r.total || 0), 0)
+    const with_reason     = orders.filter(r => r.void_reason).length
+    const completed_voids = orders.filter(r => r.was_completed).length
+
+    // top reasons
+    const reasonMap = {}
+    for (const r of orders) {
+      const key = r.void_reason?.trim() || ''
+      reasonMap[key] = (reasonMap[key] || 0) + 1
+    }
+    const by_reason = Object.entries(reasonMap)
+      .map(([reason, count]) => ({
+        reason: reason || null,
+        count,
+        pct: total_voids ? Math.round(count / total_voids * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+
+    res.json({
+      summary: { total_voids, voided_value: parseFloat(voided_value.toFixed(3)), with_reason, completed_voids, by_reason },
+      orders,
+    })
+  } catch (err) {
+    logger.error(err?.message, { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 export default router

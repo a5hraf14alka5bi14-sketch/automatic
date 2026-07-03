@@ -240,6 +240,23 @@ export default function Settings({ user }) {
               </div>
             )}
           </Section>
+
+          <Section title="🔐 Security">
+            <Field label="Void Manager PIN" hint="Cashiers must enter this PIN to void a completed order. Leave blank to require manager login instead.">
+              <Input
+                type="password"
+                value={settings.void_manager_pin || ''}
+                onChange={v => set('void_manager_pin', v)}
+                placeholder="4-digit PIN (e.g. 1234)"
+                maxLength={20}
+              />
+            </Field>
+            {settings.void_manager_pin && (
+              <div className="mt-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                ⚠️ PIN is set. Cashiers will be prompted for this PIN when voiding completed orders.
+              </div>
+            )}
+          </Section>
         </>
       )}
 

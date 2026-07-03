@@ -2,9 +2,20 @@ import pg from 'pg'
 import { readFile } from 'node:fs/promises'
 const { Pool } = pg
 
+// Use DEV_DATABASE_URL when set (non-production) so dev experiments never touch
+// the production data. Falls back to DATABASE_URL (the Replit-provisioned DB).
+const IS_PROD_DB = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1'
+const DB_URL     = (!IS_PROD_DB && process.env.DEV_DATABASE_URL) || process.env.DATABASE_URL
+
+if (!IS_PROD_DB && process.env.DEV_DATABASE_URL) {
+  console.log('[db] Using DEV_DATABASE_URL (development)')
+} else if (IS_PROD_DB) {
+  console.log('[db] Using DATABASE_URL (production)')
+}
+
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  connectionString: DB_URL,
+  ssl: DB_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 3000,

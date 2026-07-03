@@ -103,6 +103,8 @@ export const orderStatusSchema = Joi.object({
   status: Joi.string().valid('pending', 'preparing', 'ready', 'completed', 'cancelled').required(),
   payment_method: Joi.string().max(50).allow('', null),
   loyalty_redemption_points: Joi.number().integer().min(0).allow(null),
+  void_reason: Joi.string().max(500).allow('', null),
+  void_manager_pin: Joi.string().max(20).allow('', null),
 })
 
 export const orderDiscountSchema = Joi.object({
