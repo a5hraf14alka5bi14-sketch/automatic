@@ -53,3 +53,4 @@
 - [Inventory seed from file](inventory-seed-from-file.md) — fresh-DB inventory now seeds from server/seed-data/inventory-items.json (349 real Arabic SKUs); English demo rows removed
 - [Production deployment serving](production-deployment-serving.md) — prod is single-port (5000): listen on PORT||5000, don't crash on missing ALLOWED_ORIGIN, serve dist/ BEFORE verifyToken or healthcheck GET / 401s
 - [PWA setup](pwa-setup.md) — manual installable PWA; SW must bypass /api & /ws and never cache HTML under asset URLs; SPA fallback 404s extensioned paths.
+- [PWA install icons](pwa-install-icons.md) — logo icons flattened on white (no transparency), maskable fills canvas w/ logo in safe zone; bump sw.js CACHE after changing icon bytes
