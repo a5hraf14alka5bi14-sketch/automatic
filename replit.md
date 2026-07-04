@@ -1,5 +1,19 @@
 # Automatic Restaurant OS
 
+## Current Version: v0.9.0 — Production Inventory Complete (2026-07-04)
+
+| | |
+|---|---|
+| **Release** | v0.9.0 — Production Inventory Complete |
+| **Test suite** | 190/190 passing |
+| **Migrations** | 009 applied (supplier name unique index) |
+| **Inventory** | 54 items · 7 categories · 3 suppliers (all linked) |
+| **Suppliers** | Al Aamer Majestic S.P.C (24) · Valley Deer For Investment S.P.C (22) · Al Sanabel (8) |
+| **Dedup protection** | App-level (POST+PATCH) + DB partial unique index WHERE active |
+| **Next milestone** | Invoice Batch 2 — import next round of supplier invoices |
+
+---
+
 ## Project Overview
 
 Full-stack restaurant management system built with React 19 + Vite (port 5000) and Express (port 3001) backed by PostgreSQL.
