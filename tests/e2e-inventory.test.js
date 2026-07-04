@@ -8,7 +8,7 @@ import { pool } from '../server/db.js'
 const TAG = `inv_${Date.now()}`
 const ADMIN_EMAIL = `${TAG}_admin@test.local`
 const PASSWORD    = 'TestPass123'
-const ids = { admin: null, items: [], supplier: null }
+const ids = { admin: null, items: [], supplier: null, dupSuppliers: [] }
 
 async function seedUser(email, role) {
   const hash = await bcrypt.hash(PASSWORD, 10)
@@ -31,6 +31,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (ids.items.length) await pool.query('DELETE FROM inventory WHERE id = ANY($1)', [ids.items])
   if (ids.supplier) await pool.query('DELETE FROM suppliers WHERE id=$1', [ids.supplier])
+  if (ids.dupSuppliers.length) await pool.query('DELETE FROM suppliers WHERE id = ANY($1)', [ids.dupSuppliers])
   await pool.query('DELETE FROM users WHERE id=$1', [ids.admin])
   await pool.end()
 })
@@ -229,5 +230,47 @@ describe('Supplier management', () => {
     if (!ids.supplier) return
     const res = await admin.delete(`/api/suppliers/${ids.supplier}`)
     expect(res.status).toBe(200)
+  })
+})
+
+// ── 6. Supplier duplicate prevention (normalised name) ──────────────────────
+describe('Supplier duplicate prevention', () => {
+  const base = `${TAG} DupCo`
+  let firstId
+
+  it('creates the first supplier', async () => {
+    const res = await admin.post('/api/suppliers').send({ name: base })
+    if (res.status === 404) return // route not wired — skip gracefully
+    expect(res.status).toBe(201)
+    firstId = res.body.id
+    ids.dupSuppliers.push(firstId)
+  })
+
+  it('rejects a create that differs only by case and whitespace', async () => {
+    if (!firstId) return
+    const res = await admin.post('/api/suppliers').send({ name: `  ${base.toUpperCase()}   ` })
+    expect(res.status).toBe(409)
+  })
+
+  it('allows a genuinely different supplier name', async () => {
+    if (!firstId) return
+    const res = await admin.post('/api/suppliers').send({ name: `${base} Two` })
+    expect(res.status).toBe(201)
+    ids.dupSuppliers.push(res.body.id)
+  })
+
+  it('rejects a rename onto an existing supplier name', async () => {
+    if (ids.dupSuppliers.length < 2) return
+    const secondId = ids.dupSuppliers[1]
+    const res = await admin.patch(`/api/suppliers/${secondId}`).send({ name: base.toLowerCase() })
+    expect(res.status).toBe(409)
+  })
+
+  it('allows renaming a supplier to a new unique name', async () => {
+    if (ids.dupSuppliers.length < 2) return
+    const secondId = ids.dupSuppliers[1]
+    const res = await admin.patch(`/api/suppliers/${secondId}`).send({ name: `${base} Renamed` })
+    expect(res.status).toBe(200)
+    expect(res.body.name).toContain('Renamed')
   })
 })

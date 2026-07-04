@@ -33,12 +33,24 @@ router.post('/', requireRole('admin', 'manager'), async (req, res, next) => {
       [name.trim(), contact_name || null, phone || null, email || null, address || null, notes || null]
     )
     res.status(201).json(r.rows[0])
-  } catch (err) { next(err) }
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A supplier with this name already exists' })
+    next(err)
+  }
 })
 
 router.patch('/:id', requireRole('admin', 'manager'), async (req, res, next) => {
   const { name, contact_name, phone, email, address, notes, active } = req.body
   try {
+    if (name?.trim()) {
+      const dup = await pool.query(
+        `SELECT id FROM suppliers WHERE active = true AND id <> $2
+         AND REGEXP_REPLACE(LOWER(TRIM(name)), '\\s+', ' ', 'g')
+           = REGEXP_REPLACE(LOWER(TRIM($1)), '\\s+', ' ', 'g')`,
+        [name.trim(), req.params.id]
+      )
+      if (dup.rows.length > 0) return res.status(409).json({ error: 'A supplier with this name already exists' })
+    }
     const r = await pool.query(
       `UPDATE suppliers SET
         name = COALESCE($1, name),
@@ -54,7 +66,10 @@ router.patch('/:id', requireRole('admin', 'manager'), async (req, res, next) => 
     )
     if (!r.rows.length) return res.status(404).json({ error: 'Supplier not found' })
     res.json(r.rows[0])
-  } catch (err) { next(err) }
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A supplier with this name already exists' })
+    next(err)
+  }
 })
 
 router.delete('/:id', requireRole('admin'), async (req, res, next) => {
