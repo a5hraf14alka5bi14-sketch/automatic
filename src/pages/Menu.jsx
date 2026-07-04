@@ -236,14 +236,14 @@ function ItemModal({ item, inventory, onClose, onSave }) {
     // Auto-recalculate food cost
     const totalCost = [...recipe, { ...newIng, cost: inv ? parseFloat(inv.cost || 0) : parseFloat(newIng.cost || 0) }]
       .reduce((s, r) => s + parseFloat(r.cost || 0) * parseFloat(r.quantity || 1), 0)
-    set('food_cost', totalCost.toFixed(2))
+    set('food_cost', totalCost.toFixed(3))
   }
 
   const removeIngredient = (idx) => {
     const updated = recipe.filter((_, i) => i !== idx)
     setRecipe(updated)
     const totalCost = updated.reduce((s, r) => s + parseFloat(r.cost || 0) * parseFloat(r.quantity || 1), 0)
-    set('food_cost', totalCost.toFixed(2))
+    set('food_cost', totalCost.toFixed(3))
   }
 
   const handleInventorySelect = (invId) => {
@@ -338,7 +338,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                 </div>
                 <div>
                   <label className="text-slate-400 text-xs mb-1 block">Price ({symbol}) *</label>
-                  <input type="number" step="0.01" min="0" value={form.price} onChange={e => set('price', e.target.value)}
+                  <input type="number" step="0.001" min="0" value={form.price} onChange={e => set('price', e.target.value)}
                     placeholder="12.99"
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
                 </div>
@@ -389,7 +389,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                 </div>
                 <div>
                   <label className="text-slate-400 text-xs mb-1 block">Food Cost ({symbol})</label>
-                  <input type="number" step="0.01" min="0" value={form.food_cost} onChange={e => set('food_cost', e.target.value)}
+                  <input type="number" step="0.001" min="0" value={form.food_cost} onChange={e => set('food_cost', e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
                 </div>
               </div>
@@ -483,7 +483,7 @@ function ItemModal({ item, inventory, onClose, onSave }) {
                   </div>
                   <div>
                     <label className="text-slate-500 text-xs mb-1 block">Cost per unit ({symbol})</label>
-                    <input type="number" step="0.01" min="0" value={newIng.cost} onChange={e => setNewIng(n => ({ ...n, cost: e.target.value }))}
+                    <input type="number" step="0.001" min="0" value={newIng.cost} onChange={e => setNewIng(n => ({ ...n, cost: e.target.value }))}
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500" />
                   </div>
                   <div className="flex items-end">

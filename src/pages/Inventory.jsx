@@ -93,7 +93,7 @@ function ItemModal({ item, onClose, onSave }) {
             </div>
             <div className="col-span-2">
               <label className="text-slate-400 text-xs mb-1 block">Cost per Unit ({symbol})</label>
-              <input type="number" step="0.01" min="0" value={form.cost} onChange={e => set('cost', e.target.value)} placeholder="e.g. 4.50"
+              <input type="number" step="0.001" min="0" value={form.cost} onChange={e => set('cost', e.target.value)} placeholder="e.g. 4.500"
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
             </div>
           </div>

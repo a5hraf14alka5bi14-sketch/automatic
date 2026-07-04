@@ -214,7 +214,7 @@ router.get('/recipe/unlinked', async (req, res) => {
       GROUP BY ri.ingredient_name
       ORDER BY COUNT(*) DESC, ri.ingredient_name
     `)
-    const inv = await pool.query('SELECT id, name, unit, cost, quantity, category FROM inventory')
+    const inv = await pool.query('SELECT id, name, unit, cost, quantity, category FROM inventory WHERE deleted_at IS NULL')
     const prepared = prepareInventory(inv.rows)
     const result = grp.rows.map(g => ({
       ingredient_name: g.ingredient_name,
