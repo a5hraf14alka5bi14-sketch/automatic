@@ -432,6 +432,29 @@ export async function initDb() {
       }
     }
 
+    // One-time inventory clear for a deployed instance. When CLEAR_LIVE_INVENTORY
+    // is set, soft-delete all active inventory exactly once — guarded by a
+    // settings marker so restarts (or items added later) are never affected.
+    // Remove the env var after use. Soft-delete keeps recipe links + history.
+    if (process.env.CLEAR_LIVE_INVENTORY === 'true') {
+      const marker = await client.query(
+        "SELECT 1 FROM settings WHERE key = 'inventory_cleared_marker'"
+      )
+      if (marker.rows.length === 0) {
+        const upd = await client.query(
+          'UPDATE inventory SET deleted_at = now() WHERE deleted_at IS NULL'
+        )
+        await client.query(
+          "INSERT INTO settings (key, value) VALUES ('inventory_cleared_marker', $1) ON CONFLICT (key) DO NOTHING",
+          [new Date().toISOString()]
+        )
+        console.warn(
+          `[db] CLEAR_LIVE_INVENTORY set — soft-deleted ${upd.rowCount} inventory item(s) (one-time). ` +
+          'Remove this env var; it will not run again.'
+        )
+      }
+    }
+
     console.log('Database initialized successfully')
   } finally {
     client.release()
