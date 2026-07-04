@@ -79,4 +79,3 @@ timeoutMs = 120000
 [userenv]
 
 [userenv.production]
-CLEAR_INVENTORY = "true"
