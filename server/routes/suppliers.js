@@ -20,6 +20,13 @@ router.post('/', requireRole('admin', 'manager'), async (req, res, next) => {
   const { name, contact_name, phone, email, address, notes } = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'Supplier name is required' })
   try {
+    const dup = await pool.query(
+      `SELECT id FROM suppliers WHERE active = true
+       AND REGEXP_REPLACE(LOWER(TRIM(name)), '\\s+', ' ', 'g')
+         = REGEXP_REPLACE(LOWER(TRIM($1)), '\\s+', ' ', 'g')`,
+      [name.trim()]
+    )
+    if (dup.rows.length > 0) return res.status(409).json({ error: 'A supplier with this name already exists' })
     const r = await pool.query(
       `INSERT INTO suppliers (name, contact_name, phone, email, address, notes)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,

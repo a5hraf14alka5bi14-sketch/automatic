@@ -382,12 +382,20 @@ export async function initDb() {
       }
       const supplierIdByName = {}
       for (const s of seedSuppliers) {
-        const existing = await client.query('SELECT id FROM suppliers WHERE name = $1', [s.name])
+        // Match by space-and-case-normalised name so "Al  Aamer" (double space)
+        // and "al aamer" both resolve to the same row instead of creating a duplicate.
+        const existing = await client.query(
+          `SELECT id FROM suppliers
+           WHERE REGEXP_REPLACE(LOWER(TRIM(name)), '\\s+', ' ', 'g')
+               = REGEXP_REPLACE(LOWER(TRIM($1)), '\\s+', ' ', 'g')`,
+          [s.name]
+        )
         if (existing.rows.length > 0) {
           const id = existing.rows[0].id
+          // Also write the canonical clean name back so old mis-cased/spaced rows are corrected.
           await client.query(
-            'UPDATE suppliers SET contact_name=$2, phone=$3, email=$4, address=$5, notes=$6, active=true WHERE id=$1',
-            [id, s.contact_name ?? null, s.phone ?? null, s.email ?? null, s.address ?? null, s.notes ?? null]
+            'UPDATE suppliers SET name=$2, contact_name=$3, phone=$4, email=$5, address=$6, notes=$7, active=true WHERE id=$1',
+            [id, s.name, s.contact_name ?? null, s.phone ?? null, s.email ?? null, s.address ?? null, s.notes ?? null]
           )
           supplierIdByName[s.name] = id
         } else {
