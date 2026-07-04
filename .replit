@@ -79,3 +79,4 @@ timeoutMs = 120000
 [userenv]
 
 [userenv.production]
+SEED_INVENTORY = "true"

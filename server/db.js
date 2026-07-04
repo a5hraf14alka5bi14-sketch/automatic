@@ -363,6 +363,34 @@ export async function initDb() {
       }
     }
 
+    // One-time maintenance: when SEED_INVENTORY is set, reset inventory to the
+    // supplier-invoice list. Soft-deletes any active rows, then inserts every
+    // item from seed-data/inventory-items.json. Used to sync the live site's
+    // inventory (the production DB is not directly writable by tooling).
+    // IMPORTANT: remove this secret right after it runs, otherwise inventory
+    // would be reset again on the next restart/deploy.
+    if (process.env.SEED_INVENTORY === 'true') {
+      await client.query('UPDATE inventory SET deleted_at = now() WHERE deleted_at IS NULL')
+      let seedItems
+      try {
+        seedItems = JSON.parse(
+          await readFile(new URL('./seed-data/inventory-items.json', import.meta.url), 'utf8')
+        )
+      } catch (err) {
+        throw new Error(`Failed to load inventory seed (server/seed-data/inventory-items.json): ${err.message}`)
+      }
+      for (const item of seedItems) {
+        await client.query(
+          'INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost) VALUES ($1,$2,$3,$4,$5,$6)',
+          [item.name, item.category ?? null, item.quantity ?? 0, item.unit ?? 'kg', item.min_quantity ?? 0, item.cost ?? 0]
+        )
+      }
+      console.warn(
+        `[db] SEED_INVENTORY is set — reset inventory and inserted ${seedItems.length} item(s). ` +
+        'Remove this secret so inventory is not reset on restart.'
+      )
+    }
+
     const menuCheck = await client.query('SELECT id FROM menu_items LIMIT 1')
     if (menuCheck.rows.length === 0) {
       // Seed the real Arabic menu (names, real prices, drinks & desserts) from

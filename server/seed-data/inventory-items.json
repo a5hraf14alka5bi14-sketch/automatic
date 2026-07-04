@@ -1,2794 +1,434 @@
 [
-    {
-        "name": "شاورما دجاج مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.9
-    },
-    {
-        "name": "دجاج مجمد 700 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10.2
-    },
-    {
-        "name": "دجاج مجمد 800 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 11.2
-    },
-    {
-        "name": "دجاج مجمد 900 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12.5
-    },
-    {
-        "name": "دجاج مجمد 1000 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.2
-    },
-    {
-        "name": "دجاج مجمد 1100 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.5
-    },
-    {
-        "name": "دجاج مجمد 1200 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.9
-    },
-    {
-        "name": "دجاج مجمد 1300 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 14.5
-    },
-    {
-        "name": "دجاج مجمد 1400 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 14.5
-    },
-    {
-        "name": "دجاج مجمد 1500 غ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 16.9
-    },
-    {
-        "name": "صدر دجاج مجمد",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 20.9
-    },
-    {
-        "name": "صدر دجاج مجمد",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 17.3
-    },
-    {
-        "name": "نقانق دجاج",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.2
-    },
-    {
-        "name": "افخاد دجاج",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9.8
-    },
-    {
-        "name": "كبدة دجاج",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7.9
-    },
-    {
-        "name": "جوانح حجم صغير",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 11.5
-    },
-    {
-        "name": "جوانح حجم كبير",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 11.5
-    },
-    {
-        "name": "لحم تندرلين",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 75
-    },
-    {
-        "name": "لحم تندرلين",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 73
-    },
-    {
-        "name": "لحم استرب ين",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 49.5
-    },
-    {
-        "name": "لحم توب سايد",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 49
-    },
-    {
-        "name": "لحم توب سايد A",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 49
-    },
-    {
-        "name": "سيلفر سايد",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 49.5
-    },
-    {
-        "name": "لحم بوبي فيل",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 41
-    },
-    {
-        "name": "لحم فيﻼك",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 43
-    },
-    {
-        "name": "كبدة عجل",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9.9
-    },
-    {
-        "name": "لحم فخد بدون عظم",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.7
-    },
-    {
-        "name": "لحم فخد بالﻌظم",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "لحم خروف كامل 6 ﻗﻄﻊ",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.4
-    },
-    {
-        "name": "ريش مقﻄﻌة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "ريش خروف",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "بامية مجمد زيرو",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.9
-    },
-    {
-        "name": "كبدة غنم",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "ctn",
-        "min_quantity": 0,
-        "cost": 30
-    },
-    {
-        "name": "لية مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "بﻄاطا شيبس مجمدة 9 مل",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.5
-    },
-    {
-        "name": "بﻄاطا شيبس مجمدة 6",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9
-    },
-    {
-        "name": "بﻄاطا ودجز مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6
-    },
-    {
-        "name": "بﻄاطا كرينﻜل مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7.15
-    },
-    {
-        "name": "فيليه سمك",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13
-    },
-    {
-        "name": "كليماري",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "حبار",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.9
-    },
-    {
-        "name": "روبيان كامل جامبو",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7
-    },
-    {
-        "name": "روبيان كامل 20 \\ 30",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.6
-    },
-    {
-        "name": "روبيان منظف 16 \\ 20",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.9
-    },
-    {
-        "name": "روبيان منظف 31 \\ 40",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.3
-    },
-    {
-        "name": "باذنجان مشوي مجمد",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "خضروات مشﻜلة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.5
-    },
-    {
-        "name": "بازيﻼ خضراء مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.5
-    },
-    {
-        "name": "ذرة حلوة حب مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.5
-    },
-    {
-        "name": "ملوخية مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.5
-    },
-    {
-        "name": "سبانخ مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.5
-    },
-    {
-        "name": "فول مجمد",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12
-    },
-    {
-        "name": "فاصولياء مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7
-    },
-    {
-        "name": "فراولة مجمدة جولداليﻜس",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.5
-    },
-    {
-        "name": "فراولة مجمدة فرجللو",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7.5
-    },
-    {
-        "name": "مانجو حب مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12.4
-    },
-    {
-        "name": "مانجو حب مجمدة فونسو",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 21.5
-    },
-    {
-        "name": "جوافة مجمدة",
-        "category": "frozen",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9.5
-    },
-    {
-        "name": "فلفل اسود حب",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.2
-    },
-    {
-        "name": "فلفل اسود ناعم",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.2
-    },
-    {
-        "name": "فلفل ابيض حب",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "فلفل ابيض ناعم رﻗم 1",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.9
-    },
-    {
-        "name": "فلفل ابيض ناعم رﻗم 2",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3
-    },
-    {
-        "name": "فلفل احمر حار هندي",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.3
-    },
-    {
-        "name": "بابريﻜا بودرة حلوة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.4
-    },
-    {
-        "name": "سبﻊ بهارات",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "بهارات شاورما دجاج",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "بهارات شاورما لحم",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "هيل حب رﻗم 1",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12
-    },
-    {
-        "name": "هيل مﻄحون",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12
-    },
-    {
-        "name": "كمون ناعم سوري",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.2
-    },
-    {
-        "name": "كمون حب سوري",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.9
-    },
-    {
-        "name": "جوز الﻄيب ناعمة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.2
-    },
-    {
-        "name": "كزبرة حب سورية",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.5
-    },
-    {
-        "name": "كزبرة ناعمة مجروشة سورية",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.5
-    },
-    {
-        "name": "كزبرة ناعمة هندية",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1
-    },
-    {
-        "name": "ﻗرنفل حب",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.4
-    },
-    {
-        "name": "ﻗرنفل بودرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.4
-    },
-    {
-        "name": "زنجبيل بودرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.5
-    },
-    {
-        "name": "خولنجان بودرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "كاجون بودر",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "ﻗرفة اعواد",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "ﻗرفة مﻄحونة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "بهار حلو ناعم",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "بهار حلو حب",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "ثوم بودرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.5
-    },
-    {
-        "name": "بصل بودرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.7
-    },
-    {
-        "name": "زعتر ورق سوري",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "زعتر اوريغانو بودرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4
-    },
-    {
-        "name": "كاري بودرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "كركم ناعم",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.2
-    },
-    {
-        "name": "شومر ناعم",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "شومر حب",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.8
-    },
-    {
-        "name": "ينسون بودرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3
-    },
-    {
-        "name": "ينسون حب",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3
-    },
-    {
-        "name": "SHISH SPICES RED SYRIAN",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "بهارت السجق",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "سماق ناعم تركي رﻗم 1",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.9
-    },
-    {
-        "name": "بهارات البﻄاطا",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "محلب مﻄحون",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10
-    },
-    {
-        "name": "ليمون اسود مجفف",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.5
-    },
-    {
-        "name": "ليمون اصفر مجفف",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.5
-    },
-    {
-        "name": "ورق غار",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.2
-    },
-    {
-        "name": "نﻌنﻊ يابس",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3
-    },
-    {
-        "name": "بهارات فﻼفل عربية",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.2
-    },
-    {
-        "name": "صوديوم كربونات",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 0.5
-    },
-    {
-        "name": "ملح الليمون",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 0.99
-    },
-    {
-        "name": "بهارات السمك",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "بهارات برياني",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "خردل حب",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "بهارات الحلبة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "اوراق الورد المجفف",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10
-    },
-    {
-        "name": "ورد مجفف",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6
-    },
-    {
-        "name": "بهارات الجبنة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10
-    },
-    {
-        "name": "بهارات الفاهيتا",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "بهارات المندي",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "سحلب",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3
-    },
-    {
-        "name": "عصفر",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 15
-    },
-    {
-        "name": "بهارات كبسة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "كراوية ناعمة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "كاكاو بودر",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3
-    },
-    {
-        "name": "فانيليا",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.5
-    },
-    {
-        "name": "زعتر اسرة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3
-    },
-    {
-        "name": "زعتر الناصر",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3
-    },
-    {
-        "name": "GREEN THYME MAWANI EXTRA JORDAN",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.5
-    },
-    {
-        "name": "زعتر الضفة",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "بهارات مصالة عماني",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "بهارات شواء عماني",
-        "category": "spices",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "قهوة تر ك ᘭ ة ال ᘘ᜻ ب",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.5
-    },
-    {
-        "name": "ديمي جس",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.9
-    },
-    {
-        "name": "كنور مرﻗة اللحم",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.8
-    },
-    {
-        "name": "كنور مرﻗة دجاج",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.8
-    },
-    {
-        "name": "باذنجان مشوي",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12
-    },
-    {
-        "name": "ديليسيو مايونيز",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 4.9
-    },
-    {
-        "name": "بوفالو صوص",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 10.9
-    },
-    {
-        "name": "ديليسيو ايند 1000",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 4.9
-    },
-    {
-        "name": "ديليسيو تتبيلة فرنسية",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 4.9
-    },
-    {
-        "name": "ديليسيو رانش بزبدة الحليب",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 6.2
-    },
-    {
-        "name": "تتبيلة بيري بيري",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 5.9
-    },
-    {
-        "name": "ديلسيو صلصة الخردل",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 3.6
-    },
-    {
-        "name": "صلصة باربﻜيو 6 * 3 كﻎ",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 23.4
-    },
-    {
-        "name": "دبس رمان جولدن",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 8
-    },
-    {
-        "name": "دبس رمان اليمامة",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 19
-    },
-    {
-        "name": "ورق عنب سوري الﻜبب 1.8 كﻎ",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.33
-    },
-    {
-        "name": "ورق عنب سوري الﻜبب 3.5 كﻎ",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.19
-    },
-    {
-        "name": "ورق عنب سوري الﻜبب 8 كﻎ",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 14
-    },
-    {
-        "name": "ورق عنب محشي تركي",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.5
-    },
-    {
-        "name": "ماء ورد الشام",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "ماء زهر الشام",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6
-    },
-    {
-        "name": "زيت طبخ فرس",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 9.6
-    },
-    {
-        "name": "زيت طبخ امل",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 9.7
-    },
-    {
-        "name": "زيت دوار شمس",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 9.5
-    },
-    {
-        "name": "مﻜرونة الخريف بانواعها",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "شﻌيرية الخريف",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "خل ابيض",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.2
-    },
-    {
-        "name": "خل أحمر",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 4
-    },
-    {
-        "name": "خل التفاح",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 7.5
-    },
-    {
-        "name": "ماجي دجاج رﻗم 1",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 45
-    },
-    {
-        "name": "مرتدي دجاج",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.9
-    },
-    {
-        "name": "مرتدي لحم",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.9
-    },
-    {
-        "name": "كﻌك مﻄحون",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9.5
-    },
-    {
-        "name": "سﻜر ظرف",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "فلفل اسود ظرف",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "ملح ظرف",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "فﻄر شرائح",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9
-    },
-    {
-        "name": "فﻄر حب",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 14
-    },
-    {
-        "name": "فﻄر حب",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 11
-    },
-    {
-        "name": "ذرة حب حلوة",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12
-    },
-    {
-        "name": "ذرة حب حلوة",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7.5
-    },
-    {
-        "name": "طماطم حب مقشور",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13
-    },
-    {
-        "name": "كاتشب طماطم ظرف",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "مﻌجون طماطم المدهش",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 4.8
-    },
-    {
-        "name": "خابورة شﻄة حارة",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.2
-    },
-    {
-        "name": "كاتشب الحياة طاولة بستيك",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.9
-    },
-    {
-        "name": "كاتشب الحياة",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 6.9
-    },
-    {
-        "name": "مايونيز صحار",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 8
-    },
-    {
-        "name": "مايونيز جمبو",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 8
-    },
-    {
-        "name": "شﻄة حارة جالون",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.9
-    },
-    {
-        "name": "صويا صوص",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 10
-    },
-    {
-        "name": "زبيب ذهبي ايراني",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 17.9
-    },
-    {
-        "name": "ملح اجيناموتوا",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 34.5
-    },
-    {
-        "name": "فول مدمس المزرعة",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "عسل تركي",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10
-    },
-    {
-        "name": "فيمتو",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 14.5
-    },
-    {
-        "name": "نسﻜافيه",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.2
-    },
-    {
-        "name": "شاي ريد ليبل 5 كﻎ",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9.9
-    },
-    {
-        "name": "شاي ليبتون 5 كﻎ",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10.8
-    },
-    {
-        "name": "شاي فرط كسيك",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6
-    },
-    {
-        "name": "شاي ليبتون",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 44
-    },
-    {
-        "name": "حليب اومي ﻼ",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 14.5
-    },
-    {
-        "name": "حليب المدهش",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 31.5
-    },
-    {
-        "name": "عصير ليمون اليمامة",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 6.2
-    },
-    {
-        "name": "عصير ليمون",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 4.7
-    },
-    {
-        "name": "خردل",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 7.9
-    },
-    {
-        "name": "طحينة الهادي 18 كﻎ رﻗم 1",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 19
-    },
-    {
-        "name": "طحينة الﻜبب",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 22
-    },
-    {
-        "name": "طحينة الﻜبب",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9
-    },
-    {
-        "name": "طحينة تيم 6 كﻎ",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.5
-    },
-    {
-        "name": "ملون اصفر",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 0.4
-    },
-    {
-        "name": "ملون احمر",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 0.4
-    },
-    {
-        "name": "مﻌجون تمر",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.7
-    },
-    {
-        "name": "جميد سائل الﻜسيح",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 19.2
-    },
-    {
-        "name": "صلصة بيتزا",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "ctn",
-        "min_quantity": 0,
-        "cost": 12.5
-    },
-    {
-        "name": "مﻌجون طماطم 777",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4.5
-    },
-    {
-        "name": "مﻌجون طماطم جميل",
-        "category": "canned_oils",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.5
-    },
-    {
-        "name": "رز مصري الﻜبب 25 كﻎ",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.9
-    },
-    {
-        "name": "رز بسمتي اروما حبة رﻗم 1",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 18.5
-    },
-    {
-        "name": "ارز اروما بسمتي جولدن",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 19.5
-    },
-    {
-        "name": "سميد ناعم تركي",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7.5
-    },
-    {
-        "name": "سميد خشن تركي",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7.5
-    },
-    {
-        "name": "ملح",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.5
-    },
-    {
-        "name": "حمﺺ حب 7 مل روسي",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.9
-    },
-    {
-        "name": "حمﺺ حب 8 مل سوري",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.5
-    },
-    {
-        "name": "حمﺺ تركي حب 9 مل",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9
-    },
-    {
-        "name": "حمﺺ مﻜسيﻜي 12 مل",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 16.5
-    },
-    {
-        "name": "حمﺺ مﻜسيﻜي 14 مل",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 18
-    },
-    {
-        "name": "فول مصري حبة صغيرة",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.5
-    },
-    {
-        "name": "فاصوليا بيضا صنوبرية",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 15
-    },
-    {
-        "name": "فول مجروش استرالي",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.3
-    },
-    {
-        "name": "سمسم ابيض ني",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 15
-    },
-    {
-        "name": "حبة البركة",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.8
-    },
-    {
-        "name": "عدس احمر مجروش",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.9
-    },
-    {
-        "name": "شانا دال",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.5
-    },
-    {
-        "name": "سﻜر ابيض",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 11.9
-    },
-    {
-        "name": "طحين ابيض الخريف",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9.9
-    },
-    {
-        "name": "طحين ابيض الخريف",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.2
-    },
-    {
-        "name": "ذهبي طحين ابيض رﻗم 1",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10.5
-    },
-    {
-        "name": "ذهبي طحين ابيض رﻗم 1",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5.5
-    },
-    {
-        "name": "طحين اتا رﻗم 2",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10
-    },
-    {
-        "name": "ذهبي طحين الﻌربي",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10.4
-    },
-    {
-        "name": "ملح ناعم",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.2
-    },
-    {
-        "name": "برغل اصفر ناعم 10 كﻎ",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "برغل اصفر خشن 10 كﻎ",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "برغل اسمر ناعم 10 كﻎ",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "برغل اسمر خشن 10 كﻎ",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "عدس اصفر",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.5
-    },
-    {
-        "name": "هريس صلة",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 11
-    },
-    {
-        "name": "محسن الﻌجين",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 20
-    },
-    {
-        "name": "فريﻜة",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "جوز الهند بودر",
-        "category": "pulses",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.43
-    },
-    {
-        "name": "مخلل خيار الﻜبب اكستر",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.9
-    },
-    {
-        "name": "مخلل مشﻜل سوري 6 كﻎ",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.6
-    },
-    {
-        "name": "مخلل مشﻜل سوري 9 كﻎ",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "مخلل مشﻜل سوري 10 كﻎ",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.4
-    },
-    {
-        "name": "مخلل مشﻜل مصري 10 كﻎ",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.4
-    },
-    {
-        "name": "دبس فليفلة حارة سورية الﻜبب",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "دبس فليفلة حارة سورية الﻜبب",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7.5
-    },
-    {
-        "name": "دبس فليفلة حارة سورية الﻜبب",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9.9
-    },
-    {
-        "name": "دبس فليفلة حلوة الﻜبب",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 14
-    },
-    {
-        "name": "دبس فليفلة حلوة تركية جولدن",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 29.5
-    },
-    {
-        "name": "مﻌجون طماطم الﻜبب",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8
-    },
-    {
-        "name": "مخلل لفت حب سوري",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.5
-    },
-    {
-        "name": "مخلل فليفلة حورانية",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 9
-    },
-    {
-        "name": "زيتون اخضر شرائح",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12
-    },
-    {
-        "name": "زيتون اسود شرائح",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12
-    },
-    {
-        "name": "شرائح جبينو",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "ctn",
-        "min_quantity": 0,
-        "cost": 6.3
-    },
-    {
-        "name": "زيتون اخضر مشوي بالزيت",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 17.5
-    },
-    {
-        "name": "ج ᢔ ᡧ ᣌ ع ᜓ اوي ᘻ ش ᢝ ᣞᘭ 17 كﻎ",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 56
-    },
-    {
-        "name": "جبنة شلل ال ᘘ᜻ ب",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 22.5
-    },
-    {
-        "name": "ᢔ ᡧ ᣌ ع ᜓ اوي سوري نموذج ᘻ ش",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 21
-    },
-    {
-        "name": "جبن نابلسي مشمولةالﻜبب كنافة",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 25.5
-    },
-    {
-        "name": "جبن نابلسي مشمولة الﻌرﻗاوي",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 24.9
-    },
-    {
-        "name": "جبنة حلوم ﻗبرصي",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 39
-    },
-    {
-        "name": "موزاري بلوك 3 بقرات",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 47
-    },
-    {
-        "name": "جبنة سائلة بوك",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.5
-    },
-    {
-        "name": "لبن عربي حماة",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7
-    },
-    {
-        "name": "لبنة تركية",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.5
-    },
-    {
-        "name": "حليب بودرة فرنسي",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 25
-    },
-    {
-        "name": "نشاء تركي",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.5
-    },
-    {
-        "name": "جبن فيتا دنماركي",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 18.9
-    },
-    {
-        "name": "زبدة نباتية",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 28
-    },
-    {
-        "name": "زبدة لورباك",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 17.5
-    },
-    {
-        "name": "سمن البقرة الحلوب",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 110
-    },
-    {
-        "name": "سمن نباتي اريج",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "سمن حفلة",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 16.5
-    },
-    {
-        "name": "صونار جلﻜوز تركي",
-        "category": "pickles",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 11.5
-    },
-    {
-        "name": "جبن شيدر ابيض",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "جبن شيدر احمر",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "جبن شيدر شرائح برجر",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 21
-    },
-    {
-        "name": "ماستر كريمة الﻄبخ",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 20
-    },
-    {
-        "name": "بوك جبن موزاريﻼ مبشورة",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 30
-    },
-    {
-        "name": "كريمة حلويات بيك الدرين",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 15
-    },
-    {
-        "name": "برستن كريمة الﻄبخ",
-        "category": "dairy",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 13
-    },
-    {
-        "name": "لوز بني",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.2
-    },
-    {
-        "name": "لوز ني اعواد",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "لوز مﻄحون",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "لوز شرائح",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "لوز ابيض انصاف",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "كاجو ني دبليو 320",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.9
-    },
-    {
-        "name": "كاجو دبليو 320 محمﺺ",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 4
-    },
-    {
-        "name": "صنوبر",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 13.9
-    },
-    {
-        "name": "بنق ني بالقشر",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 6.5
-    },
-    {
-        "name": "بندق ني",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.5
-    },
-    {
-        "name": "جوز مقشور امريﻜي",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.9
-    },
-    {
-        "name": "كاجو كسر رﻗم 1",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 1.7
-    },
-    {
-        "name": "فول سوداني ني مقشور",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 25
-    },
-    {
-        "name": "فستق حلبي مقشور رﻗم 1",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.4
-    },
-    {
-        "name": "فستق اعواد",
-        "category": "nuts",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 14.5
-    },
-    {
-        "name": "خبز لبناني",
-        "category": "bread",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 0.05
-    },
-    {
-        "name": "خبز صاج",
-        "category": "bread",
-        "quantity": 0,
-        "unit": "pcs",
-        "min_quantity": 0,
-        "cost": 0.05
-    },
-    {
-        "name": "فحم شواء",
-        "category": "charcoal",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب ᗷ اشﻦ",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب فراولة",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب موهيتو",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب نعنع",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب كيوي",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب فان ᘭ ﻼ",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب ال ᜻ رام ᘭ ل",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب البندق",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب الورد",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب تفاح",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب الرمان",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب توت بري احمر",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب ل ᘭ مون",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب انااس",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب العل ᜻ ة",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب توت ازرق",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب توت بري ازرق",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب خ ᖔ خ",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب الﻼفندر",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب الزعفران",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "س ᢕ ᣂ ب بنكهات التوت ال ᢔ ᣂ ي",
-        "category": "syrups",
-        "quantity": 0,
-        "unit": "L",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "شوكوﻻتة ᗷ البندق نيوت ᘭ ﻼ",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 7.9
-    },
-    {
-        "name": "صوص شوكوﻻتة كندر",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 10.5
-    },
-    {
-        "name": "صوص ᚽ سك ᗫᖔ ت لو ᘻ س",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 12.5
-    },
-    {
-        "name": "صوص شوكوﻻتة ب ᘭ ضاء",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 8.2
-    },
-    {
-        "name": "ᗷ مك ᣄ ات الفستق الﺤل ᢔ ᢝ ᣎ",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 16
-    },
-    {
-        "name": "الفستق الن ᗖᖔ ل الفاخر",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 15
-    },
-    {
-        "name": "شوكوﻻتة ᗷ البندق نيوت ᘭ ﻼ",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.1
-    },
-    {
-        "name": "صوص شوكوﻻتة كندر",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.4
-    },
-    {
-        "name": "صوص ᚽ سك ᗫᖔ ت لو ᘻ س",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "صوص شوكوﻻتة ب ᘭ ضاء",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2
-    },
-    {
-        "name": "ᗷ مك ᣄ ات الفستق الﺤل ᢔ ᢝ ᣎ",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "الفستق الن ᗖᖔ ل الفاخر",
-        "category": "sweet_sauce",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 3.5
-    },
-    {
-        "name": "شوكوﻻتة اب ᘭ ض للتغط ᘭ ة",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "شوكوﻻتة دا ᜧ نة للتغط ᘭ ة",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "شوكوﻻتة ب ᡧ ᢝ ᣎ ᗷ الﺤل ᘭ ب للتغط",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 5
-    },
-    {
-        "name": "الواح الشوكوﻻتة الدا ᜧ نة",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "الواح الشوكوﻻتة ᗷ الﺤل ᘭ ب",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "الواح الشوكوﻻتة الب ᘭ ضاء",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "رقائق شوكوﻻتة ᗷ الﺤل ᘭ ب",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "رقائق شوكوﻻتة دا ᜧ نة",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "رقائق شوكوﻻتة اب ᘭ ض",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "اقراص شوكوﻻتة ᗷ الﺤل ᘭ ب",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "اقراص شوكوﻻتة اب ᘭ ض",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "اقراص شوكوﻻتة دا ᜧ نة",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "زخرفة الشوكوﻻتة الدا ᜧ نة",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "زخرفة ᗷ الﺤل ᘭ ب لل ᡨ ᡧ ᣂ ᢕ ᡧ ᣌᗫ",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    },
-    {
-        "name": "زخرفة ملونة لل ᡨ ᡧ ᣂ ᢕ ᡧ ᣌᗫ",
-        "category": "chocolate",
-        "quantity": 0,
-        "unit": "kg",
-        "min_quantity": 0,
-        "cost": 2.5
-    }
+  {
+    "name": "Chicken Shawarma 10kg",
+    "category": "meat",
+    "quantity": 5,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 13.9
+  },
+  {
+    "name": "Beef Striploin 20kg",
+    "category": "meat",
+    "quantity": 2,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 49.5
+  },
+  {
+    "name": "Chicken Breast 12kg",
+    "category": "meat",
+    "quantity": 4,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 20.9
+  },
+  {
+    "name": "Beef Tenderloin 18kg",
+    "category": "meat",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 73
+  },
+  {
+    "name": "Chicken Whole 10x1300g",
+    "category": "meat",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 14.5
+  },
+  {
+    "name": "Alsaffa Chicken Wings",
+    "category": "meat",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 11.5
+  },
+  {
+    "name": "Lamb Fat (Chinese)",
+    "category": "meat",
+    "quantity": 10,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 1.8
+  },
+  {
+    "name": "Ahl Al Sham Olive Oil 2x5L",
+    "category": "oils",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 10
+  },
+  {
+    "name": "Al Kebab Sunflower Oil 1x1.8",
+    "category": "oils",
+    "quantity": 2,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 9.5
+  },
+  {
+    "name": "Salt 12x1pcs",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 1.5
+  },
+  {
+    "name": "White Sugar",
+    "category": "pantry",
+    "quantity": 10,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.35
+  },
+  {
+    "name": "French Fries Frozen 9mm 4x2.5kg",
+    "category": "frozen",
+    "quantity": 4,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 5.5
+  },
+  {
+    "name": "Strawberry Frozen 10kg",
+    "category": "frozen",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 7.5
+  },
+  {
+    "name": "Mango Frozen Pulp 16kg",
+    "category": "frozen",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 12.381
+  },
+  {
+    "name": "Chickpeas 15kg",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "bag",
+    "min_quantity": 1,
+    "cost": 9
+  },
+  {
+    "name": "Cumin Powder 1kg",
+    "category": "spices",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 2.2
+  },
+  {
+    "name": "Ginger Powder 1kg",
+    "category": "spices",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 1.5
+  },
+  {
+    "name": "Seven Spices 1kg",
+    "category": "spices",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 4.5
+  },
+  {
+    "name": "Curry Powder 1kg",
+    "category": "spices",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 2.5
+  },
+  {
+    "name": "Al Kebab Tahina 18kg",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "drum",
+    "min_quantity": 1,
+    "cost": 22
+  },
+  {
+    "name": "Iranian Tomato Paste 12x800g",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 4.9
+  },
+  {
+    "name": "Beef Top Side 41kg",
+    "category": "meat",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 49
+  },
+  {
+    "name": "Mixed Pickles 9kg",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "drum",
+    "min_quantity": 1,
+    "cost": 3.9
+  },
+  {
+    "name": "White Vinegar 4x3.78L",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 2.9
+  },
+  {
+    "name": "Crystal Dish Wash Lemon 5Lx4",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 4
+  },
+  {
+    "name": "Crystal Hand Soap Rose 5Lx4",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 4
+  },
+  {
+    "name": "Tissue Box Queen 30x450",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 7.5
+  },
+  {
+    "name": "Clorogen Bleach 6x3.75L",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 5
+  },
+  {
+    "name": "Apron Disposable 10pkt",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 8
+  },
+  {
+    "name": "Air Freshener 300ml x12",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "dozen",
+    "min_quantity": 1,
+    "cost": 5
+  },
+  {
+    "name": "Tox Yellow Insect Killer 400ml",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "dozen",
+    "min_quantity": 1,
+    "cost": 4.8
+  },
+  {
+    "name": "Juice Glass Clear 14oz w/Lid 1000pcs",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 19.5
+  },
+  {
+    "name": "Tomato",
+    "category": "produce",
+    "quantity": 15,
+    "unit": "kg",
+    "min_quantity": 3,
+    "cost": 0.35
+  },
+  {
+    "name": "Cucumber",
+    "category": "produce",
+    "quantity": 8,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.4
+  },
+  {
+    "name": "Lettuce",
+    "category": "produce",
+    "quantity": 12,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.4
+  },
+  {
+    "name": "Parsley",
+    "category": "produce",
+    "quantity": 8,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.9
+  },
+  {
+    "name": "Rocca (Arugula)",
+    "category": "produce",
+    "quantity": 3,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.8
+  },
+  {
+    "name": "Mint",
+    "category": "produce",
+    "quantity": 0.5,
+    "unit": "kg",
+    "min_quantity": 0.5,
+    "cost": 0.8
+  },
+  {
+    "name": "Coriander",
+    "category": "produce",
+    "quantity": 0.2,
+    "unit": "kg",
+    "min_quantity": 0.5,
+    "cost": 1.2
+  },
+  {
+    "name": "Capsicum Red",
+    "category": "produce",
+    "quantity": 0.7,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 1.2
+  },
+  {
+    "name": "Egg Tray",
+    "category": "produce",
+    "quantity": 2,
+    "unit": "tray",
+    "min_quantity": 1,
+    "cost": 1.5
+  },
+  {
+    "name": "Potato",
+    "category": "produce",
+    "quantity": 6,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.3
+  },
+  {
+    "name": "Cauliflower",
+    "category": "produce",
+    "quantity": 2.4,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.5
+  },
+  {
+    "name": "Marrow (Zucchini)",
+    "category": "produce",
+    "quantity": 2,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.5
+  },
+  {
+    "name": "Onion Red",
+    "category": "produce",
+    "quantity": 10,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.25
+  },
+  {
+    "name": "Garlic",
+    "category": "produce",
+    "quantity": 6.4,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.8
+  },
+  {
+    "name": "Orange",
+    "category": "produce",
+    "quantity": 14,
+    "unit": "kg",
+    "min_quantity": 3,
+    "cost": 0.38
+  },
+  {
+    "name": "Lemon (South Africa)",
+    "category": "produce",
+    "quantity": 13.5,
+    "unit": "kg",
+    "min_quantity": 3,
+    "cost": 1
+  },
+  {
+    "name": "Mango",
+    "category": "produce",
+    "quantity": 5,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 1.2
+  },
+  {
+    "name": "Pomegranate",
+    "category": "produce",
+    "quantity": 3.6,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 1.2
+  },
+  {
+    "name": "Banana",
+    "category": "produce",
+    "quantity": 31,
+    "unit": "kg",
+    "min_quantity": 5,
+    "cost": 0.35
+  },
+  {
+    "name": "Eggplant",
+    "category": "produce",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.9
+  },
+  {
+    "name": "Green Chilli",
+    "category": "produce",
+    "quantity": 3.6,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.9
+  },
+  {
+    "name": "Pineapple",
+    "category": "produce",
+    "quantity": 0,
+    "unit": "pcs",
+    "min_quantity": 1,
+    "cost": 0
+  }
 ]
