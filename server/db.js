@@ -370,6 +370,35 @@ export async function initDb() {
     // IMPORTANT: remove this secret right after it runs, otherwise inventory
     // would be reset again on the next restart/deploy.
     if (process.env.SEED_INVENTORY === 'true') {
+      // The suppliers table and inventory.supplier_id column are created by
+      // migration 005, which has already run on any existing dev/prod DB.
+      let seedSuppliers = []
+      try {
+        seedSuppliers = JSON.parse(
+          await readFile(new URL('./seed-data/suppliers.json', import.meta.url), 'utf8')
+        )
+      } catch (err) {
+        throw new Error(`Failed to load supplier seed (server/seed-data/suppliers.json): ${err.message}`)
+      }
+      const supplierIdByName = {}
+      for (const s of seedSuppliers) {
+        const existing = await client.query('SELECT id FROM suppliers WHERE name = $1', [s.name])
+        if (existing.rows.length > 0) {
+          const id = existing.rows[0].id
+          await client.query(
+            'UPDATE suppliers SET contact_name=$2, phone=$3, email=$4, address=$5, notes=$6, active=true WHERE id=$1',
+            [id, s.contact_name ?? null, s.phone ?? null, s.email ?? null, s.address ?? null, s.notes ?? null]
+          )
+          supplierIdByName[s.name] = id
+        } else {
+          const ins = await client.query(
+            'INSERT INTO suppliers (name, contact_name, phone, email, address, notes) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
+            [s.name, s.contact_name ?? null, s.phone ?? null, s.email ?? null, s.address ?? null, s.notes ?? null]
+          )
+          supplierIdByName[s.name] = ins.rows[0].id
+        }
+      }
+
       await client.query('UPDATE inventory SET deleted_at = now() WHERE deleted_at IS NULL')
       let seedItems
       try {
@@ -381,12 +410,17 @@ export async function initDb() {
       }
       for (const item of seedItems) {
         await client.query(
-          'INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost) VALUES ($1,$2,$3,$4,$5,$6)',
-          [item.name, item.category ?? null, item.quantity ?? 0, item.unit ?? 'kg', item.min_quantity ?? 0, item.cost ?? 0]
+          'INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost, supplier_id) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          [
+            item.name, item.category ?? null, item.quantity ?? 0, item.unit ?? 'kg',
+            item.min_quantity ?? 0, item.cost ?? 0,
+            item.supplier ? (supplierIdByName[item.supplier] ?? null) : null,
+          ]
         )
       }
       console.warn(
-        `[db] SEED_INVENTORY is set — reset inventory and inserted ${seedItems.length} item(s). ` +
+        `[db] SEED_INVENTORY is set — seeded ${seedSuppliers.length} supplier(s), ` +
+        `reset inventory and inserted ${seedItems.length} item(s). ` +
         'Remove this secret so inventory is not reset on restart.'
       )
     }
