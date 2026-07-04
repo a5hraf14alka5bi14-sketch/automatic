@@ -75,3 +75,8 @@ build = ["npm", "run", "build"]
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 120000
+
+[userenv]
+
+[userenv.production]
+CLEAR_INVENTORY = "true"

@@ -363,6 +363,21 @@ export async function initDb() {
       }
     }
 
+    // One-time maintenance: when CLEAR_INVENTORY is set, soft-delete every
+    // active inventory item on startup. This exists to clear the published
+    // site's inventory (the production DB is not directly writable by tooling).
+    // IMPORTANT: remove this secret right after it runs, otherwise any newly
+    // added inventory would be wiped again on the next restart/deploy.
+    if (process.env.CLEAR_INVENTORY === 'true') {
+      const cleared = await client.query(
+        'UPDATE inventory SET deleted_at = now() WHERE deleted_at IS NULL'
+      )
+      console.warn(
+        `[db] CLEAR_INVENTORY is set — soft-deleted ${cleared.rowCount} inventory item(s). ` +
+        'Remove this secret so future items are not cleared on restart.'
+      )
+    }
+
     const menuCheck = await client.query('SELECT id FROM menu_items LIMIT 1')
     if (menuCheck.rows.length === 0) {
       // Seed the real Arabic menu (names, real prices, drinks & desserts) from
