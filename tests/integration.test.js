@@ -411,3 +411,120 @@ describe('Kitchen role order financial field filtering', () => {
     await pool.query('DELETE FROM menu_items WHERE id=$1', [mId])
   })
 })
+
+// ── Elevation of privilege: user management ──────────────────────────────────
+describe('User management privilege boundary', () => {
+  it('forbids a non-admin from creating users (403)', async () => {
+    const res = await staff.post('/api/users').send({
+      name: `${TAG} Sneaky`,
+      email: `${TAG}_sneaky@test.local`,
+      password: PASSWORD,
+      role: 'admin',
+    })
+    expect(res.status).toBe(403)
+    // Nothing should have been written.
+    const check = await pool.query('SELECT id FROM users WHERE email=$1', [`${TAG}_sneaky@test.local`])
+    expect(check.rows.length).toBe(0)
+  })
+
+  it("forbids a non-admin from changing another user's role (403)", async () => {
+    const res = await staff.patch(`/api/users/${ids.adminUser}/role`).send({ role: 'staff' })
+    expect(res.status).toBe(403)
+    // The admin's role must be untouched.
+    const row = await pool.query('SELECT role FROM users WHERE id=$1', [ids.adminUser])
+    expect(row.rows[0].role).toBe('admin')
+  })
+
+  it('lets an admin create a user, and the new user defaults to must_change_password', async () => {
+    // Joi validates real TLDs, so use a routable-looking domain (still TAG-scoped).
+    const email = `${TAG}_created@example.com`
+    const res = await admin.post('/api/users').send({
+      name: `${TAG} Created`,
+      email,
+      password: PASSWORD,
+      role: 'cashier',
+    })
+    expect(res.status).toBe(201)
+    expect(res.body.role).toBe('cashier')
+    // Response must never echo the password (plain or hashed).
+    expect(res.body.password).toBeUndefined()
+
+    const newId = res.body.id
+    const row = await pool.query('SELECT must_change_password FROM users WHERE id=$1', [newId])
+    expect(row.rows[0].must_change_password).toBe(true)
+
+    // And an admin can change that user's role.
+    const patch = await admin.patch(`/api/users/${newId}/role`).send({ role: 'kitchen' })
+    expect(patch.status).toBe(200)
+    expect(patch.body.role).toBe('kitchen')
+
+    await pool.query('DELETE FROM users WHERE id=$1', [newId])
+  })
+})
+
+// ── Information disclosure + privilege: integration secrets ───────────────────
+describe('Integration secrets do not leak and are management-only', () => {
+  const KNOWN_SECRET = `${TAG}_sk-supersecret-value-1234567890`
+  let originalOpenAI = null
+
+  beforeAll(async () => {
+    // Preserve any existing dev config so our write can be rolled back exactly.
+    const r = await pool.query("SELECT value FROM settings WHERE key='openai_api_key'")
+    originalOpenAI = r.rows[0]?.value ?? null
+  })
+
+  afterAll(async () => {
+    // Restore the original value (or remove the row if there was none) so this
+    // block never taints real dev integration config.
+    if (originalOpenAI === null) {
+      await pool.query("DELETE FROM settings WHERE key='openai_api_key'")
+    } else {
+      await pool.query("UPDATE settings SET value=$1 WHERE key='openai_api_key'", [originalOpenAI])
+    }
+  })
+
+  it('forbids a non-admin/manager from reading the integrations hub (403)', async () => {
+    const res = await staff.get('/api/integrations')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids a non-admin/manager from mutating integration config (403)', async () => {
+    const res = await staff.put('/api/integrations/openai/config').send({ apiKey: KNOWN_SECRET })
+    expect(res.status).toBe(403)
+    // The forbidden write must not have persisted anything.
+    const check = await pool.query("SELECT value FROM settings WHERE key='openai_api_key'")
+    const stored = check.rows[0]?.value || ''
+    expect(stored.includes(KNOWN_SECRET)).toBe(false)
+  })
+
+  it('never returns raw secret values when reading integration status (masked)', async () => {
+    // Store a known secret through the real admin config path, then read it back.
+    const put = await admin.put('/api/integrations/openai/config').send({ apiKey: KNOWN_SECRET })
+    expect(put.status).toBe(200)
+
+    const res = await admin.get('/api/integrations')
+    expect(res.status).toBe(200)
+    expect(res.body.openai.configured).toBe(true)
+
+    // The raw secret must never appear anywhere in the serialized response,
+    // and the masked value must actually be masked (contain bullet chars).
+    const serialized = JSON.stringify(res.body)
+    expect(serialized.includes(KNOWN_SECRET)).toBe(false)
+    expect(res.body.openai.masked).toContain('•')
+  })
+
+  it('never returns the raw Notion API key from /api/notion/config (masked)', async () => {
+    const res = await admin.get('/api/notion/config')
+    expect(res.status).toBe(200)
+    // Config exposes only a masked key + presence flags, never the raw value.
+    expect(res.body.apiKey).toBeUndefined()
+    if (res.body.configured) {
+      expect(res.body.apiKeyMasked).toContain('•')
+    }
+  })
+
+  it('forbids a non-admin/manager from reading Notion config (403)', async () => {
+    const res = await staff.get('/api/notion/config')
+    expect(res.status).toBe(403)
+  })
+})

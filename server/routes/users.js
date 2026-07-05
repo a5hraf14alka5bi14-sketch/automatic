@@ -69,8 +69,9 @@ router.post('/', requireRole('admin'), validate(createUserSchema), async (req, r
   const { name, email, password, role } = req.body
   try {
     const hash = await bcrypt.hash(password, 10)
+    // Admin-created accounts must reset the admin-chosen password on first login.
     const result = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES ($1,$2,$3,$4) RETURNING id, name, email, role, created_at',
+      'INSERT INTO users (name, email, password, role, must_change_password) VALUES ($1,$2,$3,$4,true) RETURNING id, name, email, role, created_at',
       [name, email, hash, role || 'staff']
     )
     res.status(201).json(result.rows[0])
