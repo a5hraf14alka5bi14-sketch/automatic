@@ -29,20 +29,34 @@ export default function NotionIntegration() {
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [selectedProject, setSelectedProject] = useState(null)
   const [updatingId, setUpdatingId] = useState(null)
+  const [loadError, setLoadError] = useState(false)
 
+  // Loaders return true on success, false on failure so callers can tell a
+  // genuinely empty result apart from a load error (network down / backend
+  // unreachable / non-OK response) and surface it instead of a blank page.
   const loadConfig = useCallback(async () => {
-    try { const r = await apiFetch(`${API}/config`); setConfig(await r.json()) } catch {}
+    try {
+      const r = await apiFetch(`${API}/config`)
+      if (!r.ok) throw new Error('config')
+      setConfig(await r.json()); return true
+    } catch { return false }
   }, [])
 
   const loadProjects = useCallback(async () => {
-    try { const r = await apiFetch(`${API}/projects`); setProjects(await r.json()) } catch {}
+    try {
+      const r = await apiFetch(`${API}/projects`)
+      if (!r.ok) throw new Error('projects')
+      setProjects(await r.json()); return true
+    } catch { return false }
   }, [])
 
   const loadTasks = useCallback(async (projectFilter) => {
     try {
       const url = projectFilter ? `${API}/tasks?project_id=${projectFilter.id}` : `${API}/tasks`
-      const r = await apiFetch(url); setTasks(await r.json())
-    } catch {}
+      const r = await apiFetch(url)
+      if (!r.ok) throw new Error('tasks')
+      setTasks(await r.json()); return true
+    } catch { return false }
   }, [])
 
   const loadSyncStatus = useCallback(async () => {
@@ -51,21 +65,30 @@ export default function NotionIntegration() {
         apiFetch(`${INT_API}/notion/sync/status`),
         apiFetch(`${INT_API}/notion/auto-sync`)
       ])
+      if (!statusRes.ok || !autoRes.ok) throw new Error('sync-status')
       setSyncStatus(await statusRes.json())
-      setAutoSync(await autoRes.json())
-    } catch {}
+      setAutoSync(await autoRes.json()); return true
+    } catch { return false }
   }, [])
 
-  useEffect(() => {
-    Promise.all([loadConfig(), loadProjects(), loadTasks(), loadSyncStatus()])
-      .finally(() => setLoading(false))
-  }, [loadConfig, loadProjects, loadTasks, loadSyncStatus])
+  const loadAll = useCallback(async () => {
+    const results = await Promise.all([loadConfig(), loadProjects(), loadTasks(), loadSyncStatus()])
+    const failed = results.some(ok => !ok)
+    setLoadError(failed)
+    if (failed) showToast('Couldn\u2019t load some Notion data. Check your connection and try refreshing.', 'error')
+    return !failed
+  }, [loadConfig, loadProjects, loadTasks, loadSyncStatus, showToast])
 
-  const handleProjectFilter = (project) => {
+  useEffect(() => {
+    loadAll().finally(() => setLoading(false))
+  }, [loadAll])
+
+  const handleProjectFilter = async (project) => {
     const next = selectedProject?.id === project.id ? null : project
     setSelectedProject(next)
-    loadTasks(next)
     setTab('tasks')
+    const ok = await loadTasks(next)
+    if (!ok) showToast('Failed to load tasks from Notion.', 'error')
   }
 
   const sync = async (type) => {
@@ -174,6 +197,17 @@ export default function NotionIntegration() {
       </div>
 
       <ConnectionStatus config={config} />
+
+      {loadError && (
+        <div className="text-sm px-4 py-3 rounded-lg flex items-center gap-2 bg-red-500/10 text-red-400 border border-red-500/20">
+          <span>⚠</span>
+          <span>Couldn’t load some Notion data — the page may be incomplete. Check your connection and try again.</span>
+          <button
+            onClick={() => { setLoading(true); loadAll().finally(() => setLoading(false)) }}
+            className="ml-auto px-3 py-1 bg-red-500/15 hover:bg-red-500/25 rounded-md text-xs font-medium transition-colors"
+          >Retry</button>
+        </div>
+      )}
 
       {syncMsg && (
         <div className={`text-sm px-4 py-3 rounded-lg flex items-center gap-2 ${
