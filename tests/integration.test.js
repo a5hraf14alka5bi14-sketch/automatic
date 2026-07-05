@@ -371,6 +371,27 @@ describe('must_change_password propagation', () => {
   })
 })
 
+// ── Regression: admin self-lockout guards ────────────────────────────────────
+describe('Admin self-lockout protection', () => {
+  it('blocks an admin from changing their own role and leaves it unchanged', async () => {
+    const res = await admin.patch(`/api/users/${ids.adminUser}/role`).send({ role: 'staff' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Cannot change your own role')
+
+    const check = await pool.query('SELECT role FROM users WHERE id=$1', [ids.adminUser])
+    expect(check.rows[0].role).toBe('admin')
+  })
+
+  it('blocks an admin from deleting their own account and leaves the row intact', async () => {
+    const res = await admin.delete(`/api/users/${ids.adminUser}`)
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Cannot delete your own account')
+
+    const check = await pool.query('SELECT id FROM users WHERE id=$1', [ids.adminUser])
+    expect(check.rows.length).toBe(1)
+  })
+})
+
 // ── Regression: kitchen role order field filtering ────────────────────────────
 describe('Kitchen role order financial field filtering', () => {
   let kitchen
