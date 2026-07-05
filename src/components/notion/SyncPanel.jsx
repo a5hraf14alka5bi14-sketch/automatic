@@ -7,7 +7,7 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
   const showToast = useToast()
   const cooling = cooldown?.cooling
   const remaining = cooldown?.remaining
-  const [intervalMin, setIntervalMin] = useState(autoSync?.interval_minutes ?? autoSync?.interval_min ?? 15)
+  const [intervalMin, setIntervalMin] = useState(autoSync?.interval_minutes ?? autoSync?.interval_min ?? 60)
   const [savingAuto, setSavingAuto] = useState(false)
 
   // autoSync arrives asynchronously (null on first render), so sync the dropdown

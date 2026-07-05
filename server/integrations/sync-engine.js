@@ -61,7 +61,7 @@ export async function runSync(service = 'notion') {
 
 // ── Auto-sync timer ───────────────────────────────────────────────────────────
 
-export function startAutoSync(service = 'notion', intervalMs = 15 * 60 * 1000) {
+export function startAutoSync(service = 'notion', intervalMs = 60 * 60 * 1000) {
   stopAutoSync()
   currentInterval = intervalMs
 

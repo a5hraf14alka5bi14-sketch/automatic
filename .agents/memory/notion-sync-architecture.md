@@ -42,3 +42,8 @@ description: How the bi-directional Notion sync works and all DS IDs
 - Purchase Orders: Supplier field → RELATION→Suppliers
 - Created Recipe Ingredients junction DB (DS: 8a2c31ac)
 - Added views: Tasks (Kanban+Calendar), Projects (Kanban), Inventory (Gallery), Menu (Gallery), Customers (Table), PO (Board), Staff (Table)
+
+## Auto-sync cadence preference
+- User considers frequent Notion auto-sync "too much" (hammers Notion). Default interval is deliberately **60 min**, not 15.
+- **Why:** Notion API rate limits + user feedback on 2026-07-05. Do NOT lower the default without asking.
+- **How to apply:** Keep the full dropdown range (5min…24h, min/max bounds 5/1440) so users can opt into faster manually, but the fallback/default everywhere (config, startup restore, API PUT/GET, SyncPanel useState, sync-engine startAutoSync param) stays 60.

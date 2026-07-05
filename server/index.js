@@ -202,7 +202,7 @@ async function initSyncEngine() {
     for (const row of r.rows) cfg[row.key] = row.value
 
     if (cfg['notion_auto_sync_enabled'] === 'true') {
-      const mins = parseInt(cfg['notion_auto_sync_interval']) || 15
+      const mins = parseInt(cfg['notion_auto_sync_interval']) || 60
       startAutoSync('notion', mins * 60 * 1000)
       console.log(`[sync-engine] Restored auto-sync for notion (${mins} min)`)
     }

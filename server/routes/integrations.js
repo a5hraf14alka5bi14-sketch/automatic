@@ -272,7 +272,7 @@ router.get('/notion/sync/status', requireRole('admin', 'manager'), async (req, r
 router.put('/notion/auto-sync', requireRole('admin', 'manager'), async (req, res) => {
   const { enabled, interval_minutes } = req.body
   try {
-    const mins = Math.max(5, Math.min(1440, parseInt(interval_minutes) || 15))
+    const mins = Math.max(5, Math.min(1440, parseInt(interval_minutes) || 60))
 
     if (enabled) {
       startAutoSync('notion', mins * 60 * 1000)
@@ -290,7 +290,7 @@ router.put('/notion/auto-sync', requireRole('admin', 'manager'), async (req, res
     res.json({
       success: true,
       enabled: savedEnabled === 'true',
-      interval_minutes: parseInt(savedInterval) || 15,
+      interval_minutes: parseInt(savedInterval) || 60,
       ...getSyncEngineStatus()
     })
   } catch (err) {
@@ -309,7 +309,7 @@ router.get('/notion/auto-sync', requireRole('admin', 'manager'), async (req, res
     ])
     res.json({
       enabled: enabled === 'true',
-      interval_minutes: parseInt(interval) || 15,
+      interval_minutes: parseInt(interval) || 60,
       ...getSyncEngineStatus()
     })
   } catch (err) {

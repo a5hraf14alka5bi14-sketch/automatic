@@ -9,7 +9,7 @@
       "settings_keys": ["notion_api_key", "notion_projects_db", "notion_tasks_db"],
       "auto_sync": {
         "enabled": false,
-        "interval_minutes": 15,
+        "interval_minutes": 60,
         "min_interval_minutes": 5,
         "max_interval_minutes": 1440
       },
