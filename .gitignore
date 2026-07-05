@@ -38,3 +38,6 @@ Thumbs.db
 
 # Local DB backups
 backups/
+
+# Test coverage output
+coverage/

@@ -312,27 +312,40 @@ describe('Soft delete', () => {
 
 // ── Regression: PO double-receive guard ──────────────────────────────────────
 describe('PO double-receive guard', () => {
-  it('returns 409 when the same PO is received a second time', async () => {
+  it('returns 409 on second receive and increments inventory exactly once', async () => {
     const suppRes = await admin.post('/api/suppliers').send({ name: `${TAG} DoubleRecv Supplier` })
     expect(suppRes.status).toBe(201)
     const suppId = suppRes.body.id
 
+    // Linked inventory item (starts at 0) so we can prove the restock runs once.
+    const inv = await pool.query(
+      "INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost) VALUES ($1,'test',0,'kg',0,2) RETURNING id",
+      [`${TAG} Widget Stock`]
+    )
+    const invId = inv.rows[0].id
+
     const poRes = await admin.post('/api/suppliers/purchase-orders').send({
       supplier_id: suppId,
-      items: [{ item_name: `${TAG} Widget`, quantity: 10, unit: 'kg', unit_cost: 2 }],
+      items: [{ inventory_id: invId, item_name: `${TAG} Widget`, quantity: 10, unit: 'kg', unit_cost: 2 }],
     })
     expect(poRes.status).toBe(201)
     const poId = poRes.body.id
 
     const r1 = await admin.post(`/api/suppliers/purchase-orders/${poId}/receive`)
     expect(r1.status).toBe(200)
+    const afterFirst = await pool.query('SELECT quantity FROM inventory WHERE id=$1', [invId])
+    expect(parseFloat(afterFirst.rows[0].quantity)).toBeCloseTo(10, 3)
 
     const r2 = await admin.post(`/api/suppliers/purchase-orders/${poId}/receive`)
     expect(r2.status).toBe(409)
+    // The rejected second receive must NOT have restocked again.
+    const afterSecond = await pool.query('SELECT quantity FROM inventory WHERE id=$1', [invId])
+    expect(parseFloat(afterSecond.rows[0].quantity)).toBeCloseTo(10, 3)
 
     await pool.query('DELETE FROM purchase_order_items WHERE purchase_order_id=$1', [poId])
     await pool.query('DELETE FROM purchase_orders WHERE id=$1', [poId])
     await pool.query('DELETE FROM suppliers WHERE id=$1', [suppId])
+    await pool.query('DELETE FROM inventory WHERE id=$1', [invId])
   })
 })
 
@@ -388,6 +401,8 @@ describe('Kitchen role order financial field filtering', () => {
     expect(res.body.items).toBeDefined()
     expect(res.body.total).toBeUndefined()
     expect(res.body.subtotal).toBeUndefined()
+    expect(res.body.tax).toBeUndefined()
+    expect(res.body.discount).toBeUndefined()
     expect(res.body.payment_method).toBeUndefined()
     expect(res.body.void_reason).toBeUndefined()
 

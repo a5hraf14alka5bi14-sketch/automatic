@@ -6,9 +6,19 @@ export default defineConfig({
   test: {
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'lcov'],
       include: ['server/**/*.js'],
-      exclude: ['server/migrations/**'],
+      exclude: ['server/migrations/**', 'node_modules', 'dist', '.local', 'tests'],
+      // Baseline floors set just below the current measured coverage. They pass
+      // today (so CI is not broken now) but surface a regression the moment
+      // coverage slips below the documented baseline. Raise these as coverage
+      // improves; they are a ratchet, not a hard target.
+      thresholds: {
+        statements: 30,
+        branches: 19,
+        functions: 24,
+        lines: 32,
+      },
     },
   },
   server: {
