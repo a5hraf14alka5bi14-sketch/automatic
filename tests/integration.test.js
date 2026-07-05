@@ -216,6 +216,64 @@ describe('Stock availability endpoint', () => {
   })
 })
 
+describe('Unlinked recipe ingredients are skipped on completion', () => {
+  it('deducts only the linked ingredient and completes cleanly when a recipe has an unlinked row', async () => {
+    // A dish whose recipe has one LINKED ingredient (deducts real stock) and
+    // one UNLINKED ingredient (inventory_item_id NULL — intentionally not
+    // stock-tracked). Completion must deduct only the linked one and never fail.
+    const inv = await pool.query(
+      "INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost) VALUES ($1,'test',5,'kg',0,3) RETURNING id",
+      [`${TAG} Cheese`]
+    )
+    const invId = inv.rows[0].id
+    const menu = await pool.query(
+      "INSERT INTO menu_items (name, category, price, available) VALUES ($1,'test',3.0,true) RETURNING id",
+      [`${TAG} Mixed Dish`]
+    )
+    const mId = menu.rows[0].id
+    // Linked row: 250 g of Cheese per item.
+    await pool.query(
+      "INSERT INTO recipe_ingredients (menu_item_id, inventory_item_id, ingredient_name, quantity, unit) VALUES ($1,$2,$3,250,'g')",
+      [mId, invId, `${TAG} Cheese`]
+    )
+    // Unlinked row: no inventory_item_id — must be skipped entirely.
+    await pool.query(
+      "INSERT INTO recipe_ingredients (menu_item_id, inventory_item_id, ingredient_name, quantity, unit) VALUES ($1,NULL,$2,100,'g')",
+      [mId, `${TAG} Untracked Spice`]
+    )
+
+    const create = await admin.post('/api/orders').send({
+      type: 'takeaway',
+      items: [{ menu_item_id: mId, name: `${TAG} Mixed Dish`, quantity: 2, price: 3.0 }],
+      subtotal: 6, tax: 0, total: 6,
+    })
+    expect(create.status).toBe(201)
+    const oid = create.body.id
+
+    const complete = await admin.patch(`/api/orders/${oid}/status`).send({ status: 'completed', payment_method: 'cash' })
+    expect(complete.status).toBe(200)
+
+    // Linked Cheese: 250 g * 2 = 500 g = 0.5 kg deducted from 5 kg -> 4.5 kg.
+    const after = await pool.query('SELECT quantity FROM inventory WHERE id=$1', [invId])
+    expect(parseFloat(after.rows[0].quantity)).toBeCloseTo(4.5, 3)
+
+    // Exactly one linked ingredient generated a 'sale' movement; the unlinked
+    // row produced none (it has no inventory_item_id to record against).
+    const mov = await pool.query(
+      "SELECT COUNT(*)::int AS c FROM stock_movements WHERE reference_type='order' AND reference_id=$1 AND movement_type='sale'",
+      [oid]
+    )
+    expect(mov.rows[0].c).toBe(1)
+
+    await pool.query("DELETE FROM stock_movements WHERE reference_type='order' AND reference_id=$1", [oid])
+    await pool.query('DELETE FROM order_items WHERE order_id=$1', [oid])
+    await pool.query('DELETE FROM orders WHERE id=$1', [oid])
+    await pool.query('DELETE FROM recipe_ingredients WHERE menu_item_id=$1', [mId])
+    await pool.query('DELETE FROM menu_items WHERE id=$1', [mId])
+    await pool.query('DELETE FROM inventory WHERE id=$1', [invId])
+  })
+})
+
 describe('Soft delete', () => {
   it('hides a deleted inventory item from the list but keeps the row', async () => {
     const del = await admin.delete(`/api/inventory/${ids.invItem2}`)
