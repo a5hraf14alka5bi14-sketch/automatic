@@ -618,3 +618,28 @@ describe('Expensive integration actions reject low-privilege roles', () => {
     expect(res.status).toBe(403)
   })
 })
+
+// Even an *authorized* manager/admin can drain external API quotas (or drive up
+// spend) by hammering the costly integration endpoints. A per-user rate limiter
+// must reject excess requests with a 429 BEFORE the handler fires any real
+// third-party call. To assert "no external call is made" without stubbing the
+// network, we spend the budget with empty-body chat requests: openai/chat
+// returns 400 for empty `messages` *before* touching OpenAI, yet the rate
+// limiter (mounted ahead of the handler) still counts each one. Once the budget
+// is exhausted, the next request is short-circuited with a 429 — proving the
+// limit trips ahead of any external call.
+describe('Costly integration actions are rate-limited per user', () => {
+  it('returns 429 with a retry hint once the per-user budget is exhausted', async () => {
+    const MAX = 10 // must match costlyIntegrationLimiter.max in integrations.js
+    let last
+    for (let i = 0; i < MAX + 1; i++) {
+      last = await admin.post('/api/integrations/openai/chat').send({ messages: [] })
+    }
+    // The first MAX requests short-circuit at the handler's empty-messages guard
+    // (400, no external call); the request that exceeds the budget is a 429 from
+    // the limiter middleware — which runs before the handler, so no OpenAI call.
+    expect(last.status).toBe(429)
+    expect(last.body.error).toMatch(/too many/i)
+    expect(last.body.retry_after_seconds).toBeGreaterThan(0)
+  })
+})

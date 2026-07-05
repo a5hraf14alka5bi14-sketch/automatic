@@ -1,4 +1,5 @@
 import express from 'express'
+import rateLimit from 'express-rate-limit'
 import { pool } from '../db.js'
 import { logger } from '../logger.js'
 import { requireRole } from '../middleware/auth.js'
@@ -42,6 +43,28 @@ const router = express.Router()
 // The whole integrations hub (config, sync, status, AI) is management-only —
 // backend authority for the frontend route guard on /integrations.
 router.use(requireRole('admin', 'manager'))
+
+// ── Per-user cooldown for costly third-party actions ──────────────────────────
+// Each of these endpoints fires real Notion / GitHub / OpenAI API calls, so even
+// an authorized manager/admin hammering them can drain external quotas or drive
+// up spend (a denial-of-service risk flagged in the threat model). This limiter
+// is keyed by user id (verifyToken + requireRole run first, so req.user is
+// always present) and rejects excess requests with a 429 *before* the handler
+// runs — meaning no external call is made on the rate-limited path.
+const costlyIntegrationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true, // exposes RateLimit-* + Retry-After hints
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.user?.id ?? 'anon'),
+  handler: (req, res) => {
+    const retryAfter = Math.ceil((req.rateLimit?.resetTime?.getTime() - Date.now()) / 1000) || 60
+    res.status(429).json({
+      error: 'Too many integration actions. Please wait before retrying.',
+      retry_after_seconds: retryAfter > 0 ? retryAfter : 60,
+    })
+  },
+})
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,7 +193,7 @@ router.post('/:service/test', requireRole('admin', 'manager'), async (req, res) 
 
 // ── POST /api/integrations/notion/sync — pull all from Notion ────────────────
 
-router.post('/notion/sync', requireRole('admin', 'manager'), async (req, res) => {
+router.post('/notion/sync', costlyIntegrationLimiter, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const { type } = req.body
     let result
@@ -288,7 +311,7 @@ router.get('/notion/auto-sync', async (req, res) => {
 
 // ── POST /api/integrations/github/sync ───────────────────────────────────────
 
-router.post('/github/sync', requireRole('admin', 'manager'), async (req, res) => {
+router.post('/github/sync', costlyIntegrationLimiter, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const repos = await fetchGitHubRepos()
     let synced = 0
@@ -359,7 +382,7 @@ router.post('/github/link-notion', requireRole('admin', 'manager'), async (req, 
 
 // ── POST /api/integrations/notion/push — push PG records without notion_id ──
 
-router.post('/notion/push', requireRole('admin', 'manager'), async (req, res) => {
+router.post('/notion/push', costlyIntegrationLimiter, requireRole('admin', 'manager'), async (req, res) => {
   const { type } = req.body
   try {
     let result
@@ -411,7 +434,7 @@ router.get('/openai/summary', async (req, res) => {
 })
 
 // ── POST /api/integrations/openai/summary — generate & store daily summary ───
-router.post('/openai/summary', requireRole('admin', 'manager'), async (req, res) => {
+router.post('/openai/summary', costlyIntegrationLimiter, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const { generateDailySummary } = await import('../integrations/openai.js')
     // Build KPI snapshot directly from DB — avoids fragile internal HTTP fetch
@@ -460,7 +483,7 @@ router.post('/openai/summary', requireRole('admin', 'manager'), async (req, res)
 
 // ── POST /api/integrations/openai/chat ───────────────────────────────────────
 
-router.post('/openai/chat', requireRole('admin', 'manager'), async (req, res) => {
+router.post('/openai/chat', costlyIntegrationLimiter, requireRole('admin', 'manager'), async (req, res) => {
   const { messages, model } = req.body
   if (!messages?.length) return res.status(400).json({ error: 'messages required' })
   try {
