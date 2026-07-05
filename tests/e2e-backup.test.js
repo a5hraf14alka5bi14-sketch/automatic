@@ -145,8 +145,11 @@ describe('Audit log', () => {
   })
 
   it('audit entries have required fields', async () => {
-    // Make a mutation so something is logged
+    // Make a mutation so something is logged, then restore the original value
+    const orig = await admin.get('/api/settings')
+    const origName = orig.body?.restaurant_name ?? 'Automatic'
     await admin.put('/api/settings').send({ restaurant_name: `${TAG} Test` })
+    await admin.put('/api/settings').send({ restaurant_name: origName })
     const res = await admin.get('/api/admin/audit?limit=5')
     if (res.body.length > 0) {
       const entry = res.body[0]

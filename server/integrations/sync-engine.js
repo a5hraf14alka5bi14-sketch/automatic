@@ -4,6 +4,7 @@
  * Extensible: add new service adapters by calling registerAdapter().
  */
 import { pool } from '../db.js'
+import { logger } from '../logger.js'
 
 const adapters = {}
 let timer = null
@@ -26,7 +27,7 @@ async function logSync(service, direction, status, counts = {}, errorMsg = null)
        counts.synced || 0, counts.total || 0, errorMsg || null]
     )
   } catch (e) {
-    console.error('[sync-engine] Failed to write sync_log:', e.message)
+    logger.error('[sync-engine] Failed to write sync_log', { err: e.message })
   }
 }
 
@@ -37,7 +38,7 @@ export async function runSync(service = 'notion') {
   if (!fn) throw new Error(`No sync adapter registered for: ${service}`)
 
   const started = Date.now()
-  console.log(`[sync-engine] Starting ${service} sync...`)
+  logger.info(`[sync-engine] Starting ${service} sync...`)
 
   try {
     const result = await fn()
@@ -50,11 +51,11 @@ export async function runSync(service = 'notion') {
     await logSync(service, 'pull', 'success',
       { synced: totalSynced, total: totalItems })
 
-    console.log(`[sync-engine] ${service} sync done in ${ms}ms — ${totalSynced}/${totalItems} items`)
+    logger.info(`[sync-engine] ${service} sync done in ${ms}ms — ${totalSynced}/${totalItems} items`)
     return { success: true, ms, ...result }
   } catch (e) {
     await logSync(service, 'pull', 'error', {}, e.message)
-    console.error(`[sync-engine] ${service} sync failed:`, e.message)
+    logger.error(`[sync-engine] ${service} sync failed`, { err: e.message })
     throw e
   }
 }
@@ -65,7 +66,7 @@ export function startAutoSync(service = 'notion', intervalMs = 60 * 60 * 1000) {
   stopAutoSync()
   currentInterval = intervalMs
 
-  console.log(`[sync-engine] Auto-sync enabled for ${service} every ${intervalMs / 60000} min`)
+  logger.info(`[sync-engine] Auto-sync enabled for ${service} every ${intervalMs / 60000} min`)
 
   timer = setInterval(async () => {
     try { await runSync(service) }
@@ -81,7 +82,7 @@ export function stopAutoSync() {
     clearInterval(timer)
     timer = null
     currentInterval = null
-    console.log('[sync-engine] Auto-sync stopped')
+    logger.info('[sync-engine] Auto-sync stopped')
   }
 }
 
