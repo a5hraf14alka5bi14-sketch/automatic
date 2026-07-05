@@ -1,16 +1,17 @@
 # Automatic Restaurant OS
 
-## Current Version: v0.9.0 — Production Inventory Complete (2026-07-04)
+## Current Version: v0.10.0 — Invoice Batch 2 Imported (2026-07-05)
 
 | | |
 |---|---|
-| **Release** | v0.9.0 — Production Inventory Complete |
+| **Release** | v0.10.0 — Invoice Batch 2 Imported |
 | **Test suite** | 190/190 passing |
 | **Migrations** | 009 applied (supplier name unique index) |
-| **Inventory** | 54 items · 7 categories · 3 suppliers (all linked) |
-| **Suppliers** | Al Aamer Majestic S.P.C (24) · Valley Deer For Investment S.P.C (22) · Al Sanabel (8) |
+| **Inventory** | 82 active items · 7 categories · 3 suppliers (all linked) |
+| **Purchases** | 10 purchase orders (PO#1–#10) · 150 line items · OMR 2624.360 total |
+| **Suppliers** | Al Aamer Majestic S.P.C · Valley Deer For Investment S.P.C · Al Sanabel |
 | **Dedup protection** | App-level (POST+PATCH) + DB partial unique index WHERE active |
-| **Next milestone** | Invoice Batch 2 — import next round of supplier invoices |
+| **Next milestone** | Invoice #2309 (Valley Deer, 5-Apr) — awaiting clearer photo; GitHub history reconcile |
 
 ---
 
