@@ -122,6 +122,85 @@ describe('RBAC', () => {
   })
 })
 
+// ── Suppliers + purchase orders are management-only (read + write) ────────────
+// Supplier contacts and purchase-order totals are vendor/financial data. Lower
+// privilege roles must not be able to READ them (previously the GET routes had
+// no role guard), nor mutate them.
+describe('Supplier & purchase-order data is management-only', () => {
+  let cashier, staffAgent
+  const SUP_CASHIER = `${TAG}_sup_cashier@test.local`
+  const SUP_STAFF = `${TAG}_sup_staff@test.local`
+
+  beforeAll(async () => {
+    await seedUser(SUP_CASHIER, 'cashier')
+    await seedUser(SUP_STAFF, 'staff')
+    cashier = await login(SUP_CASHIER)
+    staffAgent = await login(SUP_STAFF)
+  })
+
+  afterAll(async () => {
+    await pool.query('DELETE FROM users WHERE email = ANY($1)', [[SUP_CASHIER, SUP_STAFF]])
+  })
+
+  it('forbids a cashier from listing suppliers (403)', async () => {
+    const res = await cashier.get('/api/suppliers')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids a staff user from listing suppliers (403)', async () => {
+    const res = await staffAgent.get('/api/suppliers')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids a cashier from viewing purchase orders (financial data) (403)', async () => {
+    const res = await cashier.get('/api/suppliers/purchase-orders')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids a staff user from viewing purchase orders (financial data) (403)', async () => {
+    const res = await staffAgent.get('/api/suppliers/purchase-orders')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids a cashier from creating a supplier (403)', async () => {
+    const res = await cashier.post('/api/suppliers').send({ name: `${TAG} Nope Supplier` })
+    expect(res.status).toBe(403)
+  })
+
+  it('lets a manager list suppliers and purchase orders (200)', async () => {
+    const s = await manager.get('/api/suppliers')
+    expect(s.status).toBe(200)
+    const po = await manager.get('/api/suppliers/purchase-orders')
+    expect(po.status).toBe(200)
+  })
+
+  it('forbids a cashier from viewing a single supplier by id (403)', async () => {
+    const res = await cashier.get('/api/suppliers/1')
+    expect(res.status).toBe(403)
+  })
+
+  it('keeps supplier delete admin-only: manager gets 403, admin succeeds', async () => {
+    // Seed a throwaway supplier as admin, then prove the layered guard:
+    // router-level admin|manager still lets a manager THROUGH to the route,
+    // but the per-route requireRole('admin') on DELETE blocks the manager.
+    const created = await admin.post('/api/suppliers').send({ name: `${TAG} DeleteGuard Supplier` })
+    expect(created.status).toBe(201)
+    const supId = created.body.id
+    try {
+      const mgrDel = await manager.delete(`/api/suppliers/${supId}`)
+      expect(mgrDel.status).toBe(403)
+      // Still present after the forbidden manager attempt.
+      const still = await pool.query('SELECT active FROM suppliers WHERE id=$1', [supId])
+      expect(still.rows[0].active).toBe(true)
+      // Admin can delete (soft delete -> active=false).
+      const adminDel = await admin.delete(`/api/suppliers/${supId}`)
+      expect(adminDel.status).toBe(200)
+    } finally {
+      await pool.query('DELETE FROM suppliers WHERE id=$1', [supId])
+    }
+  })
+})
+
 describe('Inventory deduction on order completion', () => {
   it('deducts converted quantity when an order is completed', async () => {
     const create = await admin.post('/api/orders').send({

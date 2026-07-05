@@ -7,6 +7,13 @@ import { logger } from '../logger.js'
 
 const router = express.Router()
 
+// Supplier records and purchase orders expose vendor contacts and financial
+// data (unit costs, PO totals). Restrict the entire hub to management — the
+// per-route guards below (e.g. admin-only DELETE) further tighten specific
+// mutations. Read routes previously had no guard, so any authenticated role
+// (cashier/kitchen/staff) could view supplier + purchase-order financials.
+router.use(requireRole('admin', 'manager'))
+
 // ── Suppliers ──────────────────────────────────────────────────────────────────
 
 router.get('/', async (req, res, next) => {
