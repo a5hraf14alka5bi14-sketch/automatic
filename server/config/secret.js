@@ -18,6 +18,10 @@ export const cookieOptions = (maxAgeMs) => ({
   maxAge: maxAgeMs,
 })
 
+// Shared bcrypt work factor — keep all password hashing at the same strength
+// so admin-created / admin-reset passwords are never weaker than a normal change.
+export const BCRYPT_COST = 12
+
 export const ACCESS_COOKIE = 'access_token'
 export const REFRESH_COOKIE = 'refresh_token'
 export const ACCESS_MAX_AGE = 2 * 60 * 60 * 1000

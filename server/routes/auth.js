@@ -6,7 +6,7 @@ import QRCode from 'qrcode'
 import { pool } from '../db.js'
 import { verifyToken } from '../middleware/auth.js'
 import {
-  SECRET, cookieOptions,
+  SECRET, cookieOptions, BCRYPT_COST,
   ACCESS_COOKIE, REFRESH_COOKIE, ACCESS_MAX_AGE, REFRESH_MAX_AGE,
 } from '../config/secret.js'
 import { passwordSchema } from '../validators.js'
@@ -123,7 +123,7 @@ router.patch('/password', verifyToken, async (req, res, next) => {
     const user = result.rows[0]
     const valid = await bcrypt.compare(current_password, user.password)
     if (!valid) return res.status(401).json({ error: 'Current password is incorrect' })
-    const hash = await bcrypt.hash(new_password, 12)
+    const hash = await bcrypt.hash(new_password, BCRYPT_COST)
     await pool.query('UPDATE users SET password = $1, must_change_password = false WHERE id = $2', [hash, user.id])
     const { token, refresh_token } = makeTokens(user.id, user.role, false)
     setAuthCookies(res, token, refresh_token)

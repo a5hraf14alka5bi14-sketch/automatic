@@ -4,6 +4,7 @@ import { pool } from '../db.js'
 import { requireRole } from '../middleware/auth.js'
 import { validate } from '../middleware/validate.js'
 import { passwordSchema, createUserSchema, patchUserRoleSchema } from '../validators.js'
+import { BCRYPT_COST } from '../config/secret.js'
 import { logger } from '../logger.js'
 
 const router = express.Router()
@@ -44,7 +45,7 @@ router.patch('/:id/password', async (req, res) => {
       const valid = await bcrypt.compare(current_password, target.rows[0].password)
       if (!valid) return res.status(401).json({ error: 'Current password is incorrect' })
     }
-    const hash = await bcrypt.hash(new_password, 10)
+    const hash = await bcrypt.hash(new_password, BCRYPT_COST)
     await pool.query('UPDATE users SET password=$1 WHERE id=$2', [hash, targetId])
     res.json({ success: true })
   } catch (err) {
@@ -68,7 +69,7 @@ router.get('/', requireRole('admin'), async (req, res) => {
 router.post('/', requireRole('admin'), validate(createUserSchema), async (req, res) => {
   const { name, email, password, role } = req.body
   try {
-    const hash = await bcrypt.hash(password, 10)
+    const hash = await bcrypt.hash(password, BCRYPT_COST)
     // Admin-created accounts must reset the admin-chosen password on first login.
     const result = await pool.query(
       'INSERT INTO users (name, email, password, role, must_change_password) VALUES ($1,$2,$3,$4,true) RETURNING id, name, email, role, created_at',
