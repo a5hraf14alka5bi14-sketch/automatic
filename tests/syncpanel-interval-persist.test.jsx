@@ -11,12 +11,28 @@
 //      with the loaded value updates the dropdown to the saved interval (30).
 //   2. `interval_minutes` (saved setting) is preferred over `interval_min` (live
 //      engine) when both are present.
-import { describe, it, expect, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/react'
 import { ToastProvider } from '../src/context/ToastContext.jsx'
+import { apiFetch } from '../src/utils/api.js'
 import SyncPanel from '../src/components/notion/SyncPanel.jsx'
 
-afterEach(cleanup)
+// Only apiFetch is faked so we can assert exactly what SyncPanel PUTs to the
+// backend (and inject a failure) without a real network call.
+vi.mock('../src/utils/api.js', async (importActual) => {
+  const actual = await importActual()
+  return { ...actual, apiFetch: vi.fn() }
+})
+
+// Minimal fetch Response stand-in: SyncPanel reads res.ok then res.json().
+function okRes(body = {}) {
+  return { ok: true, json: async () => body }
+}
+
+afterEach(() => {
+  cleanup()
+  vi.mocked(apiFetch).mockReset()
+})
 
 function renderPanel(props) {
   return render(
@@ -67,5 +83,69 @@ describe('SyncPanel auto-sync interval survives an async reload', () => {
     )
 
     expect(intervalSelect(container).value).toBe('60')
+  })
+})
+
+describe('SyncPanel auto-sync interval reaches the backend', () => {
+  it('PUTs { enabled: true, interval_minutes: 30 } when running and the dropdown changes', async () => {
+    vi.mocked(apiFetch).mockResolvedValue(okRes({ running: true, interval_min: 30, interval_minutes: 30 }))
+    const onAutoSyncChange = vi.fn()
+    const { container } = render(
+      <ToastProvider>
+        <SyncPanel
+          onSyncNow={() => {}}
+          onAutoSyncChange={onAutoSyncChange}
+          autoSync={{ running: true, interval_minutes: 15, interval_min: 15 }}
+        />
+      </ToastProvider>
+    )
+
+    fireEvent.change(intervalSelect(container), { target: { value: '30' } })
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1))
+    const [url, opts] = vi.mocked(apiFetch).mock.calls[0]
+    expect(url).toMatch(/\/notion\/auto-sync$/)
+    expect(opts.method).toBe('PUT')
+    expect(JSON.parse(opts.body)).toEqual({ enabled: true, interval_minutes: 30 })
+    await waitFor(() => expect(onAutoSyncChange).toHaveBeenCalled())
+  })
+
+  it('reverts the dropdown and shows an error toast when the backend rejects the change', async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ ok: false, json: async () => ({}) })
+    const { container } = render(
+      <ToastProvider>
+        <SyncPanel
+          onSyncNow={() => {}}
+          onAutoSyncChange={() => {}}
+          autoSync={{ running: true, interval_minutes: 15, interval_min: 15 }}
+        />
+      </ToastProvider>
+    )
+
+    fireEvent.change(intervalSelect(container), { target: { value: '30' } })
+
+    // The failed PUT must roll the dropdown back to its previous value...
+    await waitFor(() => expect(intervalSelect(container).value).toBe('15'))
+    // ...and surface an error toast rather than silently dropping the change.
+    await waitFor(() => expect(screen.getByText(/couldn.t update the auto-sync interval/i)).toBeTruthy())
+  })
+
+  it('does NOT call the backend when auto-sync is not running', async () => {
+    const { container } = render(
+      <ToastProvider>
+        <SyncPanel
+          onSyncNow={() => {}}
+          onAutoSyncChange={() => {}}
+          autoSync={{ running: false, interval_minutes: 15, interval_min: 15 }}
+        />
+      </ToastProvider>
+    )
+
+    fireEvent.change(intervalSelect(container), { target: { value: '30' } })
+
+    // The interval is persisted later (on enable), so no PUT should fire now —
+    // but the dropdown must still reflect the user's local selection.
+    expect(apiFetch).not.toHaveBeenCalled()
+    expect(intervalSelect(container).value).toBe('30')
   })
 })
