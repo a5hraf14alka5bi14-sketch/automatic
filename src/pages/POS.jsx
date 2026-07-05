@@ -11,6 +11,7 @@ import SplitBillModal from '../components/pos/SplitBillModal.jsx'
 import MenuPanel from '../components/pos/MenuPanel.jsx'
 import CartPanel from '../components/pos/CartPanel.jsx'
 import TablesView from '../components/pos/TablesView.jsx'
+import { useCart } from '../hooks/useCart.js'
 
 // ── Main POS ──────────────────────────────────────────────────────────────────
 export default function POS() {
@@ -30,18 +31,12 @@ export default function POS() {
   const [tablesLoading, setTablesLoading] = useState(false)
   const [selectedTableOrders, setSelectedTableOrders] = useState(null) // { tableNum, orders }
 
-  // Cart
-  const [cart, setCart] = useState([])
-  const [itemNotes, setItemNotes] = useState({})
-  const [expandedCartItem, setExpandedCartItem] = useState(null)
+  // Order context (the cart itself lives in the useCart hook below)
   const [orderType, setOrderType] = useState('dine-in')
   const [tableNum, setTableNum] = useState(1)
   const [customerId, setCustomerId] = useState('')
   const [note, setNote] = useState('')
   const [rush, setRush] = useState(false)
-
-  // Discount
-  const [discount, setDiscount] = useState({ amount: '', type: 'percent' })
 
   // UI state
   const [placing, setPlacing] = useState(false)
@@ -57,6 +52,14 @@ export default function POS() {
 
   const modifierCache = useRef({})
   const searchRef = useRef(null)
+
+  // Cart state, line-item mutations, and money math live in the useCart hook.
+  const taxRate = parseFloat(settings.tax_rate || '5') / 100
+  const {
+    cart, setCart, itemNotes, setItemNotes, expandedCartItem, setExpandedCartItem,
+    discount, setDiscount, addToCart, updateQty, removeItem, clearCart: cartClear,
+    subtotal, discountVal, discountedSub, tax, total, cartCount, hasDiscount,
+  } = useCart({ taxRate, stockAvail, showToast })
 
   // ── Load initial data ──────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -127,7 +130,9 @@ export default function POS() {
             } else {
               showToast(`Barcode not found: ${code}`, 'error')
             }
-          } catch { /* network error — ignore */ }
+          } catch {
+            showToast(`Barcode scan failed: ${code} — network error`, 'error')
+          }
         }
         return
       }
@@ -155,20 +160,9 @@ export default function POS() {
   }, [view, fetchOpenOrders])
 
   // ── Computed values ────────────────────────────────────────────────────────
-  const taxRate = parseFloat(settings.tax_rate || '5') / 100
   const tablesCount = parseInt(settings.tables_count || '10')
   const currency = settings.currency_symbol || 'OMR'
   const fmtC = (amount) => `${currency} ${parseFloat(amount || 0).toFixed(3)}`
-
-  const subtotal = cart.reduce((s, c) => s + (parseFloat(c.price) * c.qty), 0)
-  const discountVal = discount.type === 'percent'
-    ? subtotal * parseFloat(discount.amount || 0) / 100
-    : Math.min(parseFloat(discount.amount || 0), subtotal)
-  const discountedSub = Math.max(0, subtotal - discountVal)
-  const tax = discountedSub * taxRate
-  const total = discountedSub + tax
-  const cartCount = cart.reduce((s, c) => s + c.qty, 0)
-  const hasDiscount = discountVal > 0
 
   // ── Menu filtering ─────────────────────────────────────────────────────────
   const filtered = menu.filter(item => {
@@ -178,33 +172,7 @@ export default function POS() {
   })
 
   // ── Cart operations ────────────────────────────────────────────────────────
-  const addToCart = (item, selectedModifiers = []) => {
-    const extraPrice = selectedModifiers.reduce((s, m) => s + parseFloat(m.price_delta || 0), 0)
-    const unitPrice = parseFloat(item.price || 0) + extraPrice
-    const modKey = selectedModifiers.map(m => m.id).sort().join(',')
-    const cartId = `${item.id}:${modKey}`
-    // Warn (but don't block) if selling this dish would drive a linked
-    // ingredient's stock negative. `null`/undefined availability = untracked.
-    const max = stockAvail[item.id]
-    if (max != null) {
-      const alreadyInCart = cart.filter(c => c.id === item.id).reduce((s, c) => s + c.qty, 0)
-      if (alreadyInCart + 1 > max) {
-        showToast(
-          max <= 0
-            ? `⚠️ ${item.name}: نفد المخزون — البيع سيجعل مخزون أحد المكوّنات بالسالب`
-            : `⚠️ ${item.name}: الكمية المتاحة ${max} فقط حسب المخزون`,
-          'error'
-        )
-      }
-    }
-    setCart(prev => {
-      const exists = prev.find(c => c.cartId === cartId)
-      if (exists) return prev.map(c => c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c)
-      return [...prev, { cartId, id: item.id, name: item.name, price: unitPrice, qty: 1, modifiers: selectedModifiers, category: item.category }]
-    })
-    setModifierModal(null)
-  }
-
+  // cart state + addToCart/updateQty/removeItem live in the useCart hook.
   const handleItemClick = async (item) => {
     if (modifierLoading) return
     const cached = modifierCache.current[item.id]
@@ -228,22 +196,10 @@ export default function POS() {
     setModifierLoading(false)
   }
 
-  const updateQty = (cartId, delta) => {
-    setCart(prev => prev.map(c => c.cartId === cartId ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0))
-    if (delta < 0) {
-      setItemNotes(prev => { const next = { ...prev }; if (cart.find(c => c.cartId === cartId)?.qty <= 1) delete next[cartId]; return next })
-    }
-  }
-
-  const removeItem = (cartId) => {
-    setCart(prev => prev.filter(c => c.cartId !== cartId))
-    setItemNotes(prev => { const next = { ...prev }; delete next[cartId]; return next })
-    if (expandedCartItem === cartId) setExpandedCartItem(null)
-  }
-
+  // Clears the cart (via the hook) plus the order-level context fields.
   const clearCart = () => {
-    setCart([]); setItemNotes({}); setNote(''); setCustomerId('')
-    setRush(false); setDiscount({ amount: '', type: 'percent' }); setExpandedCartItem(null)
+    cartClear()
+    setNote(''); setCustomerId(''); setRush(false)
   }
 
   // ── Place order ────────────────────────────────────────────────────────────
@@ -508,7 +464,7 @@ export default function POS() {
           item={modifierModal.item}
           groups={modifierModal.groups}
           currency={currency}
-          onConfirm={(mods) => addToCart(modifierModal.item, mods)}
+          onConfirm={(mods) => { addToCart(modifierModal.item, mods); setModifierModal(null) }}
           onClose={() => setModifierModal(null)}
         />
       )}

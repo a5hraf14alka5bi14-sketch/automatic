@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api.js'
 import { useCurrency } from '../utils/currency.js'
+import { useToast } from '../context/ToastContext.jsx'
 import { downloadCSV, downloadPDF } from '../components/reports/exportUtils.js'
 import HeatmapTab from '../components/reports/HeatmapTab.jsx'
 import TrendsTab from '../components/reports/TrendsTab.jsx'
@@ -16,11 +17,13 @@ import VoidsTab from '../components/reports/VoidsTab.jsx'
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Reports() {
   const { fmt } = useCurrency()
+  const showToast = useToast()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState('today')
   const [activeTab, setActiveTab] = useState('overview')
   const [exporting, setExporting] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
   const [staffData, setStaffData] = useState(null)
   const [staffLoading, setStaffLoading] = useState(false)
   const [matrixData, setMatrixData] = useState(null)
@@ -70,6 +73,20 @@ export default function Reports() {
     }
   }
 
+  // jsPDF is lazy-loaded inside downloadPDF; show a spinner during the one-time
+  // chunk load and surface any failure instead of silently swallowing it.
+  const handlePDF = async () => {
+    if (!data) return
+    setPdfLoading(true)
+    try {
+      await downloadPDF(data, period, fmt)
+    } catch (e) {
+      showToast('PDF export failed: ' + (e.message || 'unknown error'), 'error')
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
   const periods = [{ id: 'today', label: 'Today' }, { id: 'week', label: '7 Days' }, { id: 'month', label: 'This Month' }]
   const tabs = [
     { id: 'overview',       label: '📊 Overview' },
@@ -103,10 +120,10 @@ export default function Reports() {
             {exporting ? '⏳' : '⬇'} CSV
           </button>
           <button
-            onClick={() => { if (data) downloadPDF(data, period, fmt).catch(() => {}) }}
-            disabled={!data || loading}
+            onClick={handlePDF}
+            disabled={!data || loading || pdfLoading}
             className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors">
-            📄 PDF
+            {pdfLoading ? '⏳' : '📄'} PDF
           </button>
         </div>
       </div>
