@@ -256,6 +256,70 @@ describe('real Integrations page buttons enter the cooldown state on 429', () =>
   })
 })
 
+// ── Countdown ticks down and re-enables (real button, fake clock) ─────────────
+//
+// The tests above only prove the button REACHES "Wait 30s" and is disabled right
+// after a 429. They never advance the clock, so a regression in useCooldown's
+// interval or the `cooling` derivation (e.g. the interval never firing, or
+// `cooling` staying true) would leave a real button stuck disabled forever and
+// still pass. This test drives the real GitHub "Sync repos" button through the
+// full lifecycle on a fake clock: 429 → "Wait 30s" → "Wait 29s" → back to the
+// normal "Sync repos" label, enabled again.
+describe('cooldown countdown ticks down and re-enables the real button', () => {
+  function mockGitHubSync429() {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === '/api/integrations/github/sync' && method === 'POST')
+        return Promise.resolve(rateLimited())
+      if (url === '/api/integrations' && method === 'GET') {
+        return Promise.resolve(apiRes({
+          body: {
+            github: { configured: true, synced_repos: 0, env_present: true, masked: 'ghp_…' },
+            notion: { configured: true, env_present: true, masked: 'sec_…' },
+            openai: { configured: true, env_present: true, masked: 'sk-…' },
+          },
+        }))
+      }
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('counts down "Wait 30s" → "Wait 29s" → back to enabled "Sync repos"', async () => {
+    mockGitHubSync429()
+    renderPage(<Integrations />)
+
+    // Mount + initial load happen on the real clock so findByRole resolves.
+    const btn = await screen.findByRole('button', { name: /Sync repos/i })
+    expect(btn.disabled).toBe(false)
+
+    // Switch to a fake clock so we can advance the cooldown deterministically.
+    // The countdown interval is created on click, so faking before the click is
+    // enough to control it. (afterEach restores real timers.)
+    vi.useFakeTimers()
+
+    // 429 → cooldown starts; button immediately shows the full window, disabled.
+    await act(async () => { fireEvent.click(btn) })
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+
+    // One second later the countdown must actually decrement.
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(btn.textContent).toContain('Wait 29s')
+    expect(btn.disabled).toBe(true)
+
+    // Partway through it keeps ticking (proves the interval keeps firing).
+    act(() => { vi.advanceTimersByTime(15000) })
+    expect(btn.textContent).toContain('Wait 14s')
+    expect(btn.disabled).toBe(true)
+
+    // Once the whole window elapses the button returns to its normal label and
+    // becomes clickable again — users are not left locked out.
+    act(() => { vi.advanceTimersByTime(14000) })
+    expect(btn.textContent).toContain('Sync repos')
+    expect(btn.disabled).toBe(false)
+  })
+})
+
 describe('real Notion page sync buttons enter the cooldown state on 429', () => {
   function mockNotionApi() {
     vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
