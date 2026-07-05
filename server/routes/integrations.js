@@ -283,7 +283,16 @@ router.put('/notion/auto-sync', requireRole('admin', 'manager'), async (req, res
       await setSetting('notion_auto_sync_enabled', 'false')
     }
 
-    res.json({ success: true, ...getSyncEngineStatus() })
+    const [savedEnabled, savedInterval] = await Promise.all([
+      getSetting('notion_auto_sync_enabled'),
+      getSetting('notion_auto_sync_interval')
+    ])
+    res.json({
+      success: true,
+      enabled: savedEnabled === 'true',
+      interval_minutes: parseInt(savedInterval) || 15,
+      ...getSyncEngineStatus()
+    })
   } catch (err) {
     logger.error('[integrations/auto-sync]', { err: err?.message, path: req.path })
     res.status(500).json({ error: 'Failed to update auto-sync settings' })
