@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import { apiFetch } from '../../utils/api.js'
+import { useToast } from '../../context/ToastContext.jsx'
 import { INT_API, fmt } from './notionShared.jsx'
 
 export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, onAutoSyncChange, cooldown }) {
+  const showToast = useToast()
   const cooling = cooldown?.cooling
   const remaining = cooldown?.remaining
   const [intervalMin, setIntervalMin] = useState(autoSync?.interval_minutes || 15)
@@ -18,9 +20,12 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
         method: 'PUT',
         body: JSON.stringify({ enabled: enable, interval_minutes: intervalMin })
       })
+      if (!r.ok) throw new Error('Request failed')
       const d = await r.json()
       if (onAutoSyncChange) onAutoSyncChange(d)
-    } catch {}
+    } catch {
+      showToast(`Couldn\u2019t ${enable ? 'enable' : 'stop'} auto-sync. Check your connection and try again.`, 'error')
+    }
     setSavingAuto(false)
   }
 
