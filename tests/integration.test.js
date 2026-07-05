@@ -531,6 +531,45 @@ describe('User management privilege boundary', () => {
 
     await pool.query('DELETE FROM users WHERE id=$1', [newId])
   })
+
+  // PATCH /:id/password is guarded by an inline isSelf||isAdmin check (not
+  // requireRole). A manager/staff resetting ANOTHER user's password would be a
+  // full account-takeover path, so it must be rejected with the target unchanged.
+  it('forbids a manager from resetting another user\'s password (403, unchanged)', async () => {
+    const before = await pool.query('SELECT password FROM users WHERE id=$1', [ids.adminUser])
+    const res = await manager.patch(`/api/users/${ids.adminUser}/password`).send({ new_password: 'Hacked123' })
+    expect(res.status).toBe(403)
+    const after = await pool.query('SELECT password FROM users WHERE id=$1', [ids.adminUser])
+    expect(after.rows[0].password).toBe(before.rows[0].password)
+  })
+
+  it('forbids a staff user from resetting another user\'s password (403, unchanged)', async () => {
+    const before = await pool.query('SELECT password FROM users WHERE id=$1', [ids.adminUser])
+    const res = await staff.patch(`/api/users/${ids.adminUser}/password`).send({ new_password: 'Hacked123' })
+    expect(res.status).toBe(403)
+    const after = await pool.query('SELECT password FROM users WHERE id=$1', [ids.adminUser])
+    expect(after.rows[0].password).toBe(before.rows[0].password)
+  })
+
+  it('lets a user change their OWN password via the isSelf path', async () => {
+    const email = `${TAG}_selfpw@test.local`
+    const uid = await seedUser(email, 'staff')
+    try {
+      const agent = await login(email)
+      const res = await agent.patch(`/api/users/${uid}/password`).send({
+        current_password: PASSWORD,
+        new_password: 'NewSelf456',
+      })
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
+      // The new password actually authenticates, proving the change took effect.
+      const relog = await request(app).post('/api/auth/login').send({ email, password: 'NewSelf456' })
+      expect(relog.status).toBe(200)
+    } finally {
+      // Clean up even if an assertion above fails, so no row is left behind.
+      await pool.query('DELETE FROM users WHERE id=$1', [uid])
+    }
+  })
 })
 
 // ── Information disclosure + privilege: integration secrets ───────────────────
