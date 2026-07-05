@@ -81,6 +81,5 @@ timeoutMs = 120000
 [userenv.production]
 
 [userenv.shared]
-"github auto" = "REDACTED_LEAKED_GITHUB_PAT"
 
 [userenv.development]
