@@ -29,6 +29,29 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
     setSavingAuto(false)
   }
 
+  const handleIntervalChange = async (mins) => {
+    const prev = intervalMin
+    setIntervalMin(mins)
+    // Only auto-sync-while-running needs an explicit save path; when disabled the
+    // interval is persisted later as part of enabling auto-sync.
+    if (!autoSync?.running) return
+    setSavingAuto(true)
+    try {
+      const r = await apiFetch(`${INT_API}/notion/auto-sync`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled: true, interval_minutes: mins })
+      })
+      if (!r.ok) throw new Error('Request failed')
+      const d = await r.json()
+      if (onAutoSyncChange) onAutoSyncChange(d)
+      showToast(`Auto-sync interval updated to ${mins < 60 ? `${mins} min` : `${mins / 60}h`}.`, 'success')
+    } catch {
+      setIntervalMin(prev)
+      showToast('Couldn\u2019t update the auto-sync interval. Check your connection and try again.', 'error')
+    }
+    setSavingAuto(false)
+  }
+
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-5">
       <div className="flex items-center justify-between">
@@ -70,8 +93,8 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <select value={intervalMin} onChange={e => setIntervalMin(parseInt(e.target.value))}
-            disabled={autoSync?.running || savingAuto}
+          <select value={intervalMin} onChange={e => handleIntervalChange(parseInt(e.target.value))}
+            disabled={savingAuto}
             className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-40">
             {[5, 10, 15, 30, 60, 120, 360, 720, 1440].map(m => (
               <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60}h`}</option>
