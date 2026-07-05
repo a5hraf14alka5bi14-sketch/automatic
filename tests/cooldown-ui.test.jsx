@@ -349,3 +349,111 @@ describe('real Notion page sync buttons enter the cooldown state on 429', () => 
     expect(screen.getByText(/wait 30s before syncing again/i)).toBeTruthy()
   })
 })
+
+// ── The cooldown toast must be WARNING-styled, never ERROR-styled ─────────────
+//
+// The tests above only assert the friendly cooldown *text* is present. But a
+// change to ToastContext's STYLES map, or a handler that both starts the
+// cooldown and also sets an error, would still pass while showing users a scary
+// red toast/banner. These tests pin the cooldown notification to the warning
+// (yellow) style and assert nothing on the page carries the error (red) style.
+//
+// Class fragments come straight from ToastContext's STYLES map:
+//   warning → text-yellow-300 / bg-yellow-500/15 / border-yellow-500/30
+//   error   → text-red-300    / bg-red-500/15    / border-red-500/30
+const WARNING_TEXT_CLASS = 'text-yellow-300'
+const ERROR_TEXT_CLASS = 'text-red-300'
+// querySelector escaping: `/` in Tailwind classes like `bg-red-500/15` is a
+// valid class token, but the `/` and `.`-free selector below matches the raw
+// class attribute substring, which is enough to detect any red-styled element.
+const ERROR_STYLE_SELECTORS =
+  '[class*="text-red-300"],[class*="bg-red-500"],[class*="border-red-500"]'
+
+// Walk up from the toast text node to the toast container, so we can inspect the
+// full toast element (bar/icon/border), not just the message paragraph.
+function toastContainerFor(textEl) {
+  return textEl.closest('[class*="rounded-xl"]') || textEl.parentElement
+}
+
+describe('the cooldown notification is warning-styled, not error-styled', () => {
+  function mockIntegrationsApi(on429 = {}) {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      const key = `${method} ${url}`
+      if (on429[key]) return Promise.resolve(rateLimited())
+      if (url === '/api/integrations' && method === 'GET') {
+        return Promise.resolve(apiRes({
+          body: {
+            github: { configured: true, synced_repos: 0, env_present: true, masked: 'ghp_…' },
+            notion: { configured: true, env_present: true, masked: 'sec_…' },
+            openai: { configured: true, env_present: true, masked: 'sk-…' },
+          },
+        }))
+      }
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('GitHub sync 429 toast uses the yellow warning style, with no red anywhere', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/github/sync': true })
+    const { container } = renderPage(<Integrations />)
+
+    const btn = await screen.findByRole('button', { name: /Sync repos/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    const msg = await screen.findByText(/wait 30s before syncing again/i)
+    // The message text itself must carry the warning colour, not the error one.
+    expect(msg.className).toContain(WARNING_TEXT_CLASS)
+    expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
+    // The whole toast (border/background) must be warning-styled.
+    const toast = toastContainerFor(msg)
+    expect(toast.className).toContain('bg-yellow-500/15')
+    expect(toast.className).toContain('border-yellow-500/30')
+    // And nothing on the entire page may carry an error (red) style.
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
+
+  it('OpenAI summary 429 toast is warning-styled, with no red error element', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/openai/summary': true })
+    const { container } = renderPage(<Integrations />)
+
+    const btn = await screen.findByRole('button', { name: /Generate/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    const msg = await screen.findByText(/wait 30s before generating another summary/i)
+    expect(msg.className).toContain(WARNING_TEXT_CLASS)
+    expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
+})
+
+describe('the Notion cooldown notification is warning-styled, not error-styled', () => {
+  function mockNotionApi() {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === '/api/integrations/notion/sync' && method === 'POST')
+        return Promise.resolve(rateLimited())
+      if (url.endsWith('/projects')) return Promise.resolve(apiRes({ body: [] }))
+      if (url.startsWith('/api/notion/tasks')) return Promise.resolve(apiRes({ body: [] }))
+      if (url === '/api/notion/config')
+        return Promise.resolve(apiRes({ body: { configured: true, envKeyPresent: true } }))
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('Notion "Sync All" 429 toast uses the yellow warning style, with no red anywhere', async () => {
+    mockNotionApi()
+    const { container } = renderPage(<NotionIntegration />)
+
+    const btn = await screen.findByRole('button', { name: /Sync All/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    const msg = await screen.findByText(/wait 30s before syncing again/i)
+    expect(msg.className).toContain(WARNING_TEXT_CLASS)
+    expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
+    const toast = toastContainerFor(msg)
+    expect(toast.className).toContain('bg-yellow-500/15')
+    expect(toast.className).toContain('border-yellow-500/30')
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
+})
