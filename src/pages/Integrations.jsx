@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch } from '../utils/api.js'
+import { apiFetch, getRateLimit } from '../utils/api.js'
+import { useToast } from '../context/ToastContext.jsx'
+import { useCooldown } from '../hooks/useCooldown.js'
 
 function StatusDot({ ok, loading }) {
   if (loading) return <span className="w-2.5 h-2.5 rounded-full bg-slate-500 animate-pulse inline-block" />
@@ -59,6 +61,8 @@ function TestResultBox({ result, error }) {
 // ── GitHub Section ────────────────────────────────────────────────────────────
 
 function GitHubSection({ status, onRefresh }) {
+  const showToast = useToast()
+  const syncCooldown = useCooldown()
   const [token, setToken] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -107,6 +111,13 @@ function GitHubSection({ status, onRefresh }) {
     setSyncing(true)
     try {
       const res = await apiFetch(`/api/integrations/github/sync`, { method: 'POST' })
+      const cooldown = await getRateLimit(res)
+      if (cooldown) {
+        syncCooldown.start(cooldown)
+        showToast(`Too many sync requests. Please wait ${cooldown}s before syncing again.`, 'warning', cooldown * 1000)
+        setSyncing(false)
+        return
+      }
       const data = await res.json()
       if (data.synced !== undefined) {
         setSyncing(false)
@@ -195,11 +206,11 @@ function GitHubSection({ status, onRefresh }) {
         </button>
         <button
           onClick={handleSync}
-          disabled={syncing || !status?.configured}
+          disabled={syncing || syncCooldown.cooling || !status?.configured}
           className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-sm rounded-lg transition-colors border border-slate-700"
         >
           {syncing ? <span className="w-3 h-3 border border-slate-400 border-t-transparent rounded-full animate-spin" /> : '🔄'}
-          Sync repos
+          {syncCooldown.cooling ? `Wait ${syncCooldown.remaining}s` : 'Sync repos'}
         </button>
         {status?.synced_repos > 0 && (
           <button
@@ -419,6 +430,9 @@ function NotionSection({ status, onRefresh }) {
 // ── OpenAI Section ────────────────────────────────────────────────────────────
 
 function OpenAISection({ status, onRefresh }) {
+  const showToast = useToast()
+  const summaryCooldown = useCooldown()
+  const chatCooldown = useCooldown()
   const [apiKey, setApiKey] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -446,6 +460,13 @@ function OpenAISection({ status, onRefresh }) {
     setSummaryError('')
     try {
       const res = await apiFetch('/api/integrations/openai/summary', { method: 'POST' })
+      const cooldown = await getRateLimit(res)
+      if (cooldown) {
+        summaryCooldown.start(cooldown)
+        showToast(`Too many AI requests. Please wait ${cooldown}s before generating another summary.`, 'warning', cooldown * 1000)
+        setSummaryLoading(false)
+        return
+      }
       const data = await res.json()
       if (data.summary) { setSummary(data.summary); setSummaryAt(data.generated_at) }
       else setSummaryError(data.error || 'Failed to generate summary')
@@ -505,6 +526,13 @@ function OpenAISection({ status, onRefresh }) {
           ]
         })
       })
+      const cooldown = await getRateLimit(res)
+      if (cooldown) {
+        chatCooldown.start(cooldown)
+        showToast(`Too many AI requests. Please wait ${cooldown}s before asking again.`, 'warning', cooldown * 1000)
+        setAiLoading(false)
+        return
+      }
       const data = await res.json()
       if (data.reply) setAiReply(data.reply)
       else setAiError(data.error || 'No reply received')
@@ -602,10 +630,12 @@ function OpenAISection({ status, onRefresh }) {
               />
               <button
                 onClick={handleChat}
-                disabled={aiLoading || !prompt.trim()}
+                disabled={aiLoading || chatCooldown.cooling || !prompt.trim()}
                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                {aiLoading ? <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin inline-block" /> : 'Ask'}
+                {aiLoading
+                  ? <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin inline-block" />
+                  : chatCooldown.cooling ? `Wait ${chatCooldown.remaining}s` : 'Ask'}
               </button>
             </div>
             {aiReply && (
@@ -625,13 +655,13 @@ function OpenAISection({ status, onRefresh }) {
             <span className="text-slate-300 text-sm font-medium">📊 Daily AI Summary</span>
             <button
               onClick={handleGenerateSummary}
-              disabled={summaryLoading}
+              disabled={summaryLoading || summaryCooldown.cooling}
               className="px-3 py-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
             >
               {summaryLoading
                 ? <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin inline-block" />
                 : '✨'}
-              {summaryLoading ? 'Generating…' : 'Generate'}
+              {summaryLoading ? 'Generating…' : summaryCooldown.cooling ? `Wait ${summaryCooldown.remaining}s` : 'Generate'}
             </button>
           </div>
           <div className="p-4">

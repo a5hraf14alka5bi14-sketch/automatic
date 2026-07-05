@@ -2,7 +2,9 @@ import React, { useState } from 'react'
 import { apiFetch } from '../../utils/api.js'
 import { INT_API, fmt } from './notionShared.jsx'
 
-export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, onAutoSyncChange }) {
+export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, onAutoSyncChange, cooldown }) {
+  const cooling = cooldown?.cooling
+  const remaining = cooldown?.remaining
   const [intervalMin, setIntervalMin] = useState(autoSync?.interval_minutes || 15)
   const [savingAuto, setSavingAuto] = useState(false)
 
@@ -40,18 +42,17 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
           )}
         </div>
         <div className="flex gap-2">
-          <button onClick={() => onSyncNow('projects')} disabled={syncing}
+          <button onClick={() => onSyncNow('projects')} disabled={syncing || cooling}
             className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded-lg text-xs font-medium transition-colors">
-            {syncing === 'projects' ? <span className="animate-spin inline-block">↻</span> : '↻'} Projects
+            {cooling ? `Wait ${remaining}s` : <>{syncing === 'projects' ? <span className="animate-spin inline-block">↻</span> : '↻'} Projects</>}
           </button>
-          <button onClick={() => onSyncNow('tasks')} disabled={syncing}
+          <button onClick={() => onSyncNow('tasks')} disabled={syncing || cooling}
             className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded-lg text-xs font-medium transition-colors">
-            {syncing === 'tasks' ? <span className="animate-spin inline-block">↻</span> : '↻'} Tasks
+            {cooling ? `Wait ${remaining}s` : <>{syncing === 'tasks' ? <span className="animate-spin inline-block">↻</span> : '↻'} Tasks</>}
           </button>
-          <button onClick={() => onSyncNow('all')} disabled={syncing}
+          <button onClick={() => onSyncNow('all')} disabled={syncing || cooling}
             className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5">
-            <span className={syncing === 'all' ? 'animate-spin inline-block' : ''}>⟳</span>
-            Sync All
+            {cooling ? `Wait ${remaining}s` : <><span className={syncing === 'all' ? 'animate-spin inline-block' : ''}>⟳</span>Sync All</>}
           </button>
         </div>
       </div>

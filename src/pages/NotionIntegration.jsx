@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { apiFetch } from '../utils/api.js'
+import { apiFetch, getRateLimit } from '../utils/api.js'
+import { useToast } from '../context/ToastContext.jsx'
+import { useCooldown } from '../hooks/useCooldown.js'
 import logo from '../assets/brand/logo-full.png'
 import { API, INT_API, STATUS_META, fmt } from '../components/notion/notionShared.jsx'
 import ConnectionStatus from '../components/notion/ConnectionStatus.jsx'
@@ -12,6 +14,8 @@ import StatsRow from '../components/notion/StatsRow.jsx'
 import { StatusBadge, PriorityBadge, StatusSelect, fmtDate } from '../components/notion/notionShared.jsx'
 
 export default function NotionIntegration() {
+  const showToast = useToast()
+  const syncCooldown = useCooldown()
   const [tab, setTab] = useState('status')
   const [config, setConfig] = useState(null)
   const [projects, setProjects] = useState([])
@@ -71,6 +75,13 @@ export default function NotionIntegration() {
         method: 'POST',
         body: JSON.stringify({ type })
       })
+      const cooldown = await getRateLimit(r)
+      if (cooldown) {
+        syncCooldown.start(cooldown)
+        showToast(`Too many sync requests. Please wait ${cooldown}s before syncing again.`, 'warning', cooldown * 1000)
+        setSyncing(null)
+        return
+      }
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Sync failed')
       const p = d.projects || {}
@@ -208,9 +219,9 @@ export default function NotionIntegration() {
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors">
                     + New Project
                   </button>
-                  <button onClick={() => sync('projects')} disabled={!!syncing}
+                  <button onClick={() => sync('projects')} disabled={!!syncing || syncCooldown.cooling}
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded-lg text-xs font-medium transition-colors">
-                    ↻ Sync Projects
+                    {syncCooldown.cooling ? `Wait ${syncCooldown.remaining}s` : '↻ Sync Projects'}
                   </button>
                 </>
               )}
@@ -241,6 +252,7 @@ export default function NotionIntegration() {
                   onSyncNow={sync}
                   syncing={syncing}
                   onAutoSyncChange={setAutoSync}
+                  cooldown={syncCooldown}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
