@@ -76,7 +76,13 @@ router.post('/refresh', async (req, res) => {
     const result = await pool.query('SELECT id, role, must_change_password FROM users WHERE id = $1', [payload.id])
     if (!result.rows.length) return res.status(401).json({ error: 'Session expired' })
     const { id, role, must_change_password } = result.rows[0]
-    const { token, refresh_token: newRefresh } = makeTokens(id, role, must_change_password || false)
+    // If an admin has mandated a password change, refuse to mint a fresh session.
+    // The user must change their password (via their existing access token) or
+    // re-authenticate — they cannot silently extend an in-flight session.
+    if (must_change_password) {
+      return res.status(403).json({ error: 'Password change required', mustChangePassword: true })
+    }
+    const { token, refresh_token: newRefresh } = makeTokens(id, role, false)
     setAuthCookies(res, token, newRefresh)
     res.json({ success: true })
   } catch {

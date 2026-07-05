@@ -361,11 +361,11 @@ describe('must_change_password propagation', () => {
 
     await pool.query('UPDATE users SET must_change_password = true WHERE id = $1', [uid])
 
+    // Once an admin mandates a password change, the very next refresh must be
+    // rejected — the server will not mint a fresh session for a flagged account.
     const refreshRes = await agent.post('/api/auth/refresh')
-    expect(refreshRes.status).toBe(200)
-
-    const postRes = await agent.get('/api/menu/all')
-    expect(postRes.status).toBe(403)
+    expect(refreshRes.status).toBe(403)
+    expect(refreshRes.body.mustChangePassword).toBe(true)
 
     await pool.query('DELETE FROM users WHERE id=$1', [uid])
   })

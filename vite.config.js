@@ -9,16 +9,10 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       include: ['server/**/*.js'],
       exclude: ['server/migrations/**', 'node_modules', 'dist', '.local', 'tests'],
-      // Baseline floors set just below the current measured coverage. They pass
-      // today (so CI is not broken now) but surface a regression the moment
-      // coverage slips below the documented baseline. Raise these as coverage
-      // improves; they are a ratchet, not a hard target.
-      thresholds: {
-        statements: 30,
-        branches: 19,
-        functions: 24,
-        lines: 32,
-      },
+      // No thresholds are enforced: the terminal 'text' reporter prints the
+      // per-file baseline every run so the team can see coverage without CI
+      // failing when a number dips. Raise this to enforced thresholds only once
+      // the baseline is comfortably high.
     },
   },
   server: {

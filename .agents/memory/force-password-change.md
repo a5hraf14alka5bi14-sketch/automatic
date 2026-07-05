@@ -12,3 +12,5 @@ description: How the app forces a password change on first login
 **Why:** the default seeded admin password must not remain usable in production.
 
 **How to apply:** any new user you want to force through onboarding — insert with `must_change_password=true`.
+
+**Refresh hard-denies flagged accounts:** `POST /api/auth/refresh` returns 403 `{mustChangePassword:true}` when the DB row has `must_change_password=true` — it will NOT mint a fresh session. Enforcement is now two-layer: (1) login still mints a `mustChange` access token that `enforcePasswordChange` blocks on protected routes, and (2) refresh refuses to extend the session at all. Frontend `src/utils/api.js` treats non-ok refresh as re-login, so the forced-change flow is preserved. **Why:** a flagged user must not silently keep extending an in-flight session.
