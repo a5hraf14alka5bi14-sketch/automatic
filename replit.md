@@ -77,8 +77,8 @@ server/
 | `OPENAI_API_KEY` | OpenAI API key for AI features |
 
 ### Default admin (first-run)
-- Email: `admin@automatic.com`
-- Password: `Admin123` — seeded with `must_change_password=true`, so the app forces a password change on first login. Not shown in the UI.
+- Email and seed password are provisioned via Replit Secrets and are **not documented here** to avoid leaking credentials into version control.
+- The seeded admin is created with `must_change_password=true`, so the app forces a password change on first login. Credentials are never shown in the UI.
 
 ---
 
