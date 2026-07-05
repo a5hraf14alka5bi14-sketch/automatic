@@ -54,12 +54,19 @@ router.patch('/:id/password', async (req, res) => {
   }
 })
 
+// Optional pagination: ?limit=&offset= (omit for full list). Sets X-Total-Count.
 router.get('/', requireRole('admin'), async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT id, name, email, role, created_at FROM users ORDER BY created_at'
-    )
-    res.json(result.rows)
+    const { limit, offset } = req.query
+    const total = await pool.query('SELECT COUNT(*)::int AS c FROM users')
+    res.set('X-Total-Count', String(total.rows[0].c))
+    let query = 'SELECT id, name, email, role, created_at FROM users ORDER BY created_at'
+    const params = []
+    if (limit !== undefined) {
+      params.push(Math.min(Math.max(parseInt(limit) || 0, 0), 500)); query += ` LIMIT $${params.length}`
+      params.push(Math.max(parseInt(offset) || 0, 0)); query += ` OFFSET $${params.length}`
+    }
+    res.json((await pool.query(query, params)).rows)
   } catch (err) {
     logger.error(err?.message || 'Server error', { path: req.path })
     res.status(500).json({ error: 'Server error' })

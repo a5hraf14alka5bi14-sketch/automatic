@@ -15,7 +15,10 @@ if (!IS_PROD_DB && process.env.DEV_DATABASE_URL) {
 
 export const pool = new Pool({
   connectionString: DB_URL,
-  ssl: DB_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  // Replit managed Postgres uses a cert not in Node's default trust store.
+  // Set DB_SSL_VERIFY=true only when connecting to a Postgres instance with a
+  // verifiable cert chain (e.g. a custom production deployment).
+  ssl: DB_URL?.includes('localhost') ? false : { rejectUnauthorized: process.env.DB_SSL_VERIFY === 'true' },
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 3000,

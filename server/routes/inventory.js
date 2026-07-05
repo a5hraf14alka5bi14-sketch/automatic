@@ -55,11 +55,21 @@ router.get('/', async (req, res) => {
 })
 
 // ── GET /api/inventory/low-stock ─────────────────────────────────────────────
+// Optional pagination: ?limit=&offset= (omit for full list). Sets X-Total-Count.
 router.get('/low-stock', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM inventory WHERE quantity <= min_quantity AND deleted_at IS NULL ORDER BY (quantity / NULLIF(min_quantity,0)) ASC, name'
+    const { limit, offset } = req.query
+    const total = await pool.query(
+      'SELECT COUNT(*)::int AS c FROM inventory WHERE quantity <= min_quantity AND deleted_at IS NULL'
     )
+    res.set('X-Total-Count', String(total.rows[0].c))
+    let query = 'SELECT * FROM inventory WHERE quantity <= min_quantity AND deleted_at IS NULL ORDER BY (quantity / NULLIF(min_quantity,0)) ASC, name'
+    const params = []
+    if (limit !== undefined) {
+      params.push(Math.min(Math.max(parseInt(limit) || 0, 0), 500)); query += ` LIMIT $${params.length}`
+      params.push(Math.max(parseInt(offset) || 0, 0)); query += ` OFFSET $${params.length}`
+    }
+    const result = await pool.query(query, params)
     res.json(result.rows)
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })

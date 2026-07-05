@@ -19,3 +19,9 @@ Repo: `a5hraf14alka5bi14-sketch/automatic`, default branch `main`. It IS accessi
 **Git network ops are ALL blocked in the main agent** — not just push/merge. Even `git fetch` fails with "Destructive git operations are not allowed in the main agent" because it writes pack objects under `.git/objects/pack`. So any fetch/reconcile/merge/push of diverged history CANNOT be done as the main agent; it must run as a background Project Task (isolated env where git is unrestricted). The GitHub API `fetch` pattern above still works from the sandbox for API-level writes (refs/releases/issues), but true git history reconciliation needs the background task.
 
 Current state: tag `v0.9.0` + release "v0.9.0 – Production Inventory Complete" exist on `f7b551f` (main HEAD).
+
+## Updated diagnosis (2026-07-05)
+- `git ls-remote origin` and `ls-remote https://oauth2:TOKEN@...` both succeed (repo accessible for read).
+- `git push https://oauth2:TOKEN@.../automatic.git HEAD:main` → 403 "Permission denied to a5hraf14alka5bi14-sketch."
+- GitHub API confirms user has push:true / admin:true on repo, but token has no `x-oauth-scopes` listed → it is a **fine-grained PAT** with Contents: Read-only (no Contents: Write).
+- Fix: user must regenerate GITHUB_TOKEN as a fine-grained PAT with **Contents: Write** (or as a classic PAT with `repo` scope), then update the Replit Secret.

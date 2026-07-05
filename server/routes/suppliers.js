@@ -16,11 +16,19 @@ router.use(requireRole('admin', 'manager'))
 
 // ── Suppliers ──────────────────────────────────────────────────────────────────
 
+// Optional pagination: ?limit=&offset= (omit for full list). Sets X-Total-Count.
 router.get('/', async (req, res, next) => {
   try {
-    const r = await pool.query(
-      'SELECT * FROM suppliers WHERE active = true ORDER BY name'
-    )
+    const { limit, offset } = req.query
+    const total = await pool.query('SELECT COUNT(*)::int AS c FROM suppliers WHERE active = true')
+    res.set('X-Total-Count', String(total.rows[0].c))
+    let query = 'SELECT * FROM suppliers WHERE active = true ORDER BY name'
+    const params = []
+    if (limit !== undefined) {
+      params.push(Math.min(Math.max(parseInt(limit) || 0, 0), 500)); query += ` LIMIT $${params.length}`
+      params.push(Math.max(parseInt(offset) || 0, 0)); query += ` OFFSET $${params.length}`
+    }
+    const r = await pool.query(query, params)
     res.json(r.rows)
   } catch (err) { next(err) }
 })

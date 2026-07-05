@@ -413,21 +413,52 @@ router.delete('/:id/hard', async (req, res) => {
 })
 
 // ── GET /api/menu/:id/modifier-groups ────────────────────────────────────────
+// Single JOIN replaces the previous N+1 pattern (1 query per group → 1 total).
 router.get('/:id/modifier-groups', async (req, res) => {
   try {
-    const groups = await pool.query(
-      'SELECT * FROM modifier_groups WHERE menu_item_id=$1 ORDER BY id',
-      [req.params.id]
-    )
-    const result = []
-    for (const g of groups.rows) {
-      const mods = await pool.query(
-        'SELECT * FROM modifiers WHERE group_id=$1 ORDER BY id',
-        [g.id]
-      )
-      result.push({ ...g, modifiers: mods.rows })
+    const { rows } = await pool.query(`
+      SELECT
+        mg.id           AS group_id,
+        mg.menu_item_id,
+        mg.name         AS group_name,
+        mg.required,
+        mg.max_selections,
+        mg.created_at   AS group_created_at,
+        m.id            AS mod_id,
+        m.group_id      AS mod_group_id,
+        m.name          AS mod_name,
+        m.price_delta,
+        m.created_at    AS mod_created_at
+      FROM modifier_groups mg
+      LEFT JOIN modifiers m ON m.group_id = mg.id
+      WHERE mg.menu_item_id = $1
+      ORDER BY mg.id, m.id
+    `, [req.params.id])
+
+    const groupMap = new Map()
+    for (const r of rows) {
+      if (!groupMap.has(r.group_id)) {
+        groupMap.set(r.group_id, {
+          id: r.group_id,
+          menu_item_id: r.menu_item_id,
+          name: r.group_name,
+          required: r.required,
+          max_selections: r.max_selections,
+          created_at: r.group_created_at,
+          modifiers: [],
+        })
+      }
+      if (r.mod_id !== null) {
+        groupMap.get(r.group_id).modifiers.push({
+          id: r.mod_id,
+          group_id: r.mod_group_id,
+          name: r.mod_name,
+          price_delta: r.price_delta,
+          created_at: r.mod_created_at,
+        })
+      }
     }
-    res.json(result)
+    res.json([...groupMap.values()])
   } catch (err) { logger.error(err?.message || 'Server error', { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
