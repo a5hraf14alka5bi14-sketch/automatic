@@ -1,16 +1,22 @@
 // @vitest-environment jsdom
 //
-// Regression coverage for the auto-sync interval dropdown surviving a reload.
+// Regression coverage for the auto-sync interval control surviving a reload.
 // SyncPanel's `autoSync` prop arrives asynchronously — it is `null` on the first
-// render and only fills in once the persisted setting loads. The dropdown's local
+// render and only fills in once the persisted setting loads. The control's local
 // state was originally seeded ONCE from that initial (null) prop, so it defaulted
 // to 15 min and never picked up the saved value, making the user's choice appear
-// to reset on every reload. A `useEffect` now re-syncs the dropdown from the
-// persisted value once it arrives. These tests lock that behavior in place:
-//   1. Mounting with `autoSync = null` shows the default (60), then re-rendering
-//      with the loaded value updates the dropdown to the saved interval (30).
-//   2. `interval_minutes` (saved setting) is preferred over `interval_min` (live
-//      engine) when both are present.
+// to reset on every reload. A `useEffect` now re-syncs the control from the
+// persisted value once it arrives.
+//
+// The control is now a free numeric input (any minutes, clamped 5–1440 server
+// side) with preset "quick pick" buttons. These tests lock in:
+//   1. Async reload: null → default 60, then loaded value shows.
+//   2. `interval_minutes` (saved) preferred over `interval_min` (live engine).
+//   3. Custom values reach the backend (via typing + commit, and preset clicks).
+//   4. Failure reverts the value and toasts.
+//   5. No PUT when not running, but local value still reflects the choice.
+//   6. Frequent-interval warning.
+//   7. Server clamp reflection snaps the input back.
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/react'
 import { ToastProvider } from '../src/context/ToastContext.jsx'
@@ -42,19 +48,26 @@ function renderPanel(props) {
   )
 }
 
-// The one <select> on the panel is the interval dropdown.
-function intervalSelect(container) {
-  return container.querySelector('select')
+// The interval control is now a numeric input labelled for accessibility.
+function intervalInput(container) {
+  return container.querySelector('input[type="number"]')
+}
+
+// Type a custom value and commit it (blur mirrors the Enter-key path too).
+function typeInterval(container, value) {
+  const input = intervalInput(container)
+  fireEvent.change(input, { target: { value: String(value) } })
+  fireEvent.blur(input)
 }
 
 describe('SyncPanel auto-sync interval survives an async reload', () => {
   it('defaults to 60 while autoSync is null, then shows the saved 30 once it loads', () => {
     const { container, rerender } = renderPanel({ autoSync: null })
 
-    // Before the persisted setting arrives, the dropdown shows the default.
-    expect(intervalSelect(container).value).toBe('60')
+    // Before the persisted setting arrives, the input shows the default.
+    expect(intervalInput(container).value).toBe('60')
 
-    // Once autoSync loads with the saved 30-minute interval, the dropdown must
+    // Once autoSync loads with the saved 30-minute interval, the input must
     // reflect it — not stay stuck on the initial default.
     rerender(
       <ToastProvider>
@@ -66,7 +79,7 @@ describe('SyncPanel auto-sync interval survives an async reload', () => {
       </ToastProvider>
     )
 
-    expect(intervalSelect(container).value).toBe('30')
+    expect(intervalInput(container).value).toBe('30')
   })
 
   it('prefers interval_minutes (saved setting) over interval_min (live engine)', () => {
@@ -82,13 +95,13 @@ describe('SyncPanel auto-sync interval survives an async reload', () => {
       </ToastProvider>
     )
 
-    expect(intervalSelect(container).value).toBe('60')
+    expect(intervalInput(container).value).toBe('60')
   })
 })
 
 describe('SyncPanel auto-sync interval reaches the backend', () => {
-  it('PUTs { enabled: true, interval_minutes: 30 } when running and the dropdown changes', async () => {
-    vi.mocked(apiFetch).mockResolvedValue(okRes({ running: true, interval_min: 30, interval_minutes: 30 }))
+  it('PUTs a custom typed value (e.g. 45 min) when running', async () => {
+    vi.mocked(apiFetch).mockResolvedValue(okRes({ running: true, interval_min: 45, interval_minutes: 45 }))
     const onAutoSyncChange = vi.fn()
     const { container } = render(
       <ToastProvider>
@@ -100,17 +113,38 @@ describe('SyncPanel auto-sync interval reaches the backend', () => {
       </ToastProvider>
     )
 
-    fireEvent.change(intervalSelect(container), { target: { value: '30' } })
+    // A free-text value that is NOT one of the old fixed presets.
+    typeInterval(container, 45)
 
     await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1))
     const [url, opts] = vi.mocked(apiFetch).mock.calls[0]
     expect(url).toMatch(/\/notion\/auto-sync$/)
     expect(opts.method).toBe('PUT')
-    expect(JSON.parse(opts.body)).toEqual({ enabled: true, interval_minutes: 30 })
+    expect(JSON.parse(opts.body)).toEqual({ enabled: true, interval_minutes: 45 })
     await waitFor(() => expect(onAutoSyncChange).toHaveBeenCalled())
   })
 
-  it('reverts the dropdown and shows an error toast when the backend rejects the change', async () => {
+  it('PUTs the preset value when a quick-pick button is clicked', async () => {
+    vi.mocked(apiFetch).mockResolvedValue(okRes({ running: true, interval_min: 30, interval_minutes: 30 }))
+    const { container } = render(
+      <ToastProvider>
+        <SyncPanel
+          onSyncNow={() => {}}
+          onAutoSyncChange={() => {}}
+          autoSync={{ running: true, interval_minutes: 15, interval_min: 15 }}
+        />
+      </ToastProvider>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '30m' }))
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1))
+    const [, opts] = vi.mocked(apiFetch).mock.calls[0]
+    expect(JSON.parse(opts.body)).toEqual({ enabled: true, interval_minutes: 30 })
+    expect(intervalInput(container).value).toBe('30')
+  })
+
+  it('reverts the value and shows an error toast when the backend rejects the change', async () => {
     vi.mocked(apiFetch).mockResolvedValue({ ok: false, json: async () => ({}) })
     const { container } = render(
       <ToastProvider>
@@ -122,10 +156,10 @@ describe('SyncPanel auto-sync interval reaches the backend', () => {
       </ToastProvider>
     )
 
-    fireEvent.change(intervalSelect(container), { target: { value: '30' } })
+    typeInterval(container, 45)
 
-    // The failed PUT must roll the dropdown back to its previous value...
-    await waitFor(() => expect(intervalSelect(container).value).toBe('15'))
+    // The failed PUT must roll the input back to its previous value...
+    await waitFor(() => expect(intervalInput(container).value).toBe('15'))
     // ...and surface an error toast rather than silently dropping the change.
     await waitFor(() => expect(screen.getByText(/couldn.t update the auto-sync interval/i)).toBeTruthy())
   })
@@ -141,12 +175,22 @@ describe('SyncPanel auto-sync interval reaches the backend', () => {
       </ToastProvider>
     )
 
-    fireEvent.change(intervalSelect(container), { target: { value: '30' } })
+    typeInterval(container, 45)
 
     // The interval is persisted later (on enable), so no PUT should fire now —
-    // but the dropdown must still reflect the user's local selection.
+    // but the input must still reflect the user's local selection.
     expect(apiFetch).not.toHaveBeenCalled()
-    expect(intervalSelect(container).value).toBe('30')
+    expect(intervalInput(container).value).toBe('45')
+  })
+
+  it('reverts an empty / invalid entry back to the last committed value', () => {
+    const { container } = renderPanel({
+      autoSync: { running: false, interval_minutes: 60, interval_min: 60 }
+    })
+
+    // Clearing the field then committing must not leave it blank.
+    typeInterval(container, '')
+    expect(intervalInput(container).value).toBe('60')
   })
 })
 
@@ -157,7 +201,7 @@ describe('SyncPanel warns about aggressive intervals', () => {
     })
 
     // A 5-minute interval is aggressive enough to risk hitting Notion limits.
-    expect(intervalSelect(container).value).toBe('5')
+    expect(intervalInput(container).value).toBe('5')
     expect(screen.getByText(/frequent syncs may hit notion rate limits/i)).toBeTruthy()
   })
 
@@ -168,10 +212,10 @@ describe('SyncPanel warns about aggressive intervals', () => {
 })
 
 describe('SyncPanel reflects the clamped value the server actually saved', () => {
-  it('snaps the dropdown to whatever value the server returns', async () => {
-    // User picks 5 min but the server clamps/returns 10 min: the dropdown must
+  it('snaps the input to whatever value the server returns', async () => {
+    // User types 2 min but the server clamps/returns 5 min: the input must
     // silently follow the saved value so it matches what is actually running.
-    vi.mocked(apiFetch).mockResolvedValue(okRes({ running: true, interval_min: 10, interval_minutes: 10 }))
+    vi.mocked(apiFetch).mockResolvedValue(okRes({ running: true, interval_min: 5, interval_minutes: 5 }))
     const { container } = render(
       <ToastProvider>
         <SyncPanel
@@ -182,8 +226,8 @@ describe('SyncPanel reflects the clamped value the server actually saved', () =>
       </ToastProvider>
     )
 
-    fireEvent.change(intervalSelect(container), { target: { value: '5' } })
+    typeInterval(container, 2)
 
-    await waitFor(() => expect(intervalSelect(container).value).toBe('10'))
+    await waitFor(() => expect(intervalInput(container).value).toBe('5'))
   })
 })

@@ -8,14 +8,20 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
   const cooling = cooldown?.cooling
   const remaining = cooldown?.remaining
   const [intervalMin, setIntervalMin] = useState(autoSync?.interval_minutes ?? autoSync?.interval_min ?? 60)
+  // Draft string backing the free numeric input, kept separate from the committed
+  // interval so admins can clear/retype without the value snapping mid-edit.
+  const [intervalDraft, setIntervalDraft] = useState(String(intervalMin))
   const [savingAuto, setSavingAuto] = useState(false)
 
-  // autoSync arrives asynchronously (null on first render), so sync the dropdown
+  // autoSync arrives asynchronously (null on first render), so sync the input
   // from the persisted value once it loads. Prefer interval_minutes (saved
   // setting); fall back to interval_min (live engine) for PUT-response shapes.
   useEffect(() => {
     const saved = autoSync?.interval_minutes ?? autoSync?.interval_min
-    if (saved != null) setIntervalMin(saved)
+    if (saved != null) {
+      setIntervalMin(saved)
+      setIntervalDraft(String(saved))
+    }
   }, [autoSync?.interval_minutes, autoSync?.interval_min])
 
   const lastSuccess = syncStatus?.last_success
@@ -47,9 +53,12 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
     setSavingAuto(false)
   }
 
+  const PRESETS = [5, 15, 30, 60, 120, 360, 720, 1440]
+
   const handleIntervalChange = async (mins) => {
     const prev = intervalMin
     setIntervalMin(mins)
+    setIntervalDraft(String(mins))
     // Only auto-sync-while-running needs an explicit save path; when disabled the
     // interval is persisted later as part of enabling auto-sync.
     if (!autoSync?.running) return
@@ -64,12 +73,32 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
       if (onAutoSyncChange) onAutoSyncChange(d)
       // Reflect the value the server actually saved (it may clamp our request).
       const saved = d.interval_minutes ?? mins
-      if (saved !== mins) setIntervalMin(saved)
+      if (saved !== mins) {
+        setIntervalMin(saved)
+        setIntervalDraft(String(saved))
+      }
     } catch {
       setIntervalMin(prev)
+      setIntervalDraft(String(prev))
       showToast('Couldn\u2019t update the auto-sync interval. Check your connection and try again.', 'error')
     }
     setSavingAuto(false)
+  }
+
+  // Commit the free-text number input (on blur / Enter). Empty or non-numeric
+  // input reverts to the last committed value; otherwise we save the parsed
+  // minutes and let the server clamp reflection snap it into the 5–1440 range.
+  const commitIntervalDraft = () => {
+    const parsed = parseInt(intervalDraft, 10)
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setIntervalDraft(String(intervalMin))
+      return
+    }
+    if (parsed === intervalMin) {
+      setIntervalDraft(String(intervalMin))
+      return
+    }
+    handleIntervalChange(parsed)
   }
 
   return (
@@ -114,13 +143,21 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <select value={intervalMin} onChange={e => handleIntervalChange(parseInt(e.target.value))}
-              disabled={savingAuto}
-              className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-40">
-              {[5, 10, 15, 30, 60, 120, 360, 720, 1440].map(m => (
-                <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60}h`}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={5}
+                max={1440}
+                step={1}
+                value={intervalDraft}
+                disabled={savingAuto}
+                onChange={e => setIntervalDraft(e.target.value)}
+                onBlur={commitIntervalDraft}
+                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                aria-label="Auto-sync interval in minutes"
+                className="w-16 bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-40" />
+              <span className="text-slate-500 text-xs">min</span>
+            </div>
             <button onClick={() => toggleAutoSync(!autoSync?.running)} disabled={savingAuto}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 autoSync?.running
@@ -130,6 +167,19 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
               {savingAuto ? '…' : autoSync?.running ? 'Stop' : 'Enable'}
             </button>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 mt-3">
+          <span className="text-slate-600 text-xs mr-1">Quick picks:</span>
+          {PRESETS.map(m => (
+            <button key={m} onClick={() => handleIntervalChange(m)} disabled={savingAuto}
+              className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors disabled:opacity-40 ${
+                intervalMin === m
+                  ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                  : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'
+              }`}>
+              {m < 60 ? `${m}m` : `${m / 60}h`}
+            </button>
+          ))}
         </div>
         {isFrequent && (
           <p className="text-slate-500 text-xs mt-2">
