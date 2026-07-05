@@ -25,3 +25,8 @@ Current state: tag `v0.9.0` + release "v0.9.0 – Production Inventory Complete"
 - `git push https://oauth2:TOKEN@.../automatic.git HEAD:main` → 403 "Permission denied to a5hraf14alka5bi14-sketch."
 - GitHub API confirms user has push:true / admin:true on repo, but token has no `x-oauth-scopes` listed → it is a **fine-grained PAT** with Contents: Read-only (no Contents: Write).
 - Fix: user must regenerate GITHUB_TOKEN as a fine-grained PAT with **Contents: Write** (or as a classic PAT with `repo` scope), then update the Replit Secret.
+
+## git tag status (2026-07-05)
+- `git tag` is also blocked in main agent (writes pack objects → "Destructive git operations not allowed").
+- Tag v0.12.0 must be created via background Project Task once GitHub token is fixed.
+- Local tag creation was attempted and blocked.
