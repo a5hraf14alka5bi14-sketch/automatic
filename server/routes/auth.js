@@ -14,7 +14,7 @@ import { passwordSchema } from '../validators.js'
 const router = express.Router()
 
 function makeTokens(userId, role, mustChange = false) {
-  const token = jwt.sign({ id: userId, role, mustChange }, SECRET, { expiresIn: '2h' })
+  const token = jwt.sign({ id: userId, role, mustChange }, SECRET, { expiresIn: '15m' })
   const refresh_token = jwt.sign({ id: userId, role, type: 'refresh' }, SECRET, { expiresIn: '30d' })
   return { token, refresh_token }
 }

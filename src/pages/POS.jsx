@@ -72,9 +72,9 @@ export default function POS() {
       setCustomers(Array.isArray(custData) ? custData : [])
       if (settingsData && !settingsData.error) setSettings(s => ({ ...s, ...settingsData }))
       setStockAvail(availData && !availData.error ? availData : {})
-    } catch (e) { console.error(e) }
+    } catch (e) { showToast('Failed to load POS data', 'error') }
     setLoading(false)
-  }, [])
+  }, [showToast])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -146,9 +146,9 @@ export default function POS() {
       const res = await apiFetch('/api/orders?status=pending,preparing,ready')
       const data = await res.json()
       setOpenOrders(Array.isArray(data) ? data : [])
-    } catch {}
+    } catch (e) { showToast('Failed to load open orders', 'error') }
     setTablesLoading(false)
-  }, [])
+  }, [showToast])
 
   useEffect(() => {
     if (view === 'tables') fetchOpenOrders()
@@ -355,14 +355,14 @@ export default function POS() {
       })
       fetchOpenOrders()
       setSelectedTableOrders(null)
-    } catch {}
+    } catch (e) { showToast(e?.message || 'Failed to update order status', 'error') }
   }
 
   const tableToggleRush = async (orderId, rushVal) => {
     try {
       await apiFetch(`/api/orders/${orderId}/rush`, { method: 'PATCH', body: JSON.stringify({ rush: rushVal }) })
       fetchOpenOrders()
-    } catch {}
+    } catch (e) { showToast(e?.message || 'Failed to toggle rush status', 'error') }
   }
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────

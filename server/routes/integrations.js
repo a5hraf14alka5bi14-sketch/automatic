@@ -414,10 +414,39 @@ router.get('/openai/summary', async (req, res) => {
 router.post('/openai/summary', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const { generateDailySummary } = await import('../integrations/openai.js')
-    const dashRes = await fetch(`http://localhost:${process.env.PORT || 3001}/api/dashboard`, {
-      headers: { cookie: req.headers.cookie || '' }
-    })
-    const kpis = dashRes.ok ? await dashRes.json() : {}
+    // Build KPI snapshot directly from DB — avoids fragile internal HTTP fetch
+    const [revenueRes, topItemsRes, lowStockRes] = await Promise.all([
+      pool.query(`
+        SELECT
+          COALESCE(SUM(total),0)   AS revenue,
+          COUNT(*)::int            AS total_orders,
+          COALESCE(AVG(total),0)   AS avg_order_value,
+          COUNT(DISTINCT customer_id) FILTER (WHERE customer_id IS NOT NULL)::int AS customers_served
+        FROM orders
+        WHERE DATE(created_at) = CURRENT_DATE AND status != 'cancelled'
+      `),
+      pool.query(`
+        SELECT oi.name, SUM(oi.quantity)::int AS qty
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        WHERE DATE(o.created_at) = CURRENT_DATE AND o.status != 'cancelled'
+        GROUP BY oi.name ORDER BY qty DESC LIMIT 5
+      `),
+      pool.query(`
+        SELECT name FROM inventory
+        WHERE quantity <= min_quantity AND deleted_at IS NULL
+        ORDER BY (min_quantity - quantity) DESC LIMIT 10
+      `),
+    ])
+    const r = revenueRes.rows[0]
+    const kpis = {
+      revenue:         parseFloat(r.revenue),
+      totalOrders:     r.total_orders,
+      avgOrderValue:   parseFloat(parseFloat(r.avg_order_value).toFixed(3)),
+      customersServed: r.customers_served,
+      topItems:        topItemsRes.rows,
+      lowStock:        lowStockRes.rows,
+    }
     const summary = await generateDailySummary(kpis)
     const now = new Date().toISOString()
     await setSetting('last_ai_summary', summary)

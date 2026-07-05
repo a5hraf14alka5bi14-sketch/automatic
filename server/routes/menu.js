@@ -156,7 +156,7 @@ router.delete('/modifiers/:mid', async (req, res) => {
 })
 
 // ── GET /api/menu/food-cost — all items with cost % & margin ─────────────────
-router.get('/food-cost', async (req, res) => {
+router.get('/food-cost', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
@@ -178,7 +178,7 @@ router.get('/food-cost', async (req, res) => {
 })
 
 // ── GET /api/menu/recipe/link-summary — inventory-link coverage ──────────────
-router.get('/recipe/link-summary', async (req, res) => {
+router.get('/recipe/link-summary', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const r = await pool.query(`
       SELECT

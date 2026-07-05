@@ -2,7 +2,8 @@ import express from 'express'
 import bcrypt from 'bcryptjs'
 import { pool } from '../db.js'
 import { requireRole } from '../middleware/auth.js'
-import { passwordSchema } from '../validators.js'
+import { validate } from '../middleware/validate.js'
+import { passwordSchema, createUserSchema, patchUserRoleSchema } from '../validators.js'
 import { logger } from '../logger.js'
 
 const router = express.Router()
@@ -64,15 +65,8 @@ router.get('/', requireRole('admin'), async (req, res) => {
   }
 })
 
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole('admin'), validate(createUserSchema), async (req, res) => {
   const { name, email, password, role } = req.body
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'name, email, password required' })
-  }
-  const validRoles = ['admin', 'manager', 'cashier', 'kitchen', 'staff']
-  if (role && !validRoles.includes(role)) {
-    return res.status(400).json({ error: 'Invalid role' })
-  }
   try {
     const hash = await bcrypt.hash(password, 10)
     const result = await pool.query(
@@ -87,10 +81,8 @@ router.post('/', requireRole('admin'), async (req, res) => {
   }
 })
 
-router.patch('/:id/role', requireRole('admin'), async (req, res) => {
+router.patch('/:id/role', requireRole('admin'), validate(patchUserRoleSchema), async (req, res) => {
   const { role } = req.body
-  const validRoles = ['admin', 'manager', 'cashier', 'kitchen', 'staff']
-  if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' })
   if (parseInt(req.params.id) === req.user.id) {
     return res.status(400).json({ error: 'Cannot change your own role' })
   }

@@ -1,17 +1,19 @@
 # Automatic Restaurant OS
 
-## Current Version: v0.10.0 — Invoice Batch 2 Imported (2026-07-05)
+## Current Version: v0.11.0 — Security & Quality Hardening (2026-07-05)
 
 | | |
 |---|---|
-| **Release** | v0.10.0 — Invoice Batch 2 Imported |
-| **Test suite** | 190/190 passing |
-| **Migrations** | 009 applied (supplier name unique index) |
+| **Release** | v0.11.0 — Security & Quality Hardening |
+| **Test suite** | 193/193 passing (+3 regression tests) |
+| **Migrations** | 010 applied (NUMERIC(10,3) widening + recipe_ingredients unique constraint) |
 | **Inventory** | 82 active items · 7 categories · 3 suppliers (all linked) |
 | **Purchases** | 10 purchase orders (PO#1–#10) · 150 line items · OMR 2624.360 total |
-| **Suppliers** | Al Aamer Majestic S.P.C · Valley Deer For Investment S.P.C · Al Sanabel |
-| **Dedup protection** | App-level (POST+PATCH) + DB partial unique index WHERE active |
-| **Next milestone** | Invoice #2309 (Valley Deer, 5-Apr) — awaiting clearer photo; GitHub history reconcile |
+| **Security** | Access token 15m · kitchen/staff order financial field filtering · requireRole on food-cost/movements/stats/link-summary |
+| **DB integrity** | FOR UPDATE on PO receive · UNIQUE on recipe_ingredients · NUMERIC(10,3) widening |
+| **Validation** | Joi schemas for shifts, POs, user management; X-Total-Count coerced to String |
+| **Frontend** | jsPDF lazy-loaded · empty catch handlers show toast in POS |
+| **AI Summary** | Direct DB KPI queries replace fragile localhost fetch |
 
 ---
 

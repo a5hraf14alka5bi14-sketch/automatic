@@ -165,7 +165,7 @@ router.post('/purchase-orders/:id/receive', requireRole('admin', 'manager'), asy
   try {
     await client.query('BEGIN')
     const po = await client.query(
-      'SELECT * FROM purchase_orders WHERE id = $1', [req.params.id]
+      'SELECT * FROM purchase_orders WHERE id = $1 FOR UPDATE', [req.params.id]
     )
     if (!po.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'PO not found' }) }
     if (po.rows[0].status === 'received') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'PO already received' }) }

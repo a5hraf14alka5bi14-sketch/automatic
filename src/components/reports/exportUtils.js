@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import logoUrl from '../../assets/brand/logo-full.png'
 
 // Cache the logo as a data URL so repeated PDF exports don't re-fetch.
@@ -33,7 +31,12 @@ export function downloadCSV(period) {
 }
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
+// jsPDF + autoTable are lazy-loaded to keep the initial bundle lean (~500 KB saved).
 export async function downloadPDF(data, period, fmtFn) {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const periodLabel = { today: 'Today', week: 'Last 7 Days', month: 'This Month' }[period] || period
   const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })

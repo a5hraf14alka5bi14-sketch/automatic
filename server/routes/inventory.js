@@ -14,7 +14,7 @@ router.use((req, res, next) => {
 })
 
 // ── GET /api/inventory/movements ──────────────────────────────────────────────
-router.get('/movements', async (req, res, next) => {
+router.get('/movements', requireRole('admin', 'manager'), async (req, res, next) => {
   try {
     const { item_id, limit } = req.query
     const params = []
@@ -65,7 +65,7 @@ router.get('/low-stock', async (req, res) => {
 })
 
 // ── GET /api/inventory/stats ──────────────────────────────────────────────────
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const s = await pool.query(`
       SELECT

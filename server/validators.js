@@ -127,3 +127,43 @@ export const settingsUpdateSchema = Joi.object({
   tables_count: Joi.number().integer().min(0),
   loyalty_points_per_omr: Joi.number().min(0),
 })
+
+// ── Shift schemas ─────────────────────────────────────────────────────────────
+export const closeShiftSchema = Joi.object({
+  actual_cash: Joi.number().min(0).required(),
+  notes: Joi.string().max(1000).allow('', null),
+})
+
+// ── Purchase Order schemas ─────────────────────────────────────────────────────
+const poItemSchema = Joi.object({
+  inventory_id: Joi.number().integer().allow(null),
+  item_name: Joi.string().max(255).allow('', null),
+  quantity: Joi.number().min(0).required(),
+  unit: Joi.string().max(50).allow('', null),
+  unit_cost: Joi.number().min(0).allow(null),
+})
+
+export const createPoSchema = Joi.object({
+  supplier_id: Joi.number().integer().allow(null),
+  notes: Joi.string().max(1000).allow('', null),
+  items: Joi.array().items(poItemSchema).min(1).required(),
+})
+
+export const patchPoSchema = Joi.object({
+  status: Joi.string().valid('draft', 'ordered', 'received', 'cancelled').allow(null),
+  notes: Joi.string().max(1000).allow('', null),
+})
+
+// ── User management schemas ────────────────────────────────────────────────────
+const VALID_ROLES_LIST = ['admin', 'manager', 'cashier', 'kitchen', 'staff']
+
+export const createUserSchema = Joi.object({
+  name: shortText.required(),
+  email: Joi.string().email().max(255).required(),
+  password: passwordSchema.required(),
+  role: Joi.string().valid(...VALID_ROLES_LIST).default('staff'),
+})
+
+export const patchUserRoleSchema = Joi.object({
+  role: Joi.string().valid(...VALID_ROLES_LIST).required(),
+})

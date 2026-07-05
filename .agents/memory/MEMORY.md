@@ -45,6 +45,7 @@
 - [Server logging standard](server-logging.md) — all routes import logger from ../logger.js; use logger.error(msg, {path:req.path}) not console.error; index.js global error handler keeps console.error as intentional fallback
 - [DB FK + precision migrations](db-fk-precision.md) — orders.total/subtotal/tax + customers.total_spent upgraded to NUMERIC(10,3); FK fk_orders_user + fk_orders_customer added via idempotent DO $$ block; orphan cleanup done before constraint add
 - [Orders route ordering](orders-route-ordering.md) — /table/:n and /customer/:customerId MUST come before /:id in Express; otherwise 'table'/'customer' match /:id first
+- [Order financial field filtering](order-field-filtering.md) — kitchen/staff roles get orders stripped of financial fields; filterOrderFields(rows, role) in orders.js; access token reduced to 15m to close mustChange window
 - [POS + KDS discount & rush schema](pos-kds-upgrade.md) — orders has discount/discount_type/rush/station; order_items has item_notes/done/station; POS sends discountedSub+tax+total; KDS uses Web Audio API beep (no files); cash change calculator in PaymentModal
 - [Route authz convention](route-authz-convention.md) — verifyToken is global but NOT sufficient; every mutating/paid integration & AI route needs an explicit requireRole guard
 - [GitHub remote state](github-remote-state.md) — origin (a5hraf14alka5bi14-sketch/Automatic-) returns 'repository not found'; pushes fail until repo access/remote fixed

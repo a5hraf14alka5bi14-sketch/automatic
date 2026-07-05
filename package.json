@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run tests/",
+    "test:coverage": "vitest run tests/ --coverage",
     "db:setup": "node scripts/init-db.js",
     "backup": "bash scripts/backup.sh"
   },
@@ -42,6 +43,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.3",
+    "@vitest/coverage-v8": "^4.1.9",
     "concurrently": "^8.2.2",
     "postcss": "^8.5.15",
     "supertest": "^7.2.2",

@@ -48,6 +48,20 @@ const ORDERS_SELECT = `
   LEFT JOIN order_items oi ON oi.order_id = o.id
 `
 
+// Fields containing pricing/payment/void data — stripped for kitchen & staff roles.
+// These roles need operational detail (items, table, status, rush) but not financial data.
+const FINANCIAL_FIELDS = ['subtotal', 'tax', 'total', 'discount', 'discount_type',
+  'payment_method', 'loyalty_discount', 'void_reason', 'voided_by', 'voided_at']
+
+function filterOrderFields(rows, role) {
+  if (role !== 'kitchen' && role !== 'staff') return rows
+  return rows.map(row => {
+    const r = { ...row }
+    for (const f of FINANCIAL_FIELDS) delete r[f]
+    return r
+  })
+}
+
 // GET all orders
 router.get('/', async (req, res) => {
   try {
@@ -66,7 +80,7 @@ router.get('/', async (req, res) => {
     if (where.length) query += ' WHERE ' + where.join(' AND ')
     query += ` GROUP BY o.id, u.name ORDER BY o.rush DESC, o.created_at DESC`
     if (limit) { query += ` LIMIT $${params.length + 1}`; params.push(parseInt(limit)) }
-    res.json((await pool.query(query, params)).rows)
+    res.json(filterOrderFields((await pool.query(query, params)).rows, req.user?.role))
   } catch (err) { logger.error(err?.message, { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
@@ -81,7 +95,7 @@ router.get('/table/:n', async (req, res) => {
        GROUP BY o.id, u.name ORDER BY o.created_at DESC`,
       [n]
     )
-    res.json(result.rows)
+    res.json(filterOrderFields(result.rows, req.user?.role))
   } catch (err) { logger.error(err?.message, { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
@@ -92,7 +106,7 @@ router.get('/customer/:customerId', requireRole('admin', 'manager'), async (req,
       `${ORDERS_SELECT} WHERE o.customer_id=$1 GROUP BY o.id, u.name ORDER BY o.created_at DESC LIMIT 20`,
       [req.params.customerId]
     )
-    res.json(result.rows)
+    res.json(filterOrderFields(result.rows, req.user?.role))
   } catch (err) { logger.error(err?.message, { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 
@@ -104,7 +118,7 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     )
     if (!order.rows.length) return res.status(404).json({ error: 'Not found' })
-    res.json(order.rows[0])
+    res.json(filterOrderFields([order.rows[0]], req.user?.role)[0])
   } catch (err) { logger.error(err?.message, { path: req.path }); res.status(500).json({ error: 'Server error' }) }
 })
 

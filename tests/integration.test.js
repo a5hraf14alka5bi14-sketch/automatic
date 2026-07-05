@@ -251,3 +251,90 @@ describe('Soft delete', () => {
     expect(row.rows[0].deleted_at).not.toBeNull()
   })
 })
+
+// ── Regression: PO double-receive guard ──────────────────────────────────────
+describe('PO double-receive guard', () => {
+  it('returns 409 when the same PO is received a second time', async () => {
+    const suppRes = await admin.post('/api/suppliers').send({ name: `${TAG} DoubleRecv Supplier` })
+    expect(suppRes.status).toBe(201)
+    const suppId = suppRes.body.id
+
+    const poRes = await admin.post('/api/suppliers/purchase-orders').send({
+      supplier_id: suppId,
+      items: [{ item_name: `${TAG} Widget`, quantity: 10, unit: 'kg', unit_cost: 2 }],
+    })
+    expect(poRes.status).toBe(201)
+    const poId = poRes.body.id
+
+    const r1 = await admin.post(`/api/suppliers/purchase-orders/${poId}/receive`)
+    expect(r1.status).toBe(200)
+
+    const r2 = await admin.post(`/api/suppliers/purchase-orders/${poId}/receive`)
+    expect(r2.status).toBe(409)
+
+    await pool.query('DELETE FROM purchase_order_items WHERE purchase_order_id=$1', [poId])
+    await pool.query('DELETE FROM purchase_orders WHERE id=$1', [poId])
+    await pool.query('DELETE FROM suppliers WHERE id=$1', [suppId])
+  })
+})
+
+// ── Regression: must_change_password propagates on token refresh ──────────────
+describe('must_change_password propagation', () => {
+  it('blocks API access after admin sets must_change_password and token is refreshed', async () => {
+    const email = `${TAG}_mcp@test.local`
+    const uid = await seedUser(email, 'staff')
+    const agent = await login(email)
+
+    const preRes = await agent.get('/api/menu/all')
+    expect(preRes.status).toBe(200)
+
+    await pool.query('UPDATE users SET must_change_password = true WHERE id = $1', [uid])
+
+    const refreshRes = await agent.post('/api/auth/refresh')
+    expect(refreshRes.status).toBe(200)
+
+    const postRes = await agent.get('/api/menu/all')
+    expect(postRes.status).toBe(403)
+
+    await pool.query('DELETE FROM users WHERE id=$1', [uid])
+  })
+})
+
+// ── Regression: kitchen role order field filtering ────────────────────────────
+describe('Kitchen role order financial field filtering', () => {
+  let kitchen
+  const KITCHEN_EMAIL = `${TAG}_kitchen@test.local`
+
+  beforeAll(async () => {
+    await seedUser(KITCHEN_EMAIL, 'kitchen')
+    kitchen = await login(KITCHEN_EMAIL)
+  })
+
+  it('strips financial fields from orders for kitchen role', async () => {
+    const menu = await pool.query(
+      "INSERT INTO menu_items (name, category, price, available) VALUES ($1,'test',5.0,true) RETURNING id",
+      [`${TAG} KitchenTestDish`]
+    )
+    const mId = menu.rows[0].id
+
+    const orderRes = await admin.post('/api/orders').send({
+      type: 'dine-in', table_number: 1,
+      items: [{ menu_item_id: mId, quantity: 1, price: 5.0, name: `${TAG} KitchenTestDish` }],
+    })
+    expect(orderRes.status).toBe(201)
+    const oId = orderRes.body.id
+
+    const res = await kitchen.get(`/api/orders/${oId}`)
+    expect(res.status).toBe(200)
+    expect(res.body.id).toBe(oId)
+    expect(res.body.items).toBeDefined()
+    expect(res.body.total).toBeUndefined()
+    expect(res.body.subtotal).toBeUndefined()
+    expect(res.body.payment_method).toBeUndefined()
+    expect(res.body.void_reason).toBeUndefined()
+
+    await pool.query('DELETE FROM order_items WHERE order_id=$1', [oId])
+    await pool.query('DELETE FROM orders WHERE id=$1', [oId])
+    await pool.query('DELETE FROM menu_items WHERE id=$1', [mId])
+  })
+})

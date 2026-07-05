@@ -8,6 +8,8 @@ import express         from 'express'
 import { pool }        from '../db.js'
 import { requireRole } from '../middleware/auth.js'
 import { logger }      from '../logger.js'
+import { validate }    from '../middleware/validate.js'
+import { closeShiftSchema } from '../validators.js'
 
 const router = express.Router()
 
@@ -45,7 +47,7 @@ router.get('/', requireRole('manager'), async (req, res) => {
       LIMIT $1 OFFSET $2
     `, [limit, offset])
     const total = await pool.query('SELECT COUNT(*) FROM shifts')
-    res.setHeader('X-Total-Count', total.rows[0].count)
+    res.setHeader('X-Total-Count', String(total.rows[0].count))
     res.json(r.rows)
   } catch (err) {
     logger.error(err?.message, { path: req.path })
@@ -104,11 +106,8 @@ router.post('/open', requireRole('manager'), async (req, res) => {
 })
 
 // ── POST /api/shifts/:id/close — close shift + compute Z-Report ───────────────
-router.post('/:id/close', requireRole('manager'), async (req, res) => {
+router.post('/:id/close', requireRole('manager'), validate(closeShiftSchema), async (req, res) => {
   const { actual_cash, notes } = req.body
-  if (actual_cash === undefined || actual_cash === null || isNaN(parseFloat(actual_cash))) {
-    return res.status(400).json({ error: 'actual_cash is required' })
-  }
 
   const client = await pool.connect()
   try {
