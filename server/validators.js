@@ -129,6 +129,9 @@ export const settingsUpdateSchema = Joi.object({
 })
 
 // ── Shift schemas ─────────────────────────────────────────────────────────────
+// Opening a shift takes no client-supplied fields (opened_by comes from the JWT).
+export const openShiftSchema = Joi.object({})
+
 export const closeShiftSchema = Joi.object({
   actual_cash: Joi.number().min(0).required(),
   notes: Joi.string().max(1000).allow('', null),

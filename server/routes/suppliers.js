@@ -1,6 +1,8 @@
 import express from 'express'
 import { pool } from '../db.js'
 import { requireRole } from '../middleware/auth.js'
+import { validate } from '../middleware/validate.js'
+import { createPoSchema, patchPoSchema } from '../validators.js'
 import { logger } from '../logger.js'
 
 const router = express.Router()
@@ -97,11 +99,8 @@ router.get('/purchase-orders', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-router.post('/purchase-orders', requireRole('admin', 'manager'), async (req, res, next) => {
+router.post('/purchase-orders', requireRole('admin', 'manager'), validate(createPoSchema), async (req, res, next) => {
   const { supplier_id, notes, items } = req.body
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'At least one item is required' })
-  }
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -140,10 +139,8 @@ router.post('/purchase-orders', requireRole('admin', 'manager'), async (req, res
   } finally { client.release() }
 })
 
-router.patch('/purchase-orders/:id', requireRole('admin', 'manager'), async (req, res, next) => {
+router.patch('/purchase-orders/:id', requireRole('admin', 'manager'), validate(patchPoSchema), async (req, res, next) => {
   const { status, notes } = req.body
-  const VALID = ['draft', 'ordered', 'received', 'cancelled']
-  if (status && !VALID.includes(status)) return res.status(400).json({ error: 'Invalid status' })
   try {
     const extra = status === 'ordered' ? ', ordered_at = NOW()' : status === 'received' ? ', received_at = NOW()' : ''
     const r = await pool.query(

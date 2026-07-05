@@ -9,7 +9,7 @@ import { pool }        from '../db.js'
 import { requireRole } from '../middleware/auth.js'
 import { logger }      from '../logger.js'
 import { validate }    from '../middleware/validate.js'
-import { closeShiftSchema } from '../validators.js'
+import { openShiftSchema, closeShiftSchema } from '../validators.js'
 
 const router = express.Router()
 
@@ -87,7 +87,7 @@ router.get('/:id', requireRole('manager'), async (req, res) => {
 })
 
 // ── POST /api/shifts/open — open a new shift (manager+) ───────────────────────
-router.post('/open', requireRole('manager'), async (req, res) => {
+router.post('/open', requireRole('manager'), validate(openShiftSchema), async (req, res) => {
   try {
     // Only one open shift at a time
     const existing = await pool.query("SELECT id FROM shifts WHERE status='open' LIMIT 1")
