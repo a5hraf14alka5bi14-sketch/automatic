@@ -10,9 +10,10 @@ import { pool } from '../server/db.js'
 const TAG = `itest_${Date.now()}`
 const ADMIN_EMAIL = `${TAG}_admin@test.local`
 const STAFF_EMAIL = `${TAG}_staff@test.local`
+const MANAGER_EMAIL = `${TAG}_manager@test.local`
 const PASSWORD = 'TestPass123'
 
-const ids = { adminUser: null, staffUser: null, menuItem: null, invItem: null, invItem2: null, recipe: null, customer: null, order: null }
+const ids = { adminUser: null, staffUser: null, managerUser: null, menuItem: null, invItem: null, invItem2: null, recipe: null, customer: null, order: null }
 
 async function seedUser(email, role) {
   const hash = await bcrypt.hash(PASSWORD, 10)
@@ -30,11 +31,12 @@ async function login(email) {
   return agent
 }
 
-let admin, staff
+let admin, staff, manager
 
 beforeAll(async () => {
   ids.adminUser = await seedUser(ADMIN_EMAIL, 'admin')
   ids.staffUser = await seedUser(STAFF_EMAIL, 'staff')
+  ids.managerUser = await seedUser(MANAGER_EMAIL, 'manager')
 
   // Inventory item stored in kg; recipe expressed in g -> exercises conversion.
   const inv = await pool.query(
@@ -69,6 +71,7 @@ beforeAll(async () => {
 
   admin = await login(ADMIN_EMAIL)
   staff = await login(STAFF_EMAIL)
+  manager = await login(MANAGER_EMAIL)
 })
 
 afterAll(async () => {
@@ -77,7 +80,7 @@ afterAll(async () => {
   await pool.query('DELETE FROM menu_items WHERE id=$1', [ids.menuItem])
   await pool.query('DELETE FROM inventory WHERE id = ANY($1)', [[ids.invItem, ids.invItem2].filter(Boolean)])
   await pool.query('DELETE FROM customers WHERE id=$1', [ids.customer])
-  await pool.query('DELETE FROM users WHERE id = ANY($1)', [[ids.adminUser, ids.staffUser].filter(Boolean)])
+  await pool.query('DELETE FROM users WHERE id = ANY($1)', [[ids.adminUser, ids.staffUser, ids.managerUser].filter(Boolean)])
   await pool.end()
 })
 
@@ -463,6 +466,40 @@ describe('User management privilege boundary', () => {
 
   it('forbids a non-admin from deleting another user (403)', async () => {
     const res = await staff.delete(`/api/users/${ids.adminUser}`)
+    expect(res.status).toBe(403)
+    // The target row must still exist.
+    const row = await pool.query('SELECT id FROM users WHERE id=$1', [ids.adminUser])
+    expect(row.rows.length).toBe(1)
+  })
+
+  it('forbids a manager from listing users (403)', async () => {
+    const res = await manager.get('/api/users')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids a manager from creating users (403)', async () => {
+    const res = await manager.post('/api/users').send({
+      name: `${TAG} MgrSneaky`,
+      email: `${TAG}_mgrsneaky@test.local`,
+      password: PASSWORD,
+      role: 'admin',
+    })
+    expect(res.status).toBe(403)
+    // Nothing should have been written.
+    const check = await pool.query('SELECT id FROM users WHERE email=$1', [`${TAG}_mgrsneaky@test.local`])
+    expect(check.rows.length).toBe(0)
+  })
+
+  it("forbids a manager from changing another user's role (403)", async () => {
+    const res = await manager.patch(`/api/users/${ids.adminUser}/role`).send({ role: 'staff' })
+    expect(res.status).toBe(403)
+    // The admin's role must be untouched.
+    const row = await pool.query('SELECT role FROM users WHERE id=$1', [ids.adminUser])
+    expect(row.rows[0].role).toBe('admin')
+  })
+
+  it('forbids a manager from deleting another user (403)', async () => {
+    const res = await manager.delete(`/api/users/${ids.adminUser}`)
     expect(res.status).toBe(403)
     // The target row must still exist.
     const row = await pool.query('SELECT id FROM users WHERE id=$1', [ids.adminUser])
