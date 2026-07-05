@@ -253,7 +253,7 @@ router.post('/notion/sync', costlyIntegrationLimiter, requireRole('admin', 'mana
 
 // ── GET /api/integrations/notion/sync/status ─────────────────────────────────
 
-router.get('/notion/sync/status', async (req, res) => {
+router.get('/notion/sync/status', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const [logs, lastSuccess, engineStatus] = await Promise.all([
       getRecentLogs('notion', 15),
@@ -301,7 +301,7 @@ router.put('/notion/auto-sync', requireRole('admin', 'manager'), async (req, res
 
 // ── GET /api/integrations/notion/auto-sync ───────────────────────────────────
 
-router.get('/notion/auto-sync', async (req, res) => {
+router.get('/notion/auto-sync', requireRole('admin', 'manager'), async (req, res) => {
   try {
     const [enabled, interval] = await Promise.all([
       getSetting('notion_auto_sync_enabled'),

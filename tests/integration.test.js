@@ -732,6 +732,29 @@ describe('Expensive integration actions reject low-privilege roles', () => {
     const res = await cashier.post('/api/integrations/openai/chat').send({ messages: [{ role: 'user', content: 'hi' }] })
     expect(res.status).toBe(403)
   })
+
+  // Info-disclosure/EoP: reading auto-sync config and recent sync logs must be
+  // management-only, matching their PUT/POST counterparts and the rest of the
+  // integrations hub. A low-privilege role must not see sync configuration or logs.
+  it('forbids staff from reading Notion auto-sync config (403)', async () => {
+    const res = await staff.get('/api/integrations/notion/auto-sync')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids cashier from reading Notion auto-sync config (403)', async () => {
+    const res = await cashier.get('/api/integrations/notion/auto-sync')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids staff from reading Notion sync status/logs (403)', async () => {
+    const res = await staff.get('/api/integrations/notion/sync/status')
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids cashier from reading Notion sync status/logs (403)', async () => {
+    const res = await cashier.get('/api/integrations/notion/sync/status')
+    expect(res.status).toBe(403)
+  })
 })
 
 // Even an *authorized* manager/admin can drain external API quotas (or drive up
