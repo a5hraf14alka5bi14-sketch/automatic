@@ -320,6 +320,138 @@ describe('cooldown countdown ticks down and re-enables the real button', () => {
   })
 })
 
+// The GitHub lifecycle test above proves ONE button re-enables after the window
+// elapses. But the OpenAI "Generate"/"Ask" and Notion "Sync All" buttons each use
+// their OWN independent useCooldown instance (summaryCooldown, chatCooldown, the
+// Notion page's syncCooldown). Their earlier tests only assert they REACH the
+// disabled "Wait 30s" state — they never advance the clock, so a regression in any
+// one of those buttons' wiring could leave it stuck disabled forever and still
+// pass. These tests drive each of them through the full countdown lifecycle on a
+// fake clock: 429 → "Wait 30s" → ticks down → back to the normal enabled label.
+describe('OpenAI cooldown countdowns tick down and re-enable the real buttons', () => {
+  function mockOpenAI429(target) {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === target && method === 'POST') return Promise.resolve(rateLimited())
+      if (url === '/api/integrations' && method === 'GET') {
+        return Promise.resolve(apiRes({
+          body: {
+            github: { configured: true, synced_repos: 0, env_present: true, masked: 'ghp_…' },
+            notion: { configured: true, env_present: true, masked: 'sec_…' },
+            openai: { configured: true, env_present: true, masked: 'sk-…' },
+          },
+        }))
+      }
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('"Generate" summary: "Wait 30s" → "Wait 29s" → back to enabled "Generate"', async () => {
+    mockOpenAI429('/api/integrations/openai/summary')
+    renderPage(<Integrations />)
+
+    // Mount + initial load on the real clock so findByRole resolves.
+    const btn = await screen.findByRole('button', { name: /Generate/i })
+    expect(btn.disabled).toBe(false)
+
+    // Fake clock so we can advance the cooldown deterministically; the interval
+    // is created on click, so faking before the click controls it fully.
+    vi.useFakeTimers()
+
+    // 429 → cooldown starts; button immediately shows the full window, disabled.
+    await act(async () => { fireEvent.click(btn) })
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+
+    // The countdown must actually decrement second by second.
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(btn.textContent).toContain('Wait 29s')
+    expect(btn.disabled).toBe(true)
+
+    // Keeps ticking partway through (proves the interval keeps firing).
+    act(() => { vi.advanceTimersByTime(15000) })
+    expect(btn.textContent).toContain('Wait 14s')
+    expect(btn.disabled).toBe(true)
+
+    // Once the window fully elapses the button returns to "Generate", enabled.
+    act(() => { vi.advanceTimersByTime(14000) })
+    expect(btn.textContent).toContain('Generate')
+    expect(btn.disabled).toBe(false)
+  })
+
+  it('"Ask" chat: "Wait 30s" → "Wait 29s" → back to enabled "Ask"', async () => {
+    mockOpenAI429('/api/integrations/openai/chat')
+    renderPage(<Integrations />)
+
+    // A non-empty prompt is required for the Ask button to be enabled.
+    const input = await screen.findByPlaceholderText(/daily special/i)
+    fireEvent.change(input, { target: { value: 'What should we cook?' } })
+
+    const btn = screen.getByRole('button', { name: /^Ask$/i })
+    expect(btn.disabled).toBe(false)
+
+    vi.useFakeTimers()
+
+    await act(async () => { fireEvent.click(btn) })
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(btn.textContent).toContain('Wait 29s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(15000) })
+    expect(btn.textContent).toContain('Wait 14s')
+    expect(btn.disabled).toBe(true)
+
+    // The prompt is still present, so once the window elapses "Ask" is enabled again.
+    act(() => { vi.advanceTimersByTime(14000) })
+    expect(btn.textContent).toContain('Ask')
+    expect(btn.disabled).toBe(false)
+  })
+})
+
+describe('Notion "Sync All" cooldown countdown ticks down and re-enables the real button', () => {
+  function mockNotionSync429() {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === '/api/integrations/notion/sync' && method === 'POST')
+        return Promise.resolve(rateLimited())
+      if (url.endsWith('/projects')) return Promise.resolve(apiRes({ body: [] }))
+      if (url.startsWith('/api/notion/tasks')) return Promise.resolve(apiRes({ body: [] }))
+      if (url === '/api/notion/config')
+        return Promise.resolve(apiRes({ body: { configured: true, envKeyPresent: true } }))
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('counts down "Wait 30s" → "Wait 29s" → back to enabled "Sync All"', async () => {
+    mockNotionSync429()
+    renderPage(<NotionIntegration />)
+
+    const btn = await screen.findByRole('button', { name: /Sync All/i })
+    expect(btn.disabled).toBe(false)
+
+    vi.useFakeTimers()
+
+    await act(async () => { fireEvent.click(btn) })
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(btn.textContent).toContain('Wait 29s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(15000) })
+    expect(btn.textContent).toContain('Wait 14s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(14000) })
+    expect(btn.textContent).toContain('Sync All')
+    expect(btn.disabled).toBe(false)
+  })
+})
+
 describe('real Notion page sync buttons enter the cooldown state on 429', () => {
   function mockNotionApi() {
     vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
