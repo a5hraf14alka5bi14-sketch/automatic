@@ -240,4 +240,4 @@ if (isEntryPoint) {
     })
 }
 
-export { app, server }
+export { app, server, initSyncEngine }

@@ -869,6 +869,40 @@ describe('Notion auto-sync GET/PUT return a matching, persisted shape', () => {
     expect(stored.rows[0]?.value).toBe('45')
   })
 
+  // Task #60: a saved interval must survive a server restart. The PUT persists
+  // to the settings table and arms an in-memory timer — but on the next boot the
+  // timer is gone and only the settings row remains. This simulates a restart by
+  // clearing the in-memory timer and re-running the boot init, then proves the
+  // engine re-arms itself with the PERSISTED interval (not a hardcoded default).
+  it('re-arms the persisted interval after a simulated server restart', async () => {
+    const { initSyncEngine } = await import('../server/index.js')
+    const { stopAutoSync, getSyncEngineStatus } = await import('../server/integrations/sync-engine.js')
+
+    // Persist a non-default interval through the real PUT path.
+    const put = await admin.put('/api/integrations/notion/auto-sync').send({ enabled: true, interval_minutes: 30 })
+    expect(put.status).toBe(200)
+    expect(put.body.interval_minutes).toBe(30)
+
+    // Simulate a process restart: the in-memory timer dies, settings survive.
+    stopAutoSync()
+    expect(getSyncEngineStatus().running).toBe(false)
+
+    // Boot init must read the persisted settings and re-arm the engine at 30 min,
+    // proving the choice is not silently reverted to the 15-min default on boot.
+    await initSyncEngine()
+    const status = getSyncEngineStatus()
+    expect(status.running).toBe(true)
+    expect(status.interval_min).toBe(30)
+
+    // And a fresh GET still reports the persisted interval after the restart.
+    const get = await admin.get('/api/integrations/notion/auto-sync')
+    expect(get.status).toBe(200)
+    expect(get.body.enabled).toBe(true)
+    expect(get.body.interval_minutes).toBe(30)
+    expect(get.body.running).toBe(true)
+    expect(get.body.interval_min).toBe(30)
+  })
+
   it('disabling persists enabled=false and stops the timer', async () => {
     const put = await admin.put('/api/integrations/notion/auto-sync').send({ enabled: false })
     expect(put.status).toBe(200)
