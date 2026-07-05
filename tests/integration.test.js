@@ -528,3 +528,72 @@ describe('Integration secrets do not leak and are management-only', () => {
     expect(res.status).toBe(403)
   })
 })
+
+// ── DoS / EoP: expensive integration action endpoints are management-only ─────
+// These endpoints trigger third-party API calls (Notion pull/push, GitHub sync,
+// OpenAI summary/chat). A low-privilege role must be rejected by the router-level
+// requireRole guard BEFORE any external call is made — protecting against a
+// staff/cashier exhausting external API quotas or driving up spend.
+describe('Expensive integration actions reject low-privilege roles', () => {
+  let cashier
+  const CASHIER_EMAIL = `${TAG}_cashier_intg@test.local`
+
+  beforeAll(async () => {
+    await seedUser(CASHIER_EMAIL, 'cashier')
+    cashier = await login(CASHIER_EMAIL)
+  })
+
+  afterAll(async () => {
+    await pool.query('DELETE FROM users WHERE email=$1', [CASHIER_EMAIL])
+  })
+
+  it('forbids staff from triggering a Notion pull sync (403)', async () => {
+    const res = await staff.post('/api/integrations/notion/sync').send({ type: 'menu' })
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids cashier from triggering a Notion pull sync (403)', async () => {
+    const res = await cashier.post('/api/integrations/notion/sync').send({ type: 'menu' })
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids staff from triggering a Notion push (403)', async () => {
+    const res = await staff.post('/api/integrations/notion/push').send({ type: 'menu' })
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids cashier from triggering a Notion push (403)', async () => {
+    const res = await cashier.post('/api/integrations/notion/push').send({ type: 'menu' })
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids staff from triggering a GitHub sync (403)', async () => {
+    const res = await staff.post('/api/integrations/github/sync').send({})
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids cashier from triggering a GitHub sync (403)', async () => {
+    const res = await cashier.post('/api/integrations/github/sync').send({})
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids staff from generating an OpenAI daily summary (403)', async () => {
+    const res = await staff.post('/api/integrations/openai/summary').send({})
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids cashier from generating an OpenAI daily summary (403)', async () => {
+    const res = await cashier.post('/api/integrations/openai/summary').send({})
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids staff from calling OpenAI chat (403)', async () => {
+    const res = await staff.post('/api/integrations/openai/chat').send({ messages: [{ role: 'user', content: 'hi' }] })
+    expect(res.status).toBe(403)
+  })
+
+  it('forbids cashier from calling OpenAI chat (403)', async () => {
+    const res = await cashier.post('/api/integrations/openai/chat').send({ messages: [{ role: 'user', content: 'hi' }] })
+    expect(res.status).toBe(403)
+  })
+})
