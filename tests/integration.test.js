@@ -758,3 +758,107 @@ describe('Costly integration actions are rate-limited per user', () => {
     expect(last.body.retry_after_seconds).toBeGreaterThan(0)
   })
 })
+
+// ── Regression guard: GET and PUT /notion/auto-sync must agree on shape ───────
+// Task #55 fixed a bug where PUT dropped `enabled` and `interval_minutes` from
+// its response, which the frontend only survived because of a fallback. If the
+// two endpoints ever disagree on their response shape again, the auto-sync
+// toggle silently breaks. These tests lock in a matching shape across GET/PUT
+// and verify the enable / disable / interval-change paths round-trip through the
+// persisted settings table.
+describe('Notion auto-sync GET/PUT return a matching, persisted shape', () => {
+  // Keys both endpoints must expose so the frontend can render consistently.
+  const SHARED_KEYS = ['enabled', 'interval_minutes', 'running', 'interval_min']
+  let originalEnabled = null
+  let originalInterval = null
+
+  beforeAll(async () => {
+    // Preserve any existing dev settings so we can restore them exactly and
+    // never leave the shared dev auto-sync config (or a live timer) tainted.
+    const e = await pool.query("SELECT value FROM settings WHERE key='notion_auto_sync_enabled'")
+    const i = await pool.query("SELECT value FROM settings WHERE key='notion_auto_sync_interval'")
+    originalEnabled = e.rows[0]?.value ?? null
+    originalInterval = i.rows[0]?.value ?? null
+  })
+
+  afterAll(async () => {
+    // Stop any timer this suite started and restore the original settings rows.
+    await admin.put('/api/integrations/notion/auto-sync').send({ enabled: false })
+    for (const [key, val] of [
+      ['notion_auto_sync_enabled', originalEnabled],
+      ['notion_auto_sync_interval', originalInterval]
+    ]) {
+      if (val === null) {
+        await pool.query('DELETE FROM settings WHERE key=$1', [key])
+      } else {
+        await pool.query(
+          "INSERT INTO settings (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2",
+          [key, val]
+        )
+      }
+    }
+  })
+
+  it('GET and PUT expose the same shared response keys', async () => {
+    const get = await admin.get('/api/integrations/notion/auto-sync')
+    expect(get.status).toBe(200)
+    const put = await admin.put('/api/integrations/notion/auto-sync').send({ enabled: false })
+    expect(put.status).toBe(200)
+
+    for (const key of SHARED_KEYS) {
+      expect(get.body).toHaveProperty(key)
+      expect(put.body).toHaveProperty(key)
+    }
+  })
+
+  it('enabling with an interval persists and round-trips through GET', async () => {
+    const put = await admin.put('/api/integrations/notion/auto-sync').send({ enabled: true, interval_minutes: 30 })
+    expect(put.status).toBe(200)
+    expect(put.body.enabled).toBe(true)
+    expect(put.body.interval_minutes).toBe(30)
+    expect(put.body.running).toBe(true)
+    expect(put.body.interval_min).toBe(30)
+
+    // Persisted settings must reflect the change.
+    const stored = await pool.query(
+      "SELECT key, value FROM settings WHERE key IN ('notion_auto_sync_enabled','notion_auto_sync_interval')"
+    )
+    const map = Object.fromEntries(stored.rows.map(r => [r.key, r.value]))
+    expect(map.notion_auto_sync_enabled).toBe('true')
+    expect(map.notion_auto_sync_interval).toBe('30')
+
+    // A fresh GET must report the same enabled/interval the PUT reported.
+    const get = await admin.get('/api/integrations/notion/auto-sync')
+    expect(get.status).toBe(200)
+    expect(get.body.enabled).toBe(true)
+    expect(get.body.interval_minutes).toBe(30)
+    expect(get.body.running).toBe(true)
+    expect(get.body.interval_min).toBe(30)
+  })
+
+  it('changing the interval while enabled updates the persisted value', async () => {
+    const put = await admin.put('/api/integrations/notion/auto-sync').send({ enabled: true, interval_minutes: 45 })
+    expect(put.status).toBe(200)
+    expect(put.body.interval_minutes).toBe(45)
+    expect(put.body.interval_min).toBe(45)
+
+    const stored = await pool.query("SELECT value FROM settings WHERE key='notion_auto_sync_interval'")
+    expect(stored.rows[0]?.value).toBe('45')
+  })
+
+  it('disabling persists enabled=false and stops the timer', async () => {
+    const put = await admin.put('/api/integrations/notion/auto-sync').send({ enabled: false })
+    expect(put.status).toBe(200)
+    expect(put.body.enabled).toBe(false)
+    expect(put.body.running).toBe(false)
+    expect(put.body.interval_min).toBe(null)
+
+    const stored = await pool.query("SELECT value FROM settings WHERE key='notion_auto_sync_enabled'")
+    expect(stored.rows[0]?.value).toBe('false')
+
+    const get = await admin.get('/api/integrations/notion/auto-sync')
+    expect(get.status).toBe(200)
+    expect(get.body.enabled).toBe(false)
+    expect(get.body.running).toBe(false)
+  })
+})
