@@ -21,6 +21,11 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
   const lastSuccess = syncStatus?.last_success
   const logs = syncStatus?.logs || []
 
+  // Intervals at or below this threshold are frequent enough to risk burning
+  // Notion API quota / hitting rate limits, so we surface a subtle hint.
+  const FREQUENT_THRESHOLD = 10
+  const isFrequent = intervalMin <= FREQUENT_THRESHOLD
+
   const toggleAutoSync = async (enable) => {
     setSavingAuto(true)
     try {
@@ -30,6 +35,11 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
       })
       if (!r.ok) throw new Error('Request failed')
       const d = await r.json()
+      // The server clamps the interval to a 5–1440 min range; silently reflect
+      // whatever it actually saved so the dropdown matches reality.
+      if (enable && d.interval_minutes != null && d.interval_minutes !== intervalMin) {
+        setIntervalMin(d.interval_minutes)
+      }
       if (onAutoSyncChange) onAutoSyncChange(d)
     } catch {
       showToast(`Couldn\u2019t ${enable ? 'enable' : 'stop'} auto-sync. Check your connection and try again.`, 'error')
@@ -52,7 +62,9 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
       if (!r.ok) throw new Error('Request failed')
       const d = await r.json()
       if (onAutoSyncChange) onAutoSyncChange(d)
-      showToast(`Auto-sync interval updated to ${mins < 60 ? `${mins} min` : `${mins / 60}h`}.`, 'success')
+      // Reflect the value the server actually saved (it may clamp our request).
+      const saved = d.interval_minutes ?? mins
+      if (saved !== mins) setIntervalMin(saved)
     } catch {
       setIntervalMin(prev)
       showToast('Couldn\u2019t update the auto-sync interval. Check your connection and try again.', 'error')
@@ -93,30 +105,37 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-4 border-t border-slate-800">
-        <div>
-          <p className="text-white text-xs font-medium">Auto-Sync</p>
-          <p className="text-slate-500 text-xs mt-0.5">
-            {autoSync?.running ? `Running — every ${autoSync.interval_min} min` : 'Disabled'}
+      <div className="pt-4 border-t border-slate-800">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white text-xs font-medium">Auto-Sync</p>
+            <p className="text-slate-500 text-xs mt-0.5">
+              {autoSync?.running ? `Running — every ${autoSync.interval_min} min` : 'Disabled'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <select value={intervalMin} onChange={e => handleIntervalChange(parseInt(e.target.value))}
+              disabled={savingAuto}
+              className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-40">
+              {[5, 10, 15, 30, 60, 120, 360, 720, 1440].map(m => (
+                <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60}h`}</option>
+              ))}
+            </select>
+            <button onClick={() => toggleAutoSync(!autoSync?.running)} disabled={savingAuto}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                autoSync?.running
+                  ? 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
+                  : 'bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25'
+              }`}>
+              {savingAuto ? '…' : autoSync?.running ? 'Stop' : 'Enable'}
+            </button>
+          </div>
+        </div>
+        {isFrequent && (
+          <p className="text-slate-500 text-xs mt-2">
+            Frequent syncs may hit Notion rate limits. Consider 15 min or longer.
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select value={intervalMin} onChange={e => handleIntervalChange(parseInt(e.target.value))}
-            disabled={savingAuto}
-            className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-40">
-            {[5, 10, 15, 30, 60, 120, 360, 720, 1440].map(m => (
-              <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60}h`}</option>
-            ))}
-          </select>
-          <button onClick={() => toggleAutoSync(!autoSync?.running)} disabled={savingAuto}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              autoSync?.running
-                ? 'bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/25'
-                : 'bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25'
-            }`}>
-            {savingAuto ? '…' : autoSync?.running ? 'Stop' : 'Enable'}
-          </button>
-        </div>
+        )}
       </div>
 
       {logs.length > 0 && (

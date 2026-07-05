@@ -149,3 +149,41 @@ describe('SyncPanel auto-sync interval reaches the backend', () => {
     expect(intervalSelect(container).value).toBe('30')
   })
 })
+
+describe('SyncPanel warns about aggressive intervals', () => {
+  it('shows the rate-limit hint when a frequent interval (<=10 min) is selected', () => {
+    const { container } = renderPanel({
+      autoSync: { running: false, interval_minutes: 5, interval_min: 5 }
+    })
+
+    // A 5-minute interval is aggressive enough to risk hitting Notion limits.
+    expect(intervalSelect(container).value).toBe('5')
+    expect(screen.getByText(/frequent syncs may hit notion rate limits/i)).toBeTruthy()
+  })
+
+  it('does not show the hint for a comfortable interval (15 min)', () => {
+    renderPanel({ autoSync: { running: false, interval_minutes: 15, interval_min: 15 } })
+    expect(screen.queryByText(/frequent syncs may hit notion rate limits/i)).toBeNull()
+  })
+})
+
+describe('SyncPanel reflects the clamped value the server actually saved', () => {
+  it('snaps the dropdown to whatever value the server returns', async () => {
+    // User picks 5 min but the server clamps/returns 10 min: the dropdown must
+    // silently follow the saved value so it matches what is actually running.
+    vi.mocked(apiFetch).mockResolvedValue(okRes({ running: true, interval_min: 10, interval_minutes: 10 }))
+    const { container } = render(
+      <ToastProvider>
+        <SyncPanel
+          onSyncNow={() => {}}
+          onAutoSyncChange={() => {}}
+          autoSync={{ running: true, interval_minutes: 15, interval_min: 15 }}
+        />
+      </ToastProvider>
+    )
+
+    fireEvent.change(intervalSelect(container), { target: { value: '5' } })
+
+    await waitFor(() => expect(intervalSelect(container).value).toBe('10'))
+  })
+})
