@@ -1,19 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../../utils/api.js'
+import { useToast } from '../../context/ToastContext.jsx'
 import { INT_API, fmt } from './notionShared.jsx'
 
 export default function GitHubLinkTab({ projects }) {
+  const showToast = useToast()
   const [repos, setRepos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [linking, setLinking] = useState(null)
   const [msg, setMsg] = useState(null)
 
   const loadRepos = useCallback(async () => {
+    setLoading(true)
     try {
       const r = await apiFetch(`${INT_API}/github/repos`)
+      if (!r.ok) throw new Error('Failed to load repositories')
       setRepos(await r.json())
-    } catch {} finally { setLoading(false) }
-  }, [])
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+      showToast('Couldn\u2019t load GitHub repositories. Check your connection and try again.', 'error')
+    } finally { setLoading(false) }
+  }, [showToast])
 
   useEffect(() => { loadRepos() }, [loadRepos])
 
@@ -35,6 +44,18 @@ export default function GitHubLinkTab({ projects }) {
   }
 
   if (loading) return <div className="py-16 text-center text-slate-500 text-sm">Loading repositories…</div>
+
+  if (loadError) return (
+    <div className="py-16 text-center text-slate-500">
+      <p className="text-4xl mb-3">⚠</p>
+      <p className="font-medium text-red-400">Couldn’t load repositories</p>
+      <p className="text-sm mt-1">Something went wrong while loading — this isn’t an empty list. Check your connection and try again.</p>
+      <button onClick={loadRepos}
+        className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors">
+        Retry
+      </button>
+    </div>
+  )
 
   if (!repos.length) return (
     <div className="py-16 text-center text-slate-500">

@@ -123,18 +123,27 @@ function GitHubSection({ status, onRefresh }) {
         setSyncing(false)
         setShowRepos(true)
         const r2 = await apiFetch(`/api/integrations/github/repos`)
-        setRepos(await r2.json())
+        if (r2.ok) setRepos(await r2.json())
+        else showToast('Synced, but couldn\u2019t load the repository list. Try “View repos”.', 'warning')
         onRefresh()
         return
       }
-    } catch (e) { /* ignore */ }
+      showToast(data.error || 'GitHub sync failed. Check your connection and try again.', 'error')
+    } catch {
+      showToast('GitHub sync failed. Check your connection and try again.', 'error')
+    }
     setSyncing(false)
   }
 
   const loadRepos = async () => {
-    const r = await apiFetch(`/api/integrations/github/repos`)
-    setRepos(await r.json())
-    setShowRepos(true)
+    try {
+      const r = await apiFetch(`/api/integrations/github/repos`)
+      if (!r.ok) throw new Error('Failed to load repositories')
+      setRepos(await r.json())
+      setShowRepos(true)
+    } catch {
+      showToast('Couldn\u2019t load GitHub repositories. Check your connection and try again.', 'error')
+    }
   }
 
   return (
@@ -450,10 +459,16 @@ function OpenAISection({ status, onRefresh }) {
 
   useEffect(() => {
     apiFetch('/api/integrations/openai/summary')
-      .then(r => r.json())
-      .then(d => { if (d.summary) { setSummary(d.summary); setSummaryAt(d.generated_at) } })
-      .catch(() => {})
-  }, [])
+      .then(async r => {
+        if (!r.ok) throw new Error('summary')
+        const d = await r.json()
+        if (d.summary) { setSummary(d.summary); setSummaryAt(d.generated_at) }
+      })
+      .catch(() => {
+        setSummaryError('Couldn\u2019t load the saved AI summary. Check your connection and try again.')
+        showToast('Couldn\u2019t load the saved AI summary. Check your connection and try again.', 'error')
+      })
+  }, [showToast])
 
   const handleGenerateSummary = async () => {
     setSummaryLoading(true)
