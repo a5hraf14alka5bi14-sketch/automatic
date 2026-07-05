@@ -611,4 +611,32 @@ describe('the Notion cooldown notification is warning-styled, not error-styled',
     expect(toast.className).toContain('border-yellow-500/30')
     expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
   })
+
+  // The toast test above proves the friendly cooldown notification is warning-
+  // styled. But the Notion page ALSO has its own inline sync-status banner driven
+  // by setSyncMsg (green when ok, RED with a ✗ when it takes the catch/error
+  // path). sync() deliberately handles a 429 on the cooldown path and returns
+  // early, so that inline banner must never render at all on a rate limit. If a
+  // future refactor drops the early return and lets a 429 fall through to
+  // `setSyncMsg({ ok:false })`, users would see a scary red inline error banner
+  // (bg-red-500/10 · text-red-400 · border-red-500/20) — this test pins that the
+  // inline banner never appears in its red error form on a 429.
+  it('inline sync-status banner never renders its red error variant on a 429', async () => {
+    mockNotionApi()
+    const { container } = renderPage(<NotionIntegration />)
+
+    const btn = await screen.findByRole('button', { name: /Sync All/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    // The cooldown toast confirms the 429 was actually handled (not a no-op).
+    await screen.findByText(/wait 30s before syncing again/i)
+
+    // The inline banner's error path stamps a ✗ marker and its own generic
+    // "Sync failed" message — neither may appear on a rate limit.
+    expect(screen.queryByText('✗')).toBeNull()
+    expect(screen.queryByText(/sync failed/i)).toBeNull()
+    // And no red-styled element (the inline banner's bg-red-500/10 +
+    // border-red-500/20, or any error toast) may exist anywhere on the page.
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
 })
