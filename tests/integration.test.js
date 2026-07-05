@@ -435,6 +435,11 @@ describe('Kitchen role order financial field filtering', () => {
 
 // ── Elevation of privilege: user management ──────────────────────────────────
 describe('User management privilege boundary', () => {
+  it('forbids a non-admin from listing users (403)', async () => {
+    const res = await staff.get('/api/users')
+    expect(res.status).toBe(403)
+  })
+
   it('forbids a non-admin from creating users (403)', async () => {
     const res = await staff.post('/api/users').send({
       name: `${TAG} Sneaky`,
@@ -454,6 +459,14 @@ describe('User management privilege boundary', () => {
     // The admin's role must be untouched.
     const row = await pool.query('SELECT role FROM users WHERE id=$1', [ids.adminUser])
     expect(row.rows[0].role).toBe('admin')
+  })
+
+  it('forbids a non-admin from deleting another user (403)', async () => {
+    const res = await staff.delete(`/api/users/${ids.adminUser}`)
+    expect(res.status).toBe(403)
+    // The target row must still exist.
+    const row = await pool.query('SELECT id FROM users WHERE id=$1', [ids.adminUser])
+    expect(row.rows.length).toBe(1)
   })
 
   it('lets an admin create a user, and the new user defaults to must_change_password', async () => {
