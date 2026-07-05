@@ -557,6 +557,29 @@ describe('the cooldown notification is warning-styled, not error-styled', () => 
     expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
     expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
   })
+
+  it('OpenAI "Ask" chat 429 toast uses the yellow warning style, with no red anywhere', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/openai/chat': true })
+    const { container } = renderPage(<Integrations />)
+
+    const input = await screen.findByPlaceholderText(/daily special/i)
+    fireEvent.change(input, { target: { value: 'What should we cook?' } })
+
+    const btn = screen.getByRole('button', { name: /^Ask$/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    const msg = await screen.findByText(/wait 30s before asking again/i)
+    // The message text itself must carry the warning colour, not the error one.
+    expect(msg.className).toContain(WARNING_TEXT_CLASS)
+    expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
+    // The whole toast (border/background) must be warning-styled.
+    const toast = toastContainerFor(msg)
+    expect(toast.className).toContain('bg-yellow-500/15')
+    expect(toast.className).toContain('border-yellow-500/30')
+    // And nothing on the entire page may carry an error (red) style — no scary
+    // red toast and no inline red chat error on a rate-limited "Ask".
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
 })
 
 describe('the Notion cooldown notification is warning-styled, not error-styled', () => {
