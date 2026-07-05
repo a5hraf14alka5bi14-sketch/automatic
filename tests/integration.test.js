@@ -374,6 +374,32 @@ describe('must_change_password propagation', () => {
   })
 })
 
+// ── Regression: transparent bcrypt hash upgrade on login ─────────────────────
+describe('Password hash upgrade on login', () => {
+  it('re-hashes a legacy cost-10 password at cost 12 after a successful login', async () => {
+    const email = `${TAG}_rehash@test.local`
+    // seedUser hashes at bcrypt cost 10 (the legacy strength).
+    const uid = await seedUser(email, 'staff')
+    try {
+      const before = await pool.query('SELECT password FROM users WHERE id=$1', [uid])
+      expect(before.rows[0].password.split('$')[2]).toBe('10')
+
+      // A normal successful login should transparently upgrade the stored hash.
+      const res = await request(app).post('/api/auth/login').send({ email, password: PASSWORD })
+      expect(res.status).toBe(200)
+
+      const after = await pool.query('SELECT password FROM users WHERE id=$1', [uid])
+      expect(after.rows[0].password.split('$')[2]).toBe('12')
+      // The hash actually changed and still authenticates the same password.
+      expect(after.rows[0].password).not.toBe(before.rows[0].password)
+      const relog = await request(app).post('/api/auth/login').send({ email, password: PASSWORD })
+      expect(relog.status).toBe(200)
+    } finally {
+      await pool.query('DELETE FROM users WHERE id=$1', [uid])
+    }
+  })
+})
+
 // ── Regression: admin self-lockout guards ────────────────────────────────────
 describe('Admin self-lockout protection', () => {
   it('blocks an admin from changing their own role and leaves it unchanged', async () => {

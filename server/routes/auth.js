@@ -10,6 +10,7 @@ import {
   ACCESS_COOKIE, REFRESH_COOKIE, ACCESS_MAX_AGE, REFRESH_MAX_AGE,
 } from '../config/secret.js'
 import { passwordSchema } from '../validators.js'
+import { logger } from '../logger.js'
 
 const router = express.Router()
 
@@ -51,6 +52,25 @@ router.post('/login', async (req, res, next) => {
         window: 1,
       })
       if (!ok) return res.status(401).json({ error: 'Invalid authenticator code' })
+    }
+
+    // Transparent hash upgrade: older accounts were hashed at a lower bcrypt
+    // cost. The plaintext is available here (and just verified), so silently
+    // re-hash at the current cost and persist it. Best-effort — never block
+    // login on failure.
+    try {
+      const storedCost = parseInt(user.password.split('$')[2], 10)
+      if (Number.isFinite(storedCost) && storedCost < BCRYPT_COST) {
+        const upgraded = await bcrypt.hash(password, BCRYPT_COST)
+        // Compare-and-set on the hash we just verified so a concurrent password
+        // change can never be clobbered by this best-effort upgrade.
+        await pool.query(
+          'UPDATE users SET password = $1 WHERE id = $2 AND password = $3',
+          [upgraded, user.id, user.password]
+        )
+      }
+    } catch (err) {
+      logger.error(err?.message || 'Password hash upgrade failed', { path: req.path })
     }
 
     const { token, refresh_token } = makeTokens(user.id, user.role, user.must_change_password || false)

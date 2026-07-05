@@ -106,6 +106,10 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many login attempts. Please try again in a minute.' },
+  // The integration suite drives many logins from a single IP; the limiter
+  // would otherwise 429 late tests. Only disabled under the Vitest runner
+  // (which sets VITEST) — never in dev or prod.
+  skip: () => !!process.env.VITEST,
 })
 
 // ── General API rate limiting: 300 requests per minute per IP ────────────────
