@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { apiFetch } from '../../utils/api.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { INT_API, fmt } from './notionShared.jsx'
@@ -7,8 +7,16 @@ export default function SyncPanel({ syncStatus, autoSync, onSyncNow, syncing, on
   const showToast = useToast()
   const cooling = cooldown?.cooling
   const remaining = cooldown?.remaining
-  const [intervalMin, setIntervalMin] = useState(autoSync?.interval_minutes || 15)
+  const [intervalMin, setIntervalMin] = useState(autoSync?.interval_minutes ?? autoSync?.interval_min ?? 15)
   const [savingAuto, setSavingAuto] = useState(false)
+
+  // autoSync arrives asynchronously (null on first render), so sync the dropdown
+  // from the persisted value once it loads. Prefer interval_minutes (saved
+  // setting); fall back to interval_min (live engine) for PUT-response shapes.
+  useEffect(() => {
+    const saved = autoSync?.interval_minutes ?? autoSync?.interval_min
+    if (saved != null) setIntervalMin(saved)
+  }, [autoSync?.interval_minutes, autoSync?.interval_min])
 
   const lastSuccess = syncStatus?.last_success
   const logs = syncStatus?.logs || []
