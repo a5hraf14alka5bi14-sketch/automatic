@@ -1,0 +1,186 @@
+@Replit
+
+Enterprise Architecture Directive — Automatic Restaurant OS
+
+أنت تعمل الآن بصفة Lead Software Architect + Principal Security Engineer + DevOps Lead.
+
+لا أريد أي تطوير لميزات جديدة قبل الانتهاء من هذه المهمة بالكامل.
+
+المرحلة الأولى — مراجعة هندسية شاملة (Enterprise Audit)
+
+قم بإجراء مراجعة كاملة للمشروع دون استثناء، وتشمل:
+
+* Frontend
+* Backend
+* Database
+* API
+* Authentication
+* Authorization (RBAC)
+* Integrations
+* CI/CD
+* Build System
+* Security
+* Performance
+* Scalability
+* Maintainability
+* Code Quality
+* Testing
+* Documentation
+
+لا تفترض أن أي جزء صحيح فقط لأنه يعمل.
+
+قم بفحص كل شيء.
+
+⸻
+
+المرحلة الثانية — التحقق الكامل
+
+تحقق من:
+
+* جميع Routes
+* جميع Components
+* جميع Services
+* جميع Hooks
+* جميع Contexts
+* جميع Database Migrations
+* جميع Environment Variables
+* جميع Secrets
+* جميع GitHub Actions
+* جميع اختبارات الوحدة والتكامل و E2E
+* جميع صلاحيات المستخدمين
+* جميع عمليات CRUD
+* جميع تكاملات GitHub وNotion وOpenAI
+
+إذا وجدت أي مشكلة مهما كانت صغيرة، أصلحها أو وثّق سبب عدم إصلاحها.
+
+⸻
+
+المرحلة الثالثة — Production Hardening
+
+اجعل المشروع مطابقًا لمعايير الإنتاج.
+
+تحقق من:
+
+* Security Headers
+* CORS
+* CSP
+* Rate Limiting
+* Input Validation
+* SQL Injection Protection
+* XSS Protection
+* CSRF Protection (إذا كانت مطلوبة)
+* Password Security
+* Token Expiration
+* Session Management
+* Logging
+* Error Handling
+* Audit Logs
+* Database Indexes
+* Query Performance
+* Memory Usage
+* Build Size
+* Bundle Optimization
+
+قم بتحسين أي نقطة يمكن تحسينها دون كسر التوافق.
+
+⸻
+
+المرحلة الرابعة — Architecture Review
+
+راجع البنية بالكامل.
+
+حدد:
+
+* نقاط القوة.
+* نقاط الضعف.
+* الديون التقنية (Technical Debt).
+* الاعتماد على Replit.
+* نقاط الاختناق (Bottlenecks).
+* فرص التحسين.
+* مخاطر التوسع.
+* مخاطر الصيانة المستقبلية.
+
+إذا كانت هناك بنية أفضل مع الحفاظ على النظام الحالي، اقترحها مع التبرير.
+
+⸻
+
+المرحلة الخامسة — GitHub
+
+بعد الانتهاء:
+
+* تأكد أن GitHub يمثل الحالة النهائية للمشروع.
+* ادفع جميع التعديلات المطلوبة.
+* تأكد أن الفرع main هو المرجع الرسمي.
+* تحقق من أن المستودع قابل للاستنساخ والبناء دون تدخل يدوي.
+
+⸻
+
+المرحلة السادسة — Notion
+
+بعد تحديث GitHub:
+
+حدّث Notion بالكامل.
+
+وثّق:
+
+* الإصدار الحالي.
+* جميع التغييرات.
+* الإصلاحات.
+* التحسينات.
+* نتائج الاختبارات.
+* حالة الأمان.
+* حالة قاعدة البيانات.
+* حالة التكاملات.
+* خارطة الطريق المحدثة.
+
+لا تحذف أي توثيق سابق.
+
+⸻
+
+المرحلة السابعة — Production Readiness
+
+قيّم المشروع وفق معايير Enterprise.
+
+لا تستخدم تقييمات عامة.
+
+قيّم كل محور على حدة:
+
+* Security
+* Reliability
+* Performance
+* Maintainability
+* Scalability
+* Documentation
+* Test Coverage
+* Deployment Readiness
+* Disaster Recovery
+* Monitoring
+* Backup Strategy
+
+ثم أعطني نسبة مئوية لكل محور مع التبرير.
+
+⸻
+
+المرحلة الثامنة — Final Report
+
+لا تنهِ المهمة حتى تُصدر تقريرًا تقنيًا مفصلًا يتضمن:
+
+1. كل ما تم مراجعته.
+2. كل ما تم إصلاحه.
+3. كل ما تم تحسينه.
+4. كل ما لم يتم إصلاحه مع السبب.
+5. قائمة المخاطر المتبقية مرتبة حسب الأولوية.
+6. قائمة التوصيات قصيرة وطويلة المدى.
+7. تقييم الجاهزية للإنتاج لكل محور.
+8. التقييم النهائي من 100%.
+9. قرار واضح وصريح:
+
+* Production Ready
+    أو
+* Production Ready with Conditions
+    أو
+* Not Production Ready
+
+لا تعتمد المشروع للإنتاج إلا إذا استوفى جميع المتطلبات التقنية والأمنية بشكل موثق.
+
+إذا احتجت إلى أكثر من دورة مراجعة للوصول إلى هذا المستوى، فقم بها تلقائيًا قبل إصدار التقرير النهائي.

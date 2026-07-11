@@ -1,0 +1,686 @@
+// @vitest-environment jsdom
+//
+// Frontend coverage for the "cooldown warning" path. Task #38 wired the backend's
+// 429 rate limit on costly integration actions (Notion/GitHub sync, OpenAI
+// summary/chat) into the UI. These tests lock that path in place so a future
+// refactor can't silently reintroduce the generic red-error behavior:
+//   1. getRateLimit(res) must parse the retry window from a 429 response
+//      (body `retry_after_seconds`, then `Retry-After` header). A 429 with NO
+//      limiter metadata is an upstream provider error (e.g. OpenAI quota
+//      exhausted) relayed by the backend — it must return null so the caller
+//      surfaces the specific error message instead of a cooldown.
+//   2. useCooldown must expose a ticking `remaining` / `cooling` window.
+//   3. The triggering button must enter the disabled "Wait Ns" state — not show
+//      an error — once getRateLimit reports a cooldown.
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { useState } from 'react'
+import { render, screen, renderHook, act, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { getRateLimit, apiFetch } from '../src/utils/api.js'
+import { useCooldown } from '../src/hooks/useCooldown.js'
+import { ToastProvider } from '../src/context/ToastContext.jsx'
+import Integrations from '../src/pages/Integrations.jsx'
+import NotionIntegration from '../src/pages/NotionIntegration.jsx'
+
+// Keep getRateLimit + useCooldown real so the cooldown path is exercised
+// end-to-end; only apiFetch is faked so we can inject a 429 from the backend.
+vi.mock('../src/utils/api.js', async (importActual) => {
+  const actual = await importActual()
+  return { ...actual, apiFetch: vi.fn() }
+})
+
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+  vi.mocked(apiFetch).mockReset()
+})
+
+// Minimal fetch Response stand-in that exercises the code paths getRateLimit
+// actually touches: res.status, res.clone().json(), res.headers.get('Retry-After').
+function mockRes({ status = 429, body, header = null } = {}) {
+  return {
+    status,
+    clone() {
+      return {
+        json: async () => {
+          if (body === undefined) throw new Error('no json body')
+          return body
+        },
+      }
+    },
+    headers: { get: (name) => (name === 'Retry-After' ? header : null) },
+  }
+}
+
+describe('getRateLimit parses the retry window', () => {
+  it('returns null for non-429 responses', async () => {
+    expect(await getRateLimit(mockRes({ status: 200, body: {} }))).toBeNull()
+    expect(await getRateLimit(null)).toBeNull()
+  })
+
+  it('reads retry_after_seconds from the 429 JSON body', async () => {
+    const secs = await getRateLimit(mockRes({ body: { retry_after_seconds: 30 } }))
+    expect(secs).toBe(30)
+  })
+
+  it('rounds a fractional retry window up to whole seconds', async () => {
+    const secs = await getRateLimit(mockRes({ body: { retry_after_seconds: 12.2 } }))
+    expect(secs).toBe(13)
+  })
+
+  it('falls back to the Retry-After header when the body has no number', async () => {
+    const secs = await getRateLimit(mockRes({ body: {}, header: '45' }))
+    expect(secs).toBe(45)
+  })
+
+  it('returns null when neither body nor header carry limiter metadata (upstream 429)', async () => {
+    // e.g. OpenAI quota_exceeded relayed by the backend as a bare 429 — must
+    // NOT be treated as an app cooldown, so the UI can show the real cause.
+    expect(await getRateLimit(mockRes({ body: undefined, header: null }))).toBeNull()
+    expect(await getRateLimit(mockRes({ body: { error: 'OpenAI account quota exhausted.', code: 'quota_exceeded' } }))).toBeNull()
+  })
+})
+
+describe('useCooldown drives a ticking countdown', () => {
+  it('starts cooling and ticks down to zero', () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useCooldown())
+
+    expect(result.current.cooling).toBe(false)
+    expect(result.current.remaining).toBe(0)
+
+    act(() => result.current.start(3))
+    expect(result.current.cooling).toBe(true)
+    expect(result.current.remaining).toBe(3)
+
+    act(() => vi.advanceTimersByTime(1000))
+    expect(result.current.remaining).toBe(2)
+
+    act(() => vi.advanceTimersByTime(2000))
+    expect(result.current.remaining).toBe(0)
+    expect(result.current.cooling).toBe(false)
+  })
+})
+
+// Mirrors the exact button wiring used on the Integrations page (GitHub sync,
+// Notion sync, OpenAI summary/chat): on a 429 it starts the cooldown and returns
+// early instead of surfacing an error. Uses the REAL getRateLimit + useCooldown,
+// so the disabled "Wait Ns" state is asserted against the real code paths.
+function SyncButton({ response }) {
+  const cooldown = useCooldown()
+  const [error, setError] = useState('')
+  const onClick = async () => {
+    setError('')
+    const secs = await getRateLimit(response)
+    if (secs) {
+      cooldown.start(secs)
+      return
+    }
+    setError('Sync failed')
+  }
+  return (
+    <div>
+      <button onClick={onClick} disabled={cooldown.cooling}>
+        {cooldown.cooling ? `Wait ${cooldown.remaining}s` : 'Sync repos'}
+      </button>
+      {error && <p role="alert">{error}</p>}
+    </div>
+  )
+}
+
+describe('the triggering button enters the disabled "Wait Ns" state on 429', () => {
+  it('shows "Wait Ns", disables the button, and shows no error', async () => {
+    render(<SyncButton response={mockRes({ body: { retry_after_seconds: 30 } })} />)
+
+    const btn = screen.getByRole('button')
+    expect(btn.textContent).toContain('Sync repos')
+    expect(btn.disabled).toBe(false)
+
+    await act(async () => {
+      fireEvent.click(btn)
+    })
+
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('shows a normal error (not a cooldown) when the response is not a 429', async () => {
+    render(<SyncButton response={mockRes({ status: 500, body: {} })} />)
+
+    const btn = screen.getByRole('button')
+    await act(async () => {
+      fireEvent.click(btn)
+    })
+
+    expect(screen.getByRole('alert').textContent).toContain('Sync failed')
+    expect(btn.textContent).toContain('Sync repos')
+    expect(btn.disabled).toBe(false)
+  })
+})
+
+// ── Real component coverage ──────────────────────────────────────────────────
+//
+// The harness above mirrors the button wiring; these tests render the ACTUAL
+// Integrations / Notion pages with apiFetch mocked to return a 429. If someone
+// refactors the real buttons (drops `disabled={cooldown.cooling}`, removes the
+// `getRateLimit` call, or reverts to a generic error), the harness tests would
+// still pass — but these will fail, because they assert against the shipped UI.
+
+// Response stand-in for the mocked apiFetch. Provides .ok/.status/.json() for
+// the components and .clone().json()/.headers.get() for the real getRateLimit.
+function apiRes({ status = 200, body = {} } = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+    clone: () => ({ json: async () => body }),
+    headers: { get: () => null },
+  }
+}
+
+const rateLimited = () =>
+  apiRes({ status: 429, body: { error: 'Too many requests', retry_after_seconds: 30 } })
+
+function renderPage(ui) {
+  return render(
+    <MemoryRouter>
+      <ToastProvider>{ui}</ToastProvider>
+    </MemoryRouter>
+  )
+}
+
+describe('real Integrations page buttons enter the cooldown state on 429', () => {
+  // Routes apiFetch by method+url. `on429` maps `${METHOD} ${url}` to a 429; all
+  // other calls resolve to benign defaults so the page mounts fully connected.
+  function mockIntegrationsApi(on429 = {}) {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      const key = `${method} ${url}`
+      if (on429[key]) return Promise.resolve(rateLimited())
+      if (url === '/api/integrations' && method === 'GET') {
+        return Promise.resolve(apiRes({
+          body: {
+            github: { configured: true, synced_repos: 0, env_present: true, masked: 'ghp_…' },
+            notion: { configured: true, env_present: true, masked: 'sec_…' },
+            openai: { configured: true, env_present: true, masked: 'sk-…' },
+            push: { configured: true },
+          },
+        }))
+      }
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('GitHub "Sync repos" button shows "Wait Ns" and disables on 429', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/github/sync': true })
+    renderPage(<Integrations />)
+
+    const btn = await screen.findByRole('button', { name: /Sync repos/i })
+    expect(btn.disabled).toBe(false)
+
+    await act(async () => { fireEvent.click(btn) })
+
+    await waitFor(() => expect(btn.textContent).toContain('Wait 30s'))
+    expect(btn.disabled).toBe(true)
+    // Friendly cooldown toast, not a generic failure.
+    expect(screen.getByText(/wait 30s before syncing again/i)).toBeTruthy()
+  })
+
+  it('OpenAI "Generate" summary button shows "Wait Ns" and disables on 429', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/openai/summary': true })
+    renderPage(<Integrations />)
+
+    const btn = await screen.findByRole('button', { name: /Generate/i })
+    expect(btn.disabled).toBe(false)
+
+    await act(async () => { fireEvent.click(btn) })
+
+    await waitFor(() => expect(btn.textContent).toContain('Wait 30s'))
+    expect(btn.disabled).toBe(true)
+    // No red summary error text on a 429 — it must be treated as a cooldown.
+    expect(screen.queryByText(/failed to generate summary/i)).toBeNull()
+    expect(screen.getByText(/wait 30s before generating another summary/i)).toBeTruthy()
+  })
+
+  it('OpenAI quota-exhausted 429 (no limiter metadata) shows the real error, not a cooldown', async () => {
+    // Backend relays OpenAI quota_exceeded as a 429 WITHOUT retry_after_seconds.
+    // The UI must surface the specific message instead of "Wait Ns".
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === '/api/integrations/openai/summary' && method === 'POST') {
+        return Promise.resolve(apiRes({
+          status: 429,
+          body: { error: 'OpenAI account quota exhausted. Add credit or check billing on platform.openai.com, then try again.', code: 'quota_exceeded' },
+        }))
+      }
+      if (url === '/api/integrations' && method === 'GET') {
+        return Promise.resolve(apiRes({
+          body: {
+            github: { configured: true, synced_repos: 0, env_present: true, masked: 'ghp_…' },
+            notion: { configured: true, env_present: true, masked: 'sec_…' },
+            openai: { configured: true, env_present: true, masked: 'sk-…' },
+            push: { configured: true },
+          },
+        }))
+      }
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+    renderPage(<Integrations />)
+
+    const btn = await screen.findByRole('button', { name: /Generate/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    // The friendly quota notice is shown; the button is NOT locked in cooldown.
+    await waitFor(() => expect(screen.getByText(/AI service quota reached/i)).toBeTruthy())
+    expect(screen.getByText(/run out of credit/i)).toBeTruthy()
+    expect(btn.textContent).not.toContain('Wait')
+    expect(btn.disabled).toBe(false)
+  })
+
+  it('OpenAI "Ask" chat button shows "Wait Ns" and disables on 429', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/openai/chat': true })
+    renderPage(<Integrations />)
+
+    const input = await screen.findByPlaceholderText(/daily special/i)
+    fireEvent.change(input, { target: { value: 'What should we cook?' } })
+
+    const btn = screen.getByRole('button', { name: /^Ask$/i })
+    expect(btn.disabled).toBe(false)
+
+    await act(async () => { fireEvent.click(btn) })
+
+    await waitFor(() => expect(btn.textContent).toContain('Wait 30s'))
+    expect(btn.disabled).toBe(true)
+    expect(screen.queryByText(/no reply received/i)).toBeNull()
+    expect(screen.getByText(/wait 30s before asking again/i)).toBeTruthy()
+  })
+})
+
+// ── Countdown ticks down and re-enables (real button, fake clock) ─────────────
+//
+// The tests above only prove the button REACHES "Wait 30s" and is disabled right
+// after a 429. They never advance the clock, so a regression in useCooldown's
+// interval or the `cooling` derivation (e.g. the interval never firing, or
+// `cooling` staying true) would leave a real button stuck disabled forever and
+// still pass. This test drives the real GitHub "Sync repos" button through the
+// full lifecycle on a fake clock: 429 → "Wait 30s" → "Wait 29s" → back to the
+// normal "Sync repos" label, enabled again.
+describe('cooldown countdown ticks down and re-enables the real button', () => {
+  function mockGitHubSync429() {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === '/api/integrations/github/sync' && method === 'POST')
+        return Promise.resolve(rateLimited())
+      if (url === '/api/integrations' && method === 'GET') {
+        return Promise.resolve(apiRes({
+          body: {
+            github: { configured: true, synced_repos: 0, env_present: true, masked: 'ghp_…' },
+            notion: { configured: true, env_present: true, masked: 'sec_…' },
+            openai: { configured: true, env_present: true, masked: 'sk-…' },
+            push: { configured: true },
+          },
+        }))
+      }
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('counts down "Wait 30s" → "Wait 29s" → back to enabled "Sync repos"', async () => {
+    mockGitHubSync429()
+    renderPage(<Integrations />)
+
+    // Mount + initial load happen on the real clock so findByRole resolves.
+    const btn = await screen.findByRole('button', { name: /Sync repos/i })
+    expect(btn.disabled).toBe(false)
+
+    // Switch to a fake clock so we can advance the cooldown deterministically.
+    // The countdown interval is created on click, so faking before the click is
+    // enough to control it. (afterEach restores real timers.)
+    vi.useFakeTimers()
+
+    // 429 → cooldown starts; button immediately shows the full window, disabled.
+    await act(async () => { fireEvent.click(btn) })
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+
+    // One second later the countdown must actually decrement.
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(btn.textContent).toContain('Wait 29s')
+    expect(btn.disabled).toBe(true)
+
+    // Partway through it keeps ticking (proves the interval keeps firing).
+    act(() => { vi.advanceTimersByTime(15000) })
+    expect(btn.textContent).toContain('Wait 14s')
+    expect(btn.disabled).toBe(true)
+
+    // Once the whole window elapses the button returns to its normal label and
+    // becomes clickable again — users are not left locked out.
+    act(() => { vi.advanceTimersByTime(14000) })
+    expect(btn.textContent).toContain('Sync repos')
+    expect(btn.disabled).toBe(false)
+  })
+})
+
+// The GitHub lifecycle test above proves ONE button re-enables after the window
+// elapses. But the OpenAI "Generate"/"Ask" and Notion "Sync All" buttons each use
+// their OWN independent useCooldown instance (summaryCooldown, chatCooldown, the
+// Notion page's syncCooldown). Their earlier tests only assert they REACH the
+// disabled "Wait 30s" state — they never advance the clock, so a regression in any
+// one of those buttons' wiring could leave it stuck disabled forever and still
+// pass. These tests drive each of them through the full countdown lifecycle on a
+// fake clock: 429 → "Wait 30s" → ticks down → back to the normal enabled label.
+describe('OpenAI cooldown countdowns tick down and re-enable the real buttons', () => {
+  function mockOpenAI429(target) {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === target && method === 'POST') return Promise.resolve(rateLimited())
+      if (url === '/api/integrations' && method === 'GET') {
+        return Promise.resolve(apiRes({
+          body: {
+            github: { configured: true, synced_repos: 0, env_present: true, masked: 'ghp_…' },
+            notion: { configured: true, env_present: true, masked: 'sec_…' },
+            openai: { configured: true, env_present: true, masked: 'sk-…' },
+            push: { configured: true },
+          },
+        }))
+      }
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('"Generate" summary: "Wait 30s" → "Wait 29s" → back to enabled "Generate"', async () => {
+    mockOpenAI429('/api/integrations/openai/summary')
+    renderPage(<Integrations />)
+
+    // Mount + initial load on the real clock so findByRole resolves.
+    const btn = await screen.findByRole('button', { name: /Generate/i })
+    expect(btn.disabled).toBe(false)
+
+    // Fake clock so we can advance the cooldown deterministically; the interval
+    // is created on click, so faking before the click controls it fully.
+    vi.useFakeTimers()
+
+    // 429 → cooldown starts; button immediately shows the full window, disabled.
+    await act(async () => { fireEvent.click(btn) })
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+
+    // The countdown must actually decrement second by second.
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(btn.textContent).toContain('Wait 29s')
+    expect(btn.disabled).toBe(true)
+
+    // Keeps ticking partway through (proves the interval keeps firing).
+    act(() => { vi.advanceTimersByTime(15000) })
+    expect(btn.textContent).toContain('Wait 14s')
+    expect(btn.disabled).toBe(true)
+
+    // Once the window fully elapses the button returns to "Generate", enabled.
+    act(() => { vi.advanceTimersByTime(14000) })
+    expect(btn.textContent).toContain('Generate')
+    expect(btn.disabled).toBe(false)
+  })
+
+  it('"Ask" chat: "Wait 30s" → "Wait 29s" → back to enabled "Ask"', async () => {
+    mockOpenAI429('/api/integrations/openai/chat')
+    renderPage(<Integrations />)
+
+    // A non-empty prompt is required for the Ask button to be enabled.
+    const input = await screen.findByPlaceholderText(/daily special/i)
+    fireEvent.change(input, { target: { value: 'What should we cook?' } })
+
+    const btn = screen.getByRole('button', { name: /^Ask$/i })
+    expect(btn.disabled).toBe(false)
+
+    vi.useFakeTimers()
+
+    await act(async () => { fireEvent.click(btn) })
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(btn.textContent).toContain('Wait 29s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(15000) })
+    expect(btn.textContent).toContain('Wait 14s')
+    expect(btn.disabled).toBe(true)
+
+    // The prompt is still present, so once the window elapses "Ask" is enabled again.
+    act(() => { vi.advanceTimersByTime(14000) })
+    expect(btn.textContent).toContain('Ask')
+    expect(btn.disabled).toBe(false)
+  })
+})
+
+describe('Notion "Sync All" cooldown countdown ticks down and re-enables the real button', () => {
+  function mockNotionSync429() {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === '/api/integrations/notion/sync' && method === 'POST')
+        return Promise.resolve(rateLimited())
+      if (url.endsWith('/projects')) return Promise.resolve(apiRes({ body: [] }))
+      if (url.startsWith('/api/notion/tasks')) return Promise.resolve(apiRes({ body: [] }))
+      if (url === '/api/notion/config')
+        return Promise.resolve(apiRes({ body: { configured: true, envKeyPresent: true } }))
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('counts down "Wait 30s" → "Wait 29s" → back to enabled "Sync All"', async () => {
+    mockNotionSync429()
+    renderPage(<NotionIntegration />)
+
+    const btn = await screen.findByRole('button', { name: /Sync All/i })
+    expect(btn.disabled).toBe(false)
+
+    vi.useFakeTimers()
+
+    await act(async () => { fireEvent.click(btn) })
+    expect(btn.textContent).toContain('Wait 30s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(btn.textContent).toContain('Wait 29s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(15000) })
+    expect(btn.textContent).toContain('Wait 14s')
+    expect(btn.disabled).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(14000) })
+    expect(btn.textContent).toContain('Sync All')
+    expect(btn.disabled).toBe(false)
+  })
+})
+
+describe('real Notion page sync buttons enter the cooldown state on 429', () => {
+  function mockNotionApi() {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === '/api/integrations/notion/sync' && method === 'POST')
+        return Promise.resolve(rateLimited())
+      if (url.endsWith('/projects')) return Promise.resolve(apiRes({ body: [] }))
+      if (url.startsWith('/api/notion/tasks')) return Promise.resolve(apiRes({ body: [] }))
+      if (url === '/api/notion/config')
+        return Promise.resolve(apiRes({ body: { configured: true, envKeyPresent: true } }))
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('"Sync All" button shows "Wait Ns", disables, and shows no error on 429', async () => {
+    mockNotionApi()
+    renderPage(<NotionIntegration />)
+
+    const btn = await screen.findByRole('button', { name: /Sync All/i })
+    expect(btn.disabled).toBe(false)
+
+    await act(async () => { fireEvent.click(btn) })
+
+    await waitFor(() => expect(btn.textContent).toContain('Wait 30s'))
+    expect(btn.disabled).toBe(true)
+    // The sync() error path (setSyncMsg) must NOT fire — only the cooldown toast.
+    expect(screen.getByText(/wait 30s before syncing again/i)).toBeTruthy()
+  })
+})
+
+// ── The cooldown toast must be WARNING-styled, never ERROR-styled ─────────────
+//
+// The tests above only assert the friendly cooldown *text* is present. But a
+// change to ToastContext's STYLES map, or a handler that both starts the
+// cooldown and also sets an error, would still pass while showing users a scary
+// red toast/banner. These tests pin the cooldown notification to the warning
+// (yellow) style and assert nothing on the page carries the error (red) style.
+//
+// Class fragments come straight from ToastContext's STYLES map:
+//   warning → text-yellow-300 / bg-yellow-500/15 / border-yellow-500/30
+//   error   → text-red-300    / bg-red-500/15    / border-red-500/30
+const WARNING_TEXT_CLASS = 'text-yellow-300'
+const ERROR_TEXT_CLASS = 'text-red-300'
+// querySelector escaping: `/` in Tailwind classes like `bg-red-500/15` is a
+// valid class token, but the `/` and `.`-free selector below matches the raw
+// class attribute substring, which is enough to detect any red-styled element.
+const ERROR_STYLE_SELECTORS =
+  '[class*="text-red-300"],[class*="bg-red-500"],[class*="border-red-500"]'
+
+// Walk up from the toast text node to the toast container, so we can inspect the
+// full toast element (bar/icon/border), not just the message paragraph.
+function toastContainerFor(textEl) {
+  return textEl.closest('[class*="rounded-xl"]') || textEl.parentElement
+}
+
+describe('the cooldown notification is warning-styled, not error-styled', () => {
+  function mockIntegrationsApi(on429 = {}) {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      const key = `${method} ${url}`
+      if (on429[key]) return Promise.resolve(rateLimited())
+      if (url === '/api/integrations' && method === 'GET') {
+        return Promise.resolve(apiRes({
+          body: {
+            github: { configured: true, synced_repos: 0, env_present: true, masked: 'ghp_…' },
+            notion: { configured: true, env_present: true, masked: 'sec_…' },
+            openai: { configured: true, env_present: true, masked: 'sk-…' },
+            push: { configured: true },
+          },
+        }))
+      }
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('GitHub sync 429 toast uses the yellow warning style, with no red anywhere', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/github/sync': true })
+    const { container } = renderPage(<Integrations />)
+
+    const btn = await screen.findByRole('button', { name: /Sync repos/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    const msg = await screen.findByText(/wait 30s before syncing again/i)
+    // The message text itself must carry the warning colour, not the error one.
+    expect(msg.className).toContain(WARNING_TEXT_CLASS)
+    expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
+    // The whole toast (border/background) must be warning-styled.
+    const toast = toastContainerFor(msg)
+    expect(toast.className).toContain('bg-yellow-500/15')
+    expect(toast.className).toContain('border-yellow-500/30')
+    // And nothing on the entire page may carry an error (red) style.
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
+
+  it('OpenAI summary 429 toast is warning-styled, with no red error element', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/openai/summary': true })
+    const { container } = renderPage(<Integrations />)
+
+    const btn = await screen.findByRole('button', { name: /Generate/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    const msg = await screen.findByText(/wait 30s before generating another summary/i)
+    expect(msg.className).toContain(WARNING_TEXT_CLASS)
+    expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
+
+  it('OpenAI "Ask" chat 429 toast uses the yellow warning style, with no red anywhere', async () => {
+    mockIntegrationsApi({ 'POST /api/integrations/openai/chat': true })
+    const { container } = renderPage(<Integrations />)
+
+    const input = await screen.findByPlaceholderText(/daily special/i)
+    fireEvent.change(input, { target: { value: 'What should we cook?' } })
+
+    const btn = screen.getByRole('button', { name: /^Ask$/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    const msg = await screen.findByText(/wait 30s before asking again/i)
+    // The message text itself must carry the warning colour, not the error one.
+    expect(msg.className).toContain(WARNING_TEXT_CLASS)
+    expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
+    // The whole toast (border/background) must be warning-styled.
+    const toast = toastContainerFor(msg)
+    expect(toast.className).toContain('bg-yellow-500/15')
+    expect(toast.className).toContain('border-yellow-500/30')
+    // And nothing on the entire page may carry an error (red) style — no scary
+    // red toast and no inline red chat error on a rate-limited "Ask".
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
+})
+
+describe('the Notion cooldown notification is warning-styled, not error-styled', () => {
+  function mockNotionApi() {
+    vi.mocked(apiFetch).mockImplementation((url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase()
+      if (url === '/api/integrations/notion/sync' && method === 'POST')
+        return Promise.resolve(rateLimited())
+      if (url.endsWith('/projects')) return Promise.resolve(apiRes({ body: [] }))
+      if (url.startsWith('/api/notion/tasks')) return Promise.resolve(apiRes({ body: [] }))
+      if (url === '/api/notion/config')
+        return Promise.resolve(apiRes({ body: { configured: true, envKeyPresent: true } }))
+      return Promise.resolve(apiRes({ body: {} }))
+    })
+  }
+
+  it('Notion "Sync All" 429 toast uses the yellow warning style, with no red anywhere', async () => {
+    mockNotionApi()
+    const { container } = renderPage(<NotionIntegration />)
+
+    const btn = await screen.findByRole('button', { name: /Sync All/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    const msg = await screen.findByText(/wait 30s before syncing again/i)
+    expect(msg.className).toContain(WARNING_TEXT_CLASS)
+    expect(msg.className).not.toContain(ERROR_TEXT_CLASS)
+    const toast = toastContainerFor(msg)
+    expect(toast.className).toContain('bg-yellow-500/15')
+    expect(toast.className).toContain('border-yellow-500/30')
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
+
+  // The toast test above proves the friendly cooldown notification is warning-
+  // styled. But the Notion page ALSO has its own inline sync-status banner driven
+  // by setSyncMsg (green when ok, RED with a ✗ when it takes the catch/error
+  // path). sync() deliberately handles a 429 on the cooldown path and returns
+  // early, so that inline banner must never render at all on a rate limit. If a
+  // future refactor drops the early return and lets a 429 fall through to
+  // `setSyncMsg({ ok:false })`, users would see a scary red inline error banner
+  // (bg-red-500/10 · text-red-400 · border-red-500/20) — this test pins that the
+  // inline banner never appears in its red error form on a 429.
+  it('inline sync-status banner never renders its red error variant on a 429', async () => {
+    mockNotionApi()
+    const { container } = renderPage(<NotionIntegration />)
+
+    const btn = await screen.findByRole('button', { name: /Sync All/i })
+    await act(async () => { fireEvent.click(btn) })
+
+    // The cooldown toast confirms the 429 was actually handled (not a no-op).
+    await screen.findByText(/wait 30s before syncing again/i)
+
+    // The inline banner's error path stamps a ✗ marker and its own generic
+    // "Sync failed" message — neither may appear on a rate limit.
+    expect(screen.queryByText('✗')).toBeNull()
+    expect(screen.queryByText(/sync failed/i)).toBeNull()
+    // And no red-styled element (the inline banner's bg-red-500/10 +
+    // border-red-500/20, or any error toast) may exist anywhere on the page.
+    expect(container.querySelectorAll(ERROR_STYLE_SELECTORS).length).toBe(0)
+  })
+})

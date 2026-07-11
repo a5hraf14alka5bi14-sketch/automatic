@@ -1,0 +1,488 @@
+[
+  {
+    "name": "Chicken Shawarma 10kg",
+    "category": "meat",
+    "quantity": 5,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 13.9,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Beef Striploin 20kg",
+    "category": "meat",
+    "quantity": 2,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 49.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Chicken Breast 12kg",
+    "category": "meat",
+    "quantity": 4,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 20.9,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Beef Tenderloin 18kg",
+    "category": "meat",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 73,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Chicken Whole 10x1300g",
+    "category": "meat",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 14.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Alsaffa Chicken Wings",
+    "category": "meat",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 11.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Lamb Fat (Chinese)",
+    "category": "meat",
+    "quantity": 10,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 1.8,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Ahl Al Sham Olive Oil 2x5L",
+    "category": "oils",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 10,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Al Kebab Sunflower Oil 1x1.8",
+    "category": "oils",
+    "quantity": 2,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 9.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Salt 12x1pcs",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 1.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "White Sugar",
+    "category": "pantry",
+    "quantity": 10,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.35,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "French Fries Frozen 9mm 4x2.5kg",
+    "category": "frozen",
+    "quantity": 4,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 5.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Strawberry Frozen 10kg",
+    "category": "frozen",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 7.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Mango Frozen Pulp 16kg",
+    "category": "frozen",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 12.381,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Chickpeas 15kg",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "bag",
+    "min_quantity": 1,
+    "cost": 9,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Cumin Powder 1kg",
+    "category": "spices",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 2.2,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Ginger Powder 1kg",
+    "category": "spices",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 1.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Seven Spices 1kg",
+    "category": "spices",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 4.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Curry Powder 1kg",
+    "category": "spices",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 2.5,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Al Kebab Tahina 18kg",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "drum",
+    "min_quantity": 1,
+    "cost": 22,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Iranian Tomato Paste 12x800g",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 4.9,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Beef Top Side 41kg",
+    "category": "meat",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 49,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Mixed Pickles 9kg",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "drum",
+    "min_quantity": 1,
+    "cost": 3.9,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "White Vinegar 4x3.78L",
+    "category": "pantry",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 2.9,
+    "supplier": "Al Aamer Majestic S.P.C"
+  },
+  {
+    "name": "Crystal Dish Wash Lemon 5Lx4",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 4,
+    "supplier": "Al Sanabel"
+  },
+  {
+    "name": "Crystal Hand Soap Rose 5Lx4",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 4,
+    "supplier": "Al Sanabel"
+  },
+  {
+    "name": "Tissue Box Queen 30x450",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 7.5,
+    "supplier": "Al Sanabel"
+  },
+  {
+    "name": "Clorogen Bleach 6x3.75L",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 5,
+    "supplier": "Al Sanabel"
+  },
+  {
+    "name": "Apron Disposable 10pkt",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 8,
+    "supplier": "Al Sanabel"
+  },
+  {
+    "name": "Air Freshener 300ml x12",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "dozen",
+    "min_quantity": 1,
+    "cost": 5,
+    "supplier": "Al Sanabel"
+  },
+  {
+    "name": "Tox Yellow Insect Killer 400ml",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "dozen",
+    "min_quantity": 1,
+    "cost": 4.8,
+    "supplier": "Al Sanabel"
+  },
+  {
+    "name": "Juice Glass Clear 14oz w/Lid 1000pcs",
+    "category": "supplies",
+    "quantity": 1,
+    "unit": "carton",
+    "min_quantity": 1,
+    "cost": 19.5,
+    "supplier": "Al Sanabel"
+  },
+  {
+    "name": "Tomato",
+    "category": "produce",
+    "quantity": 15,
+    "unit": "kg",
+    "min_quantity": 3,
+    "cost": 0.35,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Cucumber",
+    "category": "produce",
+    "quantity": 8,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.4,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Lettuce",
+    "category": "produce",
+    "quantity": 12,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.4,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Parsley",
+    "category": "produce",
+    "quantity": 8,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.9,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Rocca (Arugula)",
+    "category": "produce",
+    "quantity": 3,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.8,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Mint",
+    "category": "produce",
+    "quantity": 0.5,
+    "unit": "kg",
+    "min_quantity": 0.5,
+    "cost": 0.8,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Coriander",
+    "category": "produce",
+    "quantity": 0.2,
+    "unit": "kg",
+    "min_quantity": 0.5,
+    "cost": 1.2,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Capsicum Red",
+    "category": "produce",
+    "quantity": 0.7,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 1.2,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Egg Tray",
+    "category": "produce",
+    "quantity": 2,
+    "unit": "tray",
+    "min_quantity": 1,
+    "cost": 1.5,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Potato",
+    "category": "produce",
+    "quantity": 6,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.3,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Cauliflower",
+    "category": "produce",
+    "quantity": 2.4,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.5,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Marrow (Zucchini)",
+    "category": "produce",
+    "quantity": 2,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.5,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Onion Red",
+    "category": "produce",
+    "quantity": 10,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 0.25,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Garlic",
+    "category": "produce",
+    "quantity": 6.4,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.8,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Orange",
+    "category": "produce",
+    "quantity": 14,
+    "unit": "kg",
+    "min_quantity": 3,
+    "cost": 0.38,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Lemon (South Africa)",
+    "category": "produce",
+    "quantity": 13.5,
+    "unit": "kg",
+    "min_quantity": 3,
+    "cost": 1,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Mango",
+    "category": "produce",
+    "quantity": 5,
+    "unit": "kg",
+    "min_quantity": 2,
+    "cost": 1.2,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Pomegranate",
+    "category": "produce",
+    "quantity": 3.6,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 1.2,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Banana",
+    "category": "produce",
+    "quantity": 31,
+    "unit": "kg",
+    "min_quantity": 5,
+    "cost": 0.35,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Eggplant",
+    "category": "produce",
+    "quantity": 1,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.9,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Green Chilli",
+    "category": "produce",
+    "quantity": 3.6,
+    "unit": "kg",
+    "min_quantity": 1,
+    "cost": 0.9,
+    "supplier": "Valley Deer For Investment S.P.C"
+  },
+  {
+    "name": "Pineapple",
+    "category": "produce",
+    "quantity": 0,
+    "unit": "pcs",
+    "min_quantity": 1,
+    "cost": 0,
+    "supplier": "Valley Deer For Investment S.P.C"
+  }
+]

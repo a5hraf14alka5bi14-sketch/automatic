@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* Tailwind v4 changed the default border/divide color from gray-200 to
+   currentColor. Restore the v3 default so existing `border` utilities that
+   omit an explicit color keep rendering as before. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
+* {
+  font-family: 'Inter', sans-serif;
+}
+
+html, body {
+  /* Never allow page-level horizontal scrolling — wide tables scroll inside
+     their own overflow-x-auto wrappers instead. Prevents the whole app
+     shifting sideways on phones. */
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
+body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+/* ─── iOS Safe-Area utilities ──────────────────────────────────────────────
+   On iPhones with a notch or Dynamic Island, content must be pushed below
+   env(safe-area-inset-top) so it isn't hidden under the status bar.
+   These classes are no-ops on every non-iOS device and on Android Chrome.
+   Requires  viewport-fit=cover  in the viewport <meta> tag (already set).
+   ────────────────────────────────────────────────────────────────────────── */
+/* Mobile top bar: keeps its normal 0.75 rem (p-3) and adds the safe inset */
+.header-safe {
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+}
+/* Sidebar panel header: keeps its normal 1 rem (p-4) and adds the safe inset */
+.sidebar-header-safe {
+  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+}
+/* Sidebar footer: keeps its normal 0.75 rem (p-3) and clears the home indicator */
+.sidebar-footer-safe {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+}
+/* Generic: push scroll content above the iOS home indicator */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* Fullscreen mobile overlays (cart drawer, etc.): keep their p-4 header and
+   add the safe inset so it clears the status bar / Dynamic Island */
+.overlay-header-safe {
+  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+}
+
+/* ─── Mobile bottom-nav safe area ──────────────────────────────────────────
+   Clears the bottom nav bar (h-14 = 3.5rem) plus the iOS home indicator.
+   Applied to the main scrollable content area on mobile. ─────────────────── */
+.pb-nav {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+/* The bottom nav itself sits above the iOS home indicator */
+.bnav-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* Fullscreen mobile cart overlay: keep its content clear of the fixed
+   bottom nav (3.5rem) + home indicator. Desktop (md+) is unaffected. */
+@media (max-width: 767px) {
+  .cart-overlay-safe {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ─── Touch improvements ─────────────────────────────────────────────────── */
+/* Remove grey tap flash on iOS for interactive elements */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+/* Smooth momentum scrolling on iOS */
+.overflow-auto, .overflow-y-auto, .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
