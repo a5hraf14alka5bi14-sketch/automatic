@@ -46,7 +46,11 @@ const ORDERS_SELECT = `
         ) ORDER BY oi.id
       ) FILTER (WHERE oi.id IS NOT NULL),
       '[]'
-    ) AS items
+    ) AS items,
+    (SELECT COALESCE(
+      json_agg(json_build_object('id',sp.id,'method',sp.method,'amount',sp.amount,'paid_at',sp.paid_at) ORDER BY sp.id),
+      '[]'::json
+    ) FROM split_payments sp WHERE sp.order_id = o.id) AS split_payments
   FROM orders o
   LEFT JOIN users u ON u.id = o.user_id
   LEFT JOIN branches b ON b.id = o.branch_id
@@ -57,7 +61,7 @@ const ORDERS_SELECT = `
 // Fields containing pricing/payment/void data — stripped for kitchen & staff roles.
 // These roles need operational detail (items, table, status, rush) but not financial data.
 const FINANCIAL_FIELDS = ['subtotal', 'tax', 'total', 'discount', 'discount_type',
-  'payment_method', 'loyalty_discount', 'void_reason', 'voided_by', 'voided_at']
+  'payment_method', 'loyalty_discount', 'void_reason', 'voided_by', 'voided_at', 'split_payments']
 
 function filterOrderFields(rows, role) {
   if (role !== 'kitchen' && role !== 'staff') return rows
@@ -852,6 +856,103 @@ router.post('/:id/split-payment', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK')
     logger.error(err?.message, { path: req.path }); res.status(500).json({ error: 'Server error' })
+  } finally { client.release() }
+})
+
+// ── POST /api/orders/:id/pay ───────────────────────────────────────────────────
+// Batch / atomic payment collection for pay-later orders.  Accepts the full
+// payment in one shot — either a single method or a split across multiple
+// methods — validates that the provided amounts sum to the order total
+// (within 0.005 OMR rounding tolerance), clears any prior partial payments for
+// this order, inserts the new split_payments rows, marks the order completed,
+// and runs the same applyCompletionEffects path as PATCH /:id/status.
+//
+// Body: { splits: [{method, amount}, ...], loyalty_redemption_points? }
+//   method  — 'cash' | 'card' | 'other'
+//   amount  — positive number (in OMR)
+//
+// If splits has exactly one entry the order's payment_method is set to that
+// method name (e.g. 'cash'); if there are two or more it is set to 'split'.
+router.post('/:id/pay', requireRole('cashier', 'manager', 'admin'), async (req, res) => {
+  const { splits, loyalty_redemption_points } = req.body
+  const METHODS = ['cash', 'card', 'other']
+
+  if (!Array.isArray(splits) || splits.length === 0) {
+    return res.status(400).json({ error: 'splits must be a non-empty array of {method, amount}' })
+  }
+  for (const s of splits) {
+    if (!METHODS.includes(s.method)) {
+      return res.status(400).json({ error: `Invalid method "${s.method}" — expected one of ${METHODS.join(', ')}` })
+    }
+    const amt = parseFloat(s.amount)
+    if (!(amt > 0)) {
+      return res.status(400).json({ error: 'Each split amount must be a positive number' })
+    }
+  }
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const order = await client.query(
+      'SELECT id, status, total, customer_id FROM orders WHERE id=$1 FOR UPDATE',
+      [req.params.id]
+    )
+    if (!order.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: 'Order not found' })
+    }
+    const { status, total, customer_id } = order.rows[0]
+
+    if (status === 'completed' || status === 'cancelled') {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ error: `Order is already ${status} — no payment accepted` })
+    }
+
+    const orderTotal = parseFloat(total)
+    const providedSum = splits.reduce((acc, s) => acc + parseFloat(s.amount), 0)
+
+    if (Math.abs(providedSum - orderTotal) > 0.005) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({
+        error: `Payment total ${providedSum.toFixed(3)} does not match order total ${orderTotal.toFixed(3)}`
+      })
+    }
+
+    // Replace any existing partial split_payments so the cashier can retry
+    // with a corrected split without being blocked by a prior partial attempt.
+    await client.query('DELETE FROM split_payments WHERE order_id=$1', [req.params.id])
+
+    const paymentRows = []
+    for (const s of splits) {
+      const r = await client.query(
+        'INSERT INTO split_payments (order_id, method, amount) VALUES ($1,$2,$3) RETURNING *',
+        [req.params.id, s.method, parseFloat(s.amount).toFixed(3)]
+      )
+      paymentRows.push(r.rows[0])
+    }
+
+    const finalPM = splits.length === 1 ? splits[0].method : 'split'
+    await client.query(
+      'UPDATE orders SET status=$1, payment_method=$2, paid_at=NOW(), updated_at=NOW() WHERE id=$3',
+      ['completed', finalPM, req.params.id]
+    )
+    await applyCompletionEffects(client, parseInt(req.params.id), {
+      orderTotal, customerId: customer_id, loyaltyRedemptionPoints: loyalty_redemption_points,
+    })
+
+    await client.query('COMMIT')
+    broadcast('order_updated', { id: parseInt(req.params.id), status: 'completed' })
+
+    const updatedOrder = (await pool.query(
+      `${ORDERS_SELECT} WHERE o.id=$1 GROUP BY o.id, u.name, b.name, b.name_ar`,
+      [req.params.id]
+    )).rows[0]
+
+    res.json({ order: updatedOrder, split_payments: paymentRows })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    logger.error(err?.message, { path: req.path })
+    res.status(500).json({ error: 'Server error' })
   } finally { client.release() }
 })
 

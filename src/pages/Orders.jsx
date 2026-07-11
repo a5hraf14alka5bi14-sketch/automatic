@@ -4,6 +4,7 @@ import { wsUrl } from '../config.js'
 import { useCurrency } from '../utils/currency.js'
 import { useToast } from '../context/ToastContext.jsx'
 import ShiftCloseModal from '../components/ShiftCloseModal.jsx'
+import ReceiptModal from '../components/ReceiptModal.jsx'
 import { useDialogA11y } from '../hooks/useDialogA11y.js'
 
 const STATUS_STYLES = {
@@ -192,39 +193,187 @@ function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, fmt, 
   )
 }
 
-// ── Payment Modal ─────────────────────────────────────────────────────────────
-function SimplePayModal({ order, onClose, onPay, fmt }) {
-  const [method, setMethod] = useState('cash')
+// ── Pay-Later Payment Modal ───────────────────────────────────────────────────
+// Replaces SimplePayModal with a richer modal that supports:
+//   • Single method (cash / card / other) — posts as one split = full total
+//   • Split across multiple methods with user-specified amounts per method,
+//     validated to sum exactly to the order total before submission.
+// Uses POST /api/orders/:id/pay (batch endpoint) for both modes.
+const PAY_METHODS = [
+  { id: 'cash', label: 'Cash', labelAr: 'نقد', icon: '💵' },
+  { id: 'card', label: 'Card', labelAr: 'بطاقة', icon: '💳' },
+  { id: 'other', label: 'Other', labelAr: 'أخرى', icon: '📱' },
+]
+
+function PayLaterPaymentModal({ order, onClose, onDone, fmt }) {
+  const [mode, setMode] = useState('single')
+  const [singleMethod, setSingleMethod] = useState('cash')
+  const [splits, setSplits] = useState([
+    { method: 'cash', amount: '' },
+    { method: 'card', amount: '' },
+  ])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const panelRef = useDialogA11y(onClose)
-  const handle = async () => { setLoading(true); await onPay(order.id, method); setLoading(false) }
+
+  const total = parseFloat(order.total || 0)
+  const splitSum = splits.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0)
+  const splitRemaining = parseFloat((total - splitSum).toFixed(3))
+  const splitValid = Math.abs(splitSum - total) <= 0.005 && splitSum > 0
+
+  const setAmount = (idx, val) => setSplits(prev => prev.map((s, i) => i === idx ? { ...s, amount: val } : s))
+  const setMethod = (idx, val) => setSplits(prev => prev.map((s, i) => i === idx ? { ...s, method: val } : s))
+  const addRow = () => setSplits(prev => [...prev, { method: 'cash', amount: '' }])
+  const removeRow = idx => setSplits(prev => prev.filter((_, i) => i !== idx))
+  const fillRest = idx => {
+    const otherSum = splits.reduce((acc, s, i) => i === idx ? acc : acc + (parseFloat(s.amount) || 0), 0)
+    const rest = Math.max(0, parseFloat((total - otherSum).toFixed(3)))
+    setAmount(idx, rest > 0 ? String(rest) : '')
+  }
+
+  const handlePay = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      let body
+      if (mode === 'single') {
+        body = { splits: [{ method: singleMethod, amount: total }] }
+      } else {
+        const active = splits.filter(s => parseFloat(s.amount) > 0)
+        if (active.length === 0) { setError('Enter at least one amount · أدخل مبلغاً واحداً على الأقل'); setLoading(false); return }
+        const sum = active.reduce((acc, s) => acc + parseFloat(s.amount), 0)
+        if (Math.abs(sum - total) > 0.005) {
+          setError(`Must equal ${fmt(total)} — currently ${fmt(sum)}`)
+          setLoading(false); return
+        }
+        body = { splits: active.map(s => ({ method: s.method, amount: parseFloat(s.amount) })) }
+      }
+      const res = await apiFetch(`/api/orders/${order.id}/pay`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Payment failed')
+      onDone(data.order, data.split_payments || [])
+    } catch (e) {
+      setError(e.message || 'Payment error')
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="simple-pay-title" className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="pay-modal-title"
+        className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm max-h-[90vh] overflow-auto">
+
         <div className="p-5 border-b border-slate-800">
-          <h2 id="simple-pay-title" className="text-white font-bold text-lg">Complete Payment</h2>
-          <p className="text-slate-400 text-sm mt-0.5">Order #{order.id} · {order.type}</p>
+          <h2 id="pay-modal-title" className="text-white font-bold text-lg">Collect Payment · تحصيل</h2>
+          <p className="text-slate-400 text-sm mt-0.5">Order #{order.id}</p>
         </div>
+
+        <div className="p-4 bg-orange-500/5 border-b border-slate-800 text-center">
+          <p className="text-slate-400 text-xs mb-1">Total Due · المبلغ المستحق</p>
+          <p className="text-orange-400 text-4xl font-bold">{fmt(total)}</p>
+        </div>
+
+        {/* Mode tabs */}
+        <div className="flex border-b border-slate-800">
+          {[['single', '💳 Single'], ['split', '⚡ Split Payment']].map(([m, l]) => (
+            <button key={m} onClick={() => { setMode(m); setError('') }}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                mode === m ? 'text-orange-400 border-b-2 border-orange-500' : 'text-slate-500 hover:text-white'
+              }`}>{l}</button>
+          ))}
+        </div>
+
         <div className="p-5 space-y-4">
-          <div className="bg-slate-800 rounded-xl p-4 text-center">
-            <p className="text-slate-400 text-sm">Total Amount</p>
-            <p className="text-orange-400 text-4xl font-bold mt-1">{fmt(order.total)}</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[['cash','💵','Cash'],['card','💳','Card'],['other','📱','Other']].map(([v,e,l]) => (
-              <button key={v} onClick={() => setMethod(v)}
-                className={`py-2.5 rounded-xl text-sm font-medium flex flex-col items-center gap-1 transition-all ${
-                  method === v ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}>
-                <span className="text-xl">{e}</span>{l}
-              </button>
-            ))}
-          </div>
+          {mode === 'single' ? (
+            <div className="grid grid-cols-3 gap-2">
+              {PAY_METHODS.map(m => (
+                <button key={m.id} onClick={() => setSingleMethod(m.id)}
+                  className={`py-3 rounded-xl text-sm font-medium flex flex-col items-center gap-1 transition-all ${
+                    singleMethod === m.id ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}>
+                  <span className="text-xl">{m.icon}</span>
+                  <span>{m.label}</span>
+                  <span className="text-xs opacity-70" dir="rtl">{m.labelAr}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {splits.map((s, i) => (
+                <div key={i} className="bg-slate-800/50 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 text-xs font-medium">Part {i + 1}</span>
+                    {splits.length > 1 && (
+                      <button onClick={() => removeRow(i)}
+                        className="text-slate-600 hover:text-red-400 text-xs transition-colors">
+                        ✕ Remove
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <select value={s.method} onChange={e => setMethod(i, e.target.value)}
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-orange-500 flex-shrink-0">
+                      {PAY_METHODS.map(m => (
+                        <option key={m.id} value={m.id}>{m.icon} {m.label}</option>
+                      ))}
+                    </select>
+                    <input type="number" step="0.001" min="0.001"
+                      value={s.amount}
+                      onChange={e => setAmount(i, e.target.value)}
+                      placeholder="0.000"
+                      className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
+                    <button onClick={() => fillRest(i)}
+                      title="Fill remaining amount"
+                      className="px-2 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors flex-shrink-0">
+                      ↑ Rest
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {splits.length < 4 && (
+                <button onClick={addRow}
+                  className="w-full py-2 border border-dashed border-slate-700 rounded-xl text-slate-500 hover:text-white hover:border-slate-500 text-sm transition-colors">
+                  + Add payment method
+                </button>
+              )}
+
+              {/* Running total indicator */}
+              <div className={`rounded-xl p-3 text-sm flex justify-between items-center ${
+                splitValid ? 'bg-green-500/10 border border-green-500/30' :
+                splitSum > total ? 'bg-red-500/10 border border-red-500/30' :
+                'bg-slate-800/60 border border-slate-700'
+              }`}>
+                <span className="text-slate-400">Entered · المدخل</span>
+                <div className="text-right">
+                  <span className={`font-bold ${splitValid ? 'text-green-400' : splitSum > total ? 'text-red-400' : 'text-white'}`}>
+                    {fmt(splitSum)}
+                  </span>
+                  {!splitValid && splitSum < total && splitSum > 0 && (
+                    <span className="block text-xs text-slate-500">
+                      remaining {fmt(splitRemaining)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
         </div>
+
         <div className="flex gap-3 p-5 border-t border-slate-800">
-          <button onClick={onClose} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm transition-colors">Cancel</button>
-          <button onClick={handle} disabled={loading} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors">
-            {loading ? 'Processing…' : 'Confirm Payment'}
+          <button onClick={onClose}
+            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm transition-colors">
+            Cancel
+          </button>
+          <button onClick={handlePay} disabled={loading}
+            className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors">
+            {loading ? 'Processing…' : 'Confirm · تأكيد'}
           </button>
         </div>
       </div>
@@ -318,6 +467,8 @@ export default function Orders() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [payModal, setPayModal] = useState(null)
+  const [receiptData, setReceiptData] = useState(null)
+  const [settings, setSettings] = useState(null)
   const [voidModal, setVoidModal] = useState(null)     // { orderId, wasCompleted }
   const [showShiftModal, setShowShiftModal] = useState(false)
   const userRole = (() => { try { return JSON.parse(localStorage.getItem('auth_user') || '{}').role || 'staff' } catch { return 'staff' } })()
@@ -422,10 +573,13 @@ export default function Orders() {
   }, [searchInput])
 
   // Re-run the query whenever a filter changes; changing a filter resets to page 1.
-  // Load branches list once for the filter dropdown
+  // Load branches list + settings once on mount
   useEffect(() => {
     apiFetch('/api/branches').then(r => r.json()).then(d => {
       if (Array.isArray(d)) setBranches(d)
+    }).catch(() => {})
+    apiFetch('/api/settings').then(r => r.json()).then(d => {
+      if (d && typeof d === 'object') setSettings(d)
     }).catch(() => {})
   }, [])
 
@@ -523,10 +677,14 @@ export default function Orders() {
     toast('Order cancelled', 'info')
   }, [voidModal, fetchOrders, selectedOrder])
 
-  const handlePay = async (orderId, method) => {
-    await updateStatus(orderId, 'completed', { payment_method: method })
+  // Called by PayLaterPaymentModal on successful payment.
+  // Closes the payment modal, shows the receipt, and refreshes the list.
+  const handlePaymentDone = useCallback((completedOrder, splitPayments) => {
     setPayModal(null)
-  }
+    setReceiptData({ ...completedOrder, split_payments: splitPayments })
+    fetchOrders()
+    fetchCounts()
+  }, [fetchOrders, fetchCounts])
 
   const statuses = ['all', 'pending', 'preparing', 'ready', 'completed', 'cancelled']
 
@@ -819,11 +977,20 @@ export default function Orders() {
 
       {/* Payment modal */}
       {payModal && (
-        <SimplePayModal
+        <PayLaterPaymentModal
           order={payModal}
           onClose={() => setPayModal(null)}
-          onPay={handlePay}
+          onDone={handlePaymentDone}
           fmt={fmt}
+        />
+      )}
+
+      {/* Receipt after payment */}
+      {receiptData && (
+        <ReceiptModal
+          order={receiptData}
+          settings={settings}
+          onClose={() => setReceiptData(null)}
         />
       )}
     </div>

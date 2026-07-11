@@ -90,8 +90,29 @@ function CustomerReceipt({ order, settings, currency }) {
         <InfoRow label="Date" value={dateStr} />
         <InfoRow label="Customer" value={order.customer_name || 'Guest'} />
         {order.table_number && <InfoRow label="Table" value={order.table_number} />}
-        {order.payment_method && <InfoRow label="Payment" value={order.payment_method.toUpperCase()} />}
-      </div>
+        {order.payment_method && order.payment_method !== 'split' && (
+        <InfoRow label="Payment · دفع" value={order.payment_method.toUpperCase()} />
+      )}
+      {order.payment_method === 'split' && Array.isArray(order.split_payments) && order.split_payments.length > 0 && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+            <b>Payment Breakdown</b>
+            <span dir="rtl" style={{ fontSize: 10, fontWeight: 'normal' }}>تفاصيل الدفع</span>
+          </div>
+          {order.split_payments.map((sp, i) => {
+            const label = sp.method === 'cash' ? 'Cash · نقد'
+              : sp.method === 'card' ? 'Card · بطاقة'
+              : 'Other · أخرى'
+            return (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: 10, fontSize: 10 }}>
+                <span>{label}</span>
+                <span>{fmt(parseFloat(sp.amount), currency)}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
 
       <Divider double />
 
