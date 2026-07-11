@@ -659,10 +659,18 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
   try {
     await client.query('BEGIN')
     // FOR UPDATE locks the row so concurrent status transitions serialize — prevents double-deduction
-    const prev = await client.query('SELECT status, total, customer_id, loyalty_discount FROM orders WHERE id=$1 FOR UPDATE', [req.params.id])
+    const prev = await client.query('SELECT status, total, customer_id, loyalty_discount, payment_method FROM orders WHERE id=$1 FOR UPDATE', [req.params.id])
     if (!prev.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Not found' }) }
-    const { status: prevStatus, total: orderTotal, customer_id, loyalty_discount: prevLoyaltyDiscount } = prev.rows[0]
+    const { status: prevStatus, total: orderTotal, customer_id, loyalty_discount: prevLoyaltyDiscount, payment_method: prevPaymentMethod } = prev.rows[0]
     const wasCompleted = prevStatus === 'completed'
+
+    // Pay-later orders (payment_method IS NULL = payment not yet collected) can only be
+    // moved to 'preparing' or 'ready' by kitchen staff. Cashiers must not advance the
+    // kitchen workflow on orders where payment has been deferred.
+    if (['preparing', 'ready'].includes(status) && prevPaymentMethod === null && req.user?.role === 'cashier') {
+      await client.query('ROLLBACK')
+      return res.status(403).json({ error: 'Pay-later orders can only be moved to preparing or ready by kitchen staff.' })
+    }
 
     // Voiding a COMPLETED order requires manager/admin role or the correct override PIN
     if (status === 'cancelled' && wasCompleted) {

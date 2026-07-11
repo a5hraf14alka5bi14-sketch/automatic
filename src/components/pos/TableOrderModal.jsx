@@ -2,6 +2,7 @@ import React from 'react'
 
 export default function TableOrderModal({ tableNum, orders, currency, onClose, onUpdateStatus, onToggleRush }) {
   const fmtC = (n) => `${currency} ${parseFloat(n || 0).toFixed(3)}`
+  const userRole = (() => { try { return JSON.parse(localStorage.getItem('auth_user') || '{}').role || '' } catch { return '' } })()
   const STATUS_FLOW = {
     pending: ['preparing', 'cancelled'],
     preparing: ['ready', 'cancelled'],
@@ -47,7 +48,7 @@ export default function TableOrderModal({ tableNum, orders, currency, onClose, o
                 <p className="text-yellow-300 text-xs italic mb-3">📝 {order.notes}</p>
               )}
 
-              {/* Actions */}
+              {/* Actions — cashier cannot move pay-later (unpaid) orders to preparing/ready */}
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => onToggleRush(order.id, !order.rush)}
@@ -56,17 +57,26 @@ export default function TableOrderModal({ tableNum, orders, currency, onClose, o
                   }`}>
                   {order.rush ? '🔴 Rush' : '🚨 Rush'}
                 </button>
-                {(STATUS_FLOW[order.status] || []).map(s => (
-                  <button key={s}
-                    onClick={() => { onUpdateStatus(order.id, s); }}
-                    className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${
-                      s === 'completed' ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30'
-                      : s === 'cancelled' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
-                      : 'bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25'
-                    }`}>
-                    {s === 'completed' ? '💳 Complete & Pay' : s === 'cancelled' ? '✕ Cancel' : `→ ${s}`}
-                  </button>
-                ))}
+                {(STATUS_FLOW[order.status] || []).map(s => {
+                  const isPayLaterBlock = userRole === 'cashier' && !order.payment_method && ['preparing', 'ready'].includes(s)
+                  if (isPayLaterBlock) return null
+                  return (
+                    <button key={s}
+                      onClick={() => { onUpdateStatus(order.id, s); }}
+                      className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${
+                        s === 'completed' ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30'
+                        : s === 'cancelled' ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+                        : 'bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25'
+                      }`}>
+                      {s === 'completed' ? '💳 Complete & Pay' : s === 'cancelled' ? '✕ Cancel' : `→ ${s}`}
+                    </button>
+                  )
+                })}
+                {userRole === 'cashier' && !order.payment_method && ['pending', 'preparing'].includes(order.status) && (
+                  <p className="w-full text-xs text-slate-500 italic pt-1">
+                    🍳 Kitchen staff handles preparation for pay-later orders
+                  </p>
+                )}
               </div>
             </div>
           ))}

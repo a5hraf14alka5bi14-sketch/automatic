@@ -27,7 +27,7 @@ const PAYMENT_ICONS = { cash: '💵', card: '💳', other: '📱' }
 const PAGE_SIZE = 50   // server default; capped server-side at 200
 
 // ── Order Detail Drawer ───────────────────────────────────────────────────────
-function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, fmt }) {
+function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, fmt, userRole }) {
   const closeBtnRef = useRef(null)
   // Shared dialog a11y: initial focus on the close button, Escape to close,
   // Tab trap, and focus restore — stack-aware so a modal opened on top of the
@@ -161,21 +161,30 @@ function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, fmt }
             {order.rush ? '🔴 Remove Rush Flag' : '🚨 Mark as Rush'}
           </button>
 
-          {/* Status flow */}
-          <div className="flex gap-2">
-            {(STATUS_FLOW[order.status] || []).map(s => (
-              <button
-                key={s}
-                onClick={() => onUpdateStatus(order.id, s)}
-                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors capitalize ${
-                  s === 'completed' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
-                  : s === 'cancelled' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
-                  : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/25'
-                }`}
-              >
-                {s === 'completed' ? '💳 Complete' : s === 'cancelled' ? '✕ Cancel' : `→ ${s}`}
-              </button>
-            ))}
+          {/* Status flow — cashier cannot move pay-later (unpaid) orders to preparing/ready */}
+          <div className="flex gap-2 flex-wrap">
+            {(STATUS_FLOW[order.status] || []).map(s => {
+              const isPayLaterBlock = userRole === 'cashier' && !order.payment_method && ['preparing', 'ready'].includes(s)
+              if (isPayLaterBlock) return null
+              return (
+                <button
+                  key={s}
+                  onClick={() => onUpdateStatus(order.id, s)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors capitalize ${
+                    s === 'completed' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
+                    : s === 'cancelled' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
+                    : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/25'
+                  }`}
+                >
+                  {s === 'completed' ? '💳 Complete' : s === 'cancelled' ? '✕ Cancel' : `→ ${s}`}
+                </button>
+              )
+            })}
+            {userRole === 'cashier' && !order.payment_method && ['pending', 'preparing'].includes(order.status) && (
+              <p className="w-full text-xs text-slate-500 italic pt-1">
+                🍳 Kitchen staff handles preparation for pay-later orders
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -711,17 +720,21 @@ export default function Orders() {
 
                 {/* Quick actions — stop click from bubbling */}
                 <div className="flex gap-2 mt-3 flex-wrap items-center" onClick={e => e.stopPropagation()}>
-                  {(STATUS_FLOW[order.status] || []).map(s => (
-                    <button key={s}
-                      onClick={() => s === 'completed' ? setPayModal(order) : s === 'cancelled' ? requestVoid(order) : updateStatus(order.id, s)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${
-                        s === 'completed' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
-                        : s === 'cancelled' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
-                        : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/25'
-                      }`}>
-                      {s === 'completed' ? '💳 Pay' : s === 'cancelled' ? '✕' : `→ ${s}`}
-                    </button>
-                  ))}
+                  {(STATUS_FLOW[order.status] || []).map(s => {
+                    const isPayLaterBlock = userRole === 'cashier' && !order.payment_method && ['preparing', 'ready'].includes(s)
+                    if (isPayLaterBlock) return null
+                    return (
+                      <button key={s}
+                        onClick={() => s === 'completed' ? setPayModal(order) : s === 'cancelled' ? requestVoid(order) : updateStatus(order.id, s)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${
+                          s === 'completed' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
+                          : s === 'cancelled' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
+                          : 'bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 border border-blue-500/25'
+                        }`}>
+                        {s === 'completed' ? '💳 Pay' : s === 'cancelled' ? '✕' : `→ ${s}`}
+                      </button>
+                    )
+                  })}
                   {order.status === 'completed' && !order.payment_method && (
                     <button onClick={() => setPayModal(order)}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 border border-orange-500/25 transition-colors">
@@ -778,6 +791,7 @@ export default function Orders() {
           onUpdateStatus={(id, s) => s === 'cancelled' ? requestVoid(orders.find(o => o.id === id) || { id, status: selectedOrder?.status }) : updateStatus(id, s)}
           onToggleRush={toggleRush}
           fmt={fmt}
+          userRole={userRole}
         />
       )}
 
