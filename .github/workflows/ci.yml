@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: restaurant_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/restaurant_test
+      SESSION_SECRET: ci-test-secret
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Secret scan (fail on committed credentials)
+        run: node scripts/scan-secrets.js --all
+
+      - name: Version sync check (release gate — fail if version references diverge)
+        run: npm run check:version
+
+      - name: Install semgrep
+        run: pipx install semgrep || python -m pip install --user semgrep
+
+      - name: Semgrep security scan (blocking on ERROR findings)
+        run: >-
+          semgrep scan
+          --config .config/.semgrep/semgrep_rules.json
+          --severity ERROR
+          --error
+          --metrics off
+          --exclude node_modules --exclude dist --exclude coverage
+          --exclude backups --exclude attached_assets --exclude tests
+          server src
+
+      - name: Semgrep security scan (blocking on WARNING findings)
+        run: >-
+          semgrep scan
+          --config .config/.semgrep/semgrep_rules.json
+          --severity WARNING
+          --error
+          --metrics off
+          --exclude node_modules --exclude dist --exclude coverage
+          --exclude backups --exclude attached_assets --exclude tests
+          server src
+
+      - run: npm ci
+
+      - name: Initialize database (schema + migrations)
+        run: node scripts/init-db.js
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: test
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: restaurant_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/restaurant_e2e
+      SESSION_SECRET: ci-e2e-secret-for-testing-only
+      NODE_ENV: production
+      PORT: 5000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Initialize database (schema + migrations)
+        run: node scripts/init-db.js
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Create E2E test admin user
+        run: node scripts/ci-create-e2e-admin.js
+        env:
+          TEST_EMAIL: admin@restaurant.com
+          TEST_PASSWORD: admin123
+
+      - name: Install Playwright browsers (Chromium only)
+        run: npx playwright install chromium --with-deps
+
+      - name: Start server (background)
+        run: node server/index.js &
+
+      - name: Wait for server to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5000/api/health > /dev/null 2>&1; then
+              echo "✓ Server ready after $((i * 2))s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "✗ Server did not start in time"
+              exit 1
+            fi
+            echo "  waiting… ($i/30)"
+            sleep 2
+          done
+
+      - name: Run Playwright E2E tests
+        run: npm run test:e2e
+        env:
+          BASE_URL: http://localhost:5000
+          TEST_EMAIL: admin@restaurant.com
+          TEST_PASSWORD: admin123
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -1,0 +1,81 @@
+- [Production-readiness features](production-readiness.md) — void enforcement, shifts/Z-Report, daily backup scheduler, Sentry, offline POS queue all implemented; see topic for architecture details.
+- [Task-merge DB propagation](task-merge-db-propagation.md) — task-agent data changes are unreliable in main DB; merges can inject duplicate/placeholder rows. Re-query main DB after merges; apply data fixes as main agent.
+- [Prod data mutation](prod-data-mutation.md) — prod DB is read-only to tooling; do one-off live data changes via env-flag-gated startup block in db.js → publish → verify → remove flag+code → publish.
+- [Notion SDK compatibility](notion-sdk-compat.md) — this SDK version has no databases.query; sync must go through MCP notionQueryDataSources
+- [Notion sync architecture](notion-sync-arch.md) — MCP(OAuth)=full access agent-only; REST bot "Replit" blocked until parent page "🚀 Automatic Restaurant" shared; push local→Notion (Notion was empty)
+- [Notion select options](notion-select-options.md) — select/status options are NOT auto-created by create_pages; must ALTER data source schema first; case-only-duplicate option names rejected
+- [Integrations hub architecture](integrations-arch.md) — unified /api/integrations route; secrets read from env first, DB settings as override; node --watch needs full restart to pick up new route imports
+- [DB migration pattern](db-migration-pattern.md) — existing tables need ALTER TABLE ADD COLUMN IF NOT EXISTS; CREATE TABLE IF NOT EXISTS only adds new tables, not columns
+- [Inventory deduction pattern](inventory-deduction.md) — orders route PATCH /:id/status checks prev status before deducting; prevents double-deduction; cancelling completed order re-stocks
+- [Auth token flow](auth-token-flow.md) — localStorage JSON {id,name,email,role,token,refresh_token}; apiFetch auto-refreshes on 401 then retries; refresh endpoint: POST /api/auth/refresh; change-password: PATCH /api/auth/password (verifyToken applied inline in auth router).
+- [WebSocket architecture](websocket-arch.md) — ws package on http.createServer(app); path /ws; Vite proxy '/ws':{target:ws://localhost:3001,ws:true}; Kitchen.jsx connects via wss?://location.host/ws with polling fallback on close.
+- [POS order + payment flow](pos-order-flow.md) — POST /api/orders → PaymentModal → PATCH /:id/status {status:'completed',payment_method}; tax/tables from /api/settings.
+- [Settings API shape](settings-api.md) — GET /api/settings returns flat {key:value} object; PUT accepts partial updates; keys: tax_rate, tables_count, currency_symbol, restaurant_name, loyalty_points_per_dollar.
+- [Notion REST sync module](notion-rest-sync.md) — server/integrations/notion.js uses native fetch to api.notion.com/v1 (bypasses SDK); queryDatabase() paginates; maps Arabic+English status names.
+- [Sync engine pattern](sync-engine-pattern.md) — server/integrations/sync-engine.js: registerAdapter(service,fn), startAutoSync(), stopAutoSync(); logs to sync_log table; timer.unref() so it won't block exit.
+- [Notion Main Page Update Strategy](notion-main-page-update.md) — use replace_content (not update_content) for main page; include all embedded DB/page tags in new_str
+- [Notion full sync architecture](notion-sync-architecture.md) — all 12 DS IDs, bi-directional sync (pull+push), notion_id columns on menu_items/inventory/customers, all P1 schema fixes applied
+- [Modifier system architecture](modifier-system.md) — modifier_groups+modifiers tables, cartId keying, on-demand fetch cache, POS/Menu/Orders/Kitchen/Receipt all updated
+- [Router chunk build dependency](router-chunk-build.md) — vite `router` manualChunk fails `vite build` if react-router-dom not installed; v7 used with v6 API
+- [Settings context + low-stock badge](settings-context.md) — SettingsContext gives live settings (useCurrency wraps it); low-stock badge on sidebar Inventory item, not a header
+- [Stock movements audit](stock-movements-audit.md) — log actual applied delta (RETURNING old+new), not requested amount, since inventory clamps at 0; create+initial movement must be one txn
+- [API validation & pagination](api-validation-pagination.md) — Joi via validate() middleware (allowUnknown, convert, reassign); list GETs take optional limit/offset + X-Total-Count, no params = full array
+- [Notion rollup/formula mapping](notion-rollup-mapping.md) — use getNumeric (not .number) for Food Cost/Cost per Unit; rollups zero out otherwise
+- [Notion components split](notion-components-split.md) — 8 sub-components in src/components/notion/; shared file must be .jsx (not .js) because it exports React components
+- [Reports heatmap and trend data](reports-heatmap-trend.md) — /api/reports includes heatmap+trend keys; CSV export at /api/reports/export; all in one Promise.all round trip
+- [PDF export](pdf-export.md) — jsPDF + jspdf-autotable, client-side (no Puppeteer); dark-themed branded; doc.lastAutoTable.finalY to stack tables
+- [Loyalty redemption](loyalty-redemption.md) — loyalty_discount column on orders; PATCH body loyalty_redemption_points; PaymentModal toggle with live "Amount Due"; single UPDATE nets earned−redeemed
+- [Role-based access control](role-based-access.md) — router-level middleware for menu/inventory (all non-GET); per-route for customers (DELETE+points PATCH); frontend gating via src/utils/auth.js useRole()+canManage(); cashier sees read-only views
+- [Staff performance report](staff-reports.md) — orders.user_id INTEGER; GET /api/reports/staff requireRole(admin,manager); ORDERS_SELECT LEFT JOINs users; GROUP BY must include u.name or queries fail silently
+- [Brand logo / branding assets](brand-logo.md) — logo-full.png used across app; dark-theme placements wrap it in a white plate; PDF uses cached getLogoDataUrl()
+- [RTL Arabic PDF table extraction](rtl-pdf-extraction.md) — pdf-parse mangles RTL; use pdfjs-dist glyph x/y: rows by y, numbers by asc-x, Arabic names by desc-x join
+- [OpenAI daily summary](openai-summary.md) — generateDailySummary() in server/integrations/openai.js; GET+POST /api/integrations/openai/summary; stored in settings table as last_ai_summary + last_ai_summary_at; Integrations.jsx shows card + Generate button
+- [pg_dump backup credentials](pg-dump-backup.md) — pass DB creds via parsed PG* env vars not argv; PGDATABASE=$URL does NOT work (libpq only expands a URI via the dbname/-d param)
+- [Express 5 + Tailwind 4 upgrade](express5-tailwind4-upgrade.md) — only breakages: bare `app.get('*')` SPA fallback (→ middleware) and Tailwind v4 border default = currentColor (compat layer)
+- [DB migration runner](db-migration-runner.md) — numbered .sql in server/migrations/ via advisory-locked runMigrations(); db.js stays baseline
+- [Soft delete](soft-delete.md) — deleted_at on menu_items/inventory/customers; filter only entity list/detail/stats, NOT historical order/report joins
+- [Unit conversion for stock deduction](unit-conversion.md) — convertQuantity within-dimension only; computeDeductAmount falls back to raw qty on incompatible units
+- [Integration test infra](integration-test-infra.md) — index.js exports app + isEntryPoint guard; supertest against dev DB with self-cleaning itest_<ts> rows
+- [Secret encryption at rest](secret-encryption-at-rest.md) — integration API keys AES-256-GCM encrypted (enc:v1: prefix) in settings; decryptSecret passes plaintext/env values through
+- [Force password change](force-password-change.md) — users.must_change_password gates app; seeded admin=true; App.jsx forces ChangePassword before router mounts
+- [Prod admin password recovery](prod-admin-recovery.md) — dev/prod are SEPARATE DBs; prod is read-only to tooling; recover via RESET_ADMIN_PASSWORD deployment secret + republish
+- [Vite 8 / Rolldown manualChunks](vite8-rolldown-manualchunks.md) — Vite 8 build needs manualChunks as a function, not object; plugin-react v6+
+- [RBAC backend authority + pw-change enforcement](rbac-backend-authority.md) — frontend guards are UX only; reports/notion/integrations routers requireRole; JWT mustChange claim + enforcePasswordChange middleware block APIs until pw reset
+- [Recipe + food cost system](recipe-foodcost.md) — GET /api/menu/food-cost (all items with pct), PATCH /:id/recipe/:rid (update), GET /api/inventory/impact (low-stock → affected dishes); Recipes.jsx at /recipes; Inventory has Stocktake+Impact tabs
+- [Server logging standard](server-logging.md) — all routes import logger from ../logger.js; use logger.error(msg, {path:req.path}) not console.error; index.js global error handler keeps console.error as intentional fallback
+- [DB FK + precision migrations](db-fk-precision.md) — orders.total/subtotal/tax + customers.total_spent upgraded to NUMERIC(10,3); FK fk_orders_user + fk_orders_customer added via idempotent DO $$ block; orphan cleanup done before constraint add
+- [Orders route ordering](orders-route-ordering.md) — /table/:n and /customer/:customerId MUST come before /:id in Express; otherwise 'table'/'customer' match /:id first
+- [Order financial field filtering](order-field-filtering.md) — kitchen/staff roles get orders stripped of financial fields; filterOrderFields(rows, role) in orders.js; access token reduced to 15m to close mustChange window
+- [POS + KDS discount & rush schema](pos-kds-upgrade.md) — orders has discount/discount_type/rush/station; order_items has item_notes/done/station; POS sends discountedSub+tax+total; KDS uses Web Audio API beep (no files); cash change calculator in PaymentModal
+- [Route authz convention](route-authz-convention.md) — verifyToken is global but NOT sufficient; every mutating/paid integration & AI route needs an explicit requireRole guard
+- [GitHub remote state](github-remote-state.md) — origin (a5hraf14alka5bi14-sketch/Automatic-) returns 'repository not found'; pushes fail until repo access/remote fixed
+- [Recipe→inventory linking](recipe-inventory-linking.md) — manual-review UI + ranked suggestions, NO auto-apply (no exact matches; token auto-link is unsafe); endpoints before /:id
+- [Recipe data source of truth](recipe-source-of-truth.md) — .local/menu.json (74 dishes/338 lines) is the authoritative seed; use it to reconcile/recover recipe quantities (Notion has none)
+- [RBAC guards vs role-open pages](rbac-open-page-endpoints.md) — don't lock GET endpoints (e.g. stock-availability) to admin/manager if a role-open page (/pos) needs them; POS fetch fails silently → warnings vanish; refetch stockAvail after stock-mutating flows
+- [Supplier name dedup](supplier-dedup.md) — 3-layer: app check on POST+PATCH, partial unique index (migration 009) WHERE active, pg 23505→409; all keyed on same normalised name
+- [Order status reversal symmetry](order-status-reversal-symmetry.md) — leaving 'completed' must restock via recorded stock_movements net (not recipe recompute) AND reverse loyalty exactly (−earned +redeemed)
+- [Order completion side effects](order-completion-effects.md) — ALL paths that mark an order completed (status route, split-payment) must share applyCompletionEffects; loyalty_discount must be written every completion (0 too) and cleared on reversal or stale markers over-refund points
+- [Inventory seed from file](inventory-seed-from-file.md) — fresh-DB inventory now seeds from server/seed-data/inventory-items.json (349 real Arabic SKUs); English demo rows removed
+- [Production deployment serving](production-deployment-serving.md) — prod is single-port (5000): listen on PORT||5000, don't crash on missing ALLOWED_ORIGIN, serve dist/ BEFORE verifyToken or healthcheck GET / 401s
+- [PWA setup](pwa-setup.md) — manual installable PWA; SW must bypass /api & /ws and never cache HTML under asset URLs; SPA fallback 404s extensioned paths.
+- [PWA install icons](pwa-install-icons.md) — logo icons flattened on white (no transparency), maskable fills canvas w/ logo in safe zone; bump sw.js CACHE after changing icon bytes
+- [Frontend test infra](frontend-test-infra.md) — React tests in tests/ via per-file `// @vitest-environment jsdom`; no jest-dom matchers; use plain el.textContent/el.disabled.
+- [Secret propagation staleness](secret-propagation-staleness.md) — a secret rotated mid-session stays stale in agent bash/curl & racy in the workflow tree; don't loop-validate, defer to app runtime.
+- [Server-side push](push-notifications.md) — device_tokens table + FCM HTTP v1, env-gated on FCM_SERVICE_ACCOUNT (no-op when unset); unregister must be user-scoped.
+- [Password hashing](password-hashing.md) — Argon2id via hash-wasm (pure WASM); all hashing via server/lib/password.js; verifies legacy bcrypt + transparent rehash-on-login.
+- [Electron serving a Vite SPA](electron-vite-serving.md) — never load Vite dist via file:// (root-absolute assets break); serve dist/ over a custom app:// protocol + harden openExternal/will-navigate.
+- [Modal a11y pattern](modal-a11y.md) — all modals must use useDialogA11y (mount-once, stack-aware Escape/Tab); never hand-roll dialog keydown listeners.
+- [Replit Auth OIDC add-on](replit-auth-oidc.md) — web-only extra login; match existing staff only, require email_verified, REPLIT_DOMAINS host allowlist, handshake-only session.
+- [Native app packaging](native-app-packaging.md) — one dist/ for web+iOS+Android+Electron; src/config.js switches relative↔absolute URLs on VITE_API_BASE_URL; Capacitor pinned v7 (v8 needs Node 22).
+- [Print & rate-limit gotchas](print-and-ratelimit-gotchas.md) — printing clips position:fixed to page 1 (portal to body + static to paginate); strict login limiter must scope to /api/auth/login only or /me 401s lock users out.
+- [Receipt / KOT format](receipt-kot-format.md) — bilingual TAX INVOICE from settings keys; KOT splits per station derived client-side from category; ReceiptModal renders receipt twice (test counts double).
+- [Live events](live-events.md) — shared useLiveEvents hook + menu_updated/inventory_updated broadcasts; every new mutation route must broadcast; live refetches must be silent (no loading flash).
+- [PWA install prompt timing](pwa-install-prompt.md) — capture beforeinstallprompt at app load (src/utils/installPrompt.js in main.jsx), NOT in the late-mounting button, or install UI never shows on Chromium.
+- [Bilingual menu (name_ar)](bilingual-menu.md) — Arabic names joined live from menu_items into order items (no snapshot); render with dir="rtl", search matches without lowercasing.
+- [Factory reset feature](factory-reset.md) — backup-first operational wipe; sequences MUST restart before opening stock_movements re-insert or next insert dup-keys.
+- [Financial field stripping](financial-field-stripping.md) — role-open GETs (menu/inventory/dashboard) strip cost/margin/revenue fields server-side for non-management instead of 403ing; UI must hide absent fields.
+- [Mocking pg pool clients](pg-client-mock-testing.md) — instance-level client.query patches poison the shared pool; un-patch on release or later tests hang.
+- [Recipe link integrity](recipe-link-integrity.md) — FK "coverage" metrics must check the target row is active; soft-delete bypasses FKs so referenced tables need explicit guards + startup self-heal.
+- [Managed kitchen stations](managed-stations.md) — validate filters against the broad `valid` set, writes against `active` only; unknown stations coerce to kitchen, retiring never 400s old links.
+- [Shallow-clone GitHub push](shallow-clone-github-push.md) — workspace is a shallow clone; force-pushing main to a divergent GitHub remote is impossible (deep history missing everywhere, GitHub rejects shallow grafts).
+- [CI pre-install steps dependency-free](ci-preinstall-no-runtime-deps.md) — steps before `npm ci` (version-sync, secret scan) must import only node builtins, never pg/server/db.js; semgrep WARNING `--error` also gates CI.

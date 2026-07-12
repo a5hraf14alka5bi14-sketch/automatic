@@ -1,0 +1,39 @@
+{
+  "appId": "lb.automatic.restaurantos",
+  "productName": "Automatic Restaurant OS",
+  "copyright": "Copyright © Automatic Lebanese",
+  "directories": {
+    "output": "release",
+    "buildResources": "electron/icons"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*"
+  ],
+  "protocols": [
+    {
+      "name": "Automatic Restaurant OS",
+      "schemes": ["auto-os"]
+    }
+  ],
+  "win": {
+    "target": [
+      { "target": "nsis", "arch": ["x64"] }
+    ],
+    "icon": "electron/icons/icon.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Automatic Restaurant OS"
+  },
+  "publish": [
+    {
+      "provider": "generic",
+      "url": "https://your-update-server.example.com/updates/"
+    }
+  ]
+}

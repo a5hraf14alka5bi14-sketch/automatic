@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "LOzddqSDW-7m9ahgryBgl"
+uri = "file://install-guide.pdf"
+type = "pdf"
+title = "How to Install the App — Staff Cheat-Sheet"

@@ -1,0 +1,21 @@
+{
+  "appId": "lb.automatic.restaurantos",
+  "appName": "الأوتوماتيك اللبناني",
+  "webDir": "dist",
+  "backgroundColor": "#020617",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#020617",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  },
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https"
+  }
+}

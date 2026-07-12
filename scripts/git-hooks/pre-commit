@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Auto-installed by scripts/install-git-hooks.sh — blocks commits that contain secrets.
+node scripts/scan-secrets.js --staged
