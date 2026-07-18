@@ -44,8 +44,13 @@ test.describe('Purchase Order receive flow', () => {
     await navigateToSuppliers(page)
 
     // The page renders PO cards or a "No purchase orders" empty state.
-    const hasPOs = await page.locator('[class*="purchase"], text=/PO#/, text=/Purchase Order/i').count()
-    const hasEmpty = await page.locator('text=/No purchase orders/, text=/empty/i').count()
+    const hasPOs = await page.locator('[class*="purchase"]')
+      .or(page.getByText(/PO#/))
+      .or(page.getByText(/Purchase Order/i))
+      .count()
+    const hasEmpty = await page.getByText(/No purchase orders/)
+      .or(page.getByText(/empty/i))
+      .count()
     expect(hasPOs + hasEmpty).toBeGreaterThan(0)
   })
 
@@ -97,7 +102,11 @@ test.describe('Purchase Order receive flow', () => {
     await navigateToSuppliers(page)
 
     // Look for a partially_received badge specifically.
-    const partialBadge = page.locator('text=/partially.received/i, text=/Partial/i, [class*="amber"], [class*="yellow"]').first()
+    const partialBadge = page.getByText(/partially.received/i)
+      .or(page.getByText(/Partial/i))
+      .or(page.locator('[class*="amber"]'))
+      .or(page.locator('[class*="yellow"]'))
+      .first()
     const receiveMoreBtn = page.locator('button:has-text("Receive More"), button:has-text("↓ Receive More")').first()
 
     if (await partialBadge.count() === 0 && await receiveMoreBtn.count() === 0) {
