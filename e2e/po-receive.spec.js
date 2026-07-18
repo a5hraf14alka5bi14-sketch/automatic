@@ -28,6 +28,14 @@ async function navigateToSuppliers(page) {
   await expect(
     page.locator('h1:has-text("Supplier"), h1:has-text("Purchase"), [class*="supplier"] h1').first()
   ).toBeVisible({ timeout: 8000 })
+
+  // The page defaults to the "Suppliers" tab; the PO list (cards or the
+  // "No purchase orders yet" empty state) only renders under the
+  // "Purchase Orders" tab (see src/pages/Suppliers.jsx: useState('suppliers')).
+  const posTab = page.locator('button:has-text("Purchase Orders")').first()
+  if (await posTab.count() > 0) {
+    await posTab.click()
+  }
 }
 
 test.describe('Purchase Order receive flow', () => {
