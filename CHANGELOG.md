@@ -34,6 +34,13 @@ v0.12.0 but was never versioned, plus a documentation/repo-hygiene pass.
   rate limiting, and validation reviewed project-wide
 
 ### Fixed
+- **CI restored to a working state** — `.github/workflows/ci.yml` referenced
+  `.config/.semgrep/semgrep_rules.json`, a vendored ruleset that exists in the
+  Replit workspace but was never pushed to this repo (zero commits touch that
+  path in git history). This broke the Semgrep gate on every CI run.
+  Temporarily pointed both Semgrep steps at the public `p/security-audit`
+  registry pack instead. **Follow-up:** recover the real vendored config from
+  Replit and commit it, then revert this to the local path.
 - `SECURITY.md` corrected — was advertising a stale `1.0.x` "Supported
   Versions" table, 10-round bcrypt, and 7-day JWT expiry; now matches the
   actual `0.x` release line, 12-round bcrypt, and short-lived access tokens

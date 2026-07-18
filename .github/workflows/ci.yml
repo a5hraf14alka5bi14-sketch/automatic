@@ -28,6 +28,15 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/restaurant_test
       SESSION_SECRET: ci-test-secret
       NODE_ENV: test
+      # tests/replit-auth.test.js expects the Replit Auth (OIDC) code path to
+      # be active (see server/routes/replitAuth.js: it no-ops without
+      # REPL_ID, which is normally auto-injected by the Replit environment
+      # only — never set here before, so these tests always failed/were
+      # never reached in this repo's CI). REPL_ID doesn't need to be a real
+      # registered Repl for OIDC discovery against replit.com/oidc to
+      # succeed; it's only embedded as client_id in the redirect URL.
+      REPL_ID: 00000000-0000-0000-0000-000000000000
+      REPLIT_DOMAINS: localhost
 
     steps:
       - uses: actions/checkout@v4
@@ -46,10 +55,21 @@ jobs:
       - name: Install semgrep
         run: pipx install semgrep || python -m pip install --user semgrep
 
+      # TEMPORARY: .config/.semgrep/semgrep_rules.json (the project's vendored
+      # ruleset, matching the `nosemgrep: javascript.lang.security...` /
+      # `javascript.express.security...` comments already in server/ and src/)
+      # exists in the Replit workspace but was never pushed to this repo — see
+      # git history (the path has zero commits touching it) and
+      # .agents/memory/ci-preinstall-no-runtime-deps.md, which documents that
+      # CI has not run fully green recently as a result. Using semgrep's
+      # public `p/security-audit` registry pack here as a stand-in. Revert to
+      # the local vendored config once it's recovered from Replit and
+      # committed — some `nosemgrep` suppressions may not have an equivalent
+      # rule in this pack (harmless: they just become inert) until then.
       - name: Semgrep security scan (blocking on ERROR findings)
         run: >-
           semgrep scan
-          --config .config/.semgrep/semgrep_rules.json
+          --config p/security-audit
           --severity ERROR
           --error
           --metrics off
@@ -60,7 +80,7 @@ jobs:
       - name: Semgrep security scan (blocking on WARNING findings)
         run: >-
           semgrep scan
-          --config .config/.semgrep/semgrep_rules.json
+          --config p/security-audit
           --severity WARNING
           --error
           --metrics off
@@ -68,7 +88,7 @@ jobs:
           --exclude backups --exclude attached_assets --exclude tests
           server src
 
-      - run: npm ci
+      - run: npm ci --include=dev
 
       - name: Initialize database (schema + migrations)
         run: node scripts/init-db.js
@@ -112,7 +132,11 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      # --include=dev: this job's NODE_ENV=production would otherwise make
+      # npm skip devDependencies (e.g. vite), breaking the build step below
+      # with 'vite: not found' -- this is exactly what happened in an old,
+      # previously-unexplained CI failure from 2026-07-02.
+      - run: npm ci --include=dev
 
       - name: Initialize database (schema + migrations)
         run: node scripts/init-db.js

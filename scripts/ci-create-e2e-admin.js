@@ -15,11 +15,11 @@ const PASSWORD = process.env.TEST_PASSWORD || 'admin123'
 try {
   const hash = await hashPassword(PASSWORD)
   await pool.query(
-    `INSERT INTO users (name, email, password_hash, role, must_change_password)
+    `INSERT INTO users (name, email, password, role, must_change_password)
      VALUES ('CI Admin', $1, $2, 'admin', FALSE)
      ON CONFLICT (email) DO UPDATE
-       SET password_hash       = EXCLUDED.password_hash,
-           role                = 'admin',
+       SET password             = EXCLUDED.password,
+           role                 = 'admin',
            must_change_password = FALSE`,
     [EMAIL, hash]
   )

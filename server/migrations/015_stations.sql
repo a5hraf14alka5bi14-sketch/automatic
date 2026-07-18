@@ -12,6 +12,14 @@ CREATE TABLE IF NOT EXISTS stations (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- orders.station / order_items.station are read by the seed query below.
+-- They already exist on the long-running Replit database (added out-of-band
+-- at some point) but were never added by any migration, so a brand-new
+-- database is missing them at this point in the sequence. Idempotent, so
+-- this is a no-op anywhere they already exist.
+ALTER TABLE orders      ADD COLUMN IF NOT EXISTS station VARCHAR(50);
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS station VARCHAR(50);
+
 -- Seed with the built-in defaults plus every station actually used in data
 -- (legacy values stay filterable).
 INSERT INTO stations (name)
