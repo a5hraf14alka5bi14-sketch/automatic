@@ -28,6 +28,15 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/restaurant_test
       SESSION_SECRET: ci-test-secret
       NODE_ENV: test
+      # tests/replit-auth.test.js expects the Replit Auth (OIDC) code path to
+      # be active (see server/routes/replitAuth.js: it no-ops without
+      # REPL_ID, which is normally auto-injected by the Replit environment
+      # only — never set here before, so these tests always failed/were
+      # never reached in this repo's CI). REPL_ID doesn't need to be a real
+      # registered Repl for OIDC discovery against replit.com/oidc to
+      # succeed; it's only embedded as client_id in the redirect URL.
+      REPL_ID: 00000000-0000-0000-0000-000000000000
+      REPLIT_DOMAINS: localhost
 
     steps:
       - uses: actions/checkout@v4
