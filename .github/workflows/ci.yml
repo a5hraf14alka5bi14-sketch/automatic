@@ -46,10 +46,21 @@ jobs:
       - name: Install semgrep
         run: pipx install semgrep || python -m pip install --user semgrep
 
+      # TEMPORARY: .config/.semgrep/semgrep_rules.json (the project's vendored
+      # ruleset, matching the `nosemgrep: javascript.lang.security...` /
+      # `javascript.express.security...` comments already in server/ and src/)
+      # exists in the Replit workspace but was never pushed to this repo — see
+      # git history (the path has zero commits touching it) and
+      # .agents/memory/ci-preinstall-no-runtime-deps.md, which documents that
+      # CI has not run fully green recently as a result. Using semgrep's
+      # public `p/default` registry pack here as a stand-in — its rule IDs
+      # follow the same `<lang>.<category>.<rule>` shape as the existing
+      # nosemgrep suppressions, so they should keep matching. Revert to the
+      # local vendored config once it's recovered from Replit and committed.
       - name: Semgrep security scan (blocking on ERROR findings)
         run: >-
           semgrep scan
-          --config .config/.semgrep/semgrep_rules.json
+          --config p/default
           --severity ERROR
           --error
           --metrics off
@@ -60,7 +71,7 @@ jobs:
       - name: Semgrep security scan (blocking on WARNING findings)
         run: >-
           semgrep scan
-          --config .config/.semgrep/semgrep_rules.json
+          --config p/default
           --severity WARNING
           --error
           --metrics off
