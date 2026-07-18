@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---|---|
-| 1.0.x | ✅ Yes |
+| 0.13.x | ✅ Yes |
+| < 0.13 | ❌ No |
 
 ## Reporting a Vulnerability
 
@@ -24,7 +25,9 @@ You will receive a response within 72 hours. If confirmed, a patch will be relea
 
 - All API keys are stored as server-side environment secrets
 - Keys are never sent to the browser or logged
-- Passwords are hashed with bcryptjs (10 salt rounds)
-- JWT tokens are signed with a secret key and expire after 7 days
-- Role-based access control (admin vs. staff)
-- CORS is configured on the Express server
+- Passwords are hashed with bcryptjs (cost factor 12); legacy weaker hashes are upgraded transparently on next login
+- JWT access tokens are signed with a secret key and expire after 15 minutes; optional two-factor auth (TOTP) and Replit Auth (OIDC) are also available
+- Backend-enforced role-based access control across admin / manager / cashier / kitchen / staff
+- CORS is configured and restricted on the Express server
+- Automated secret scanning runs pre-commit and in CI (`npm run scan:secrets`)
+- Semgrep security ruleset enforced as a CI quality gate

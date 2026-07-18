@@ -7,6 +7,50 @@ Versions use the `v0.x` line tracked by the project's release tags and `replit.m
 
 ---
 
+## [v0.13.0] — 2026-07-18 — Multi-Branch, QR Menu & Release Hygiene
+
+This release formally captures work that had already landed on `main` after
+v0.12.0 but was never versioned, plus a documentation/repo-hygiene pass.
+
+### Added
+- **Multi-branch support** — `branches` table (migration `018_branches.sql`),
+  branch-aware filtering across Orders, Reports, and POS
+- **QR customer menu** — public, bilingual (AR/EN), per-table menu with no
+  login required (`src/pages/QRMenu.jsx`, `server/routes/public.js`)
+- **Partial purchase-order receiving** — receive partial quantities against a
+  PO with status tracking (migration `017_partial_po_receipt.sql`)
+- **Managed kitchen stations** — stations are now an admin-managed list
+  (add/rename/retire/reactivate) instead of inferred from order data
+- **Replit Auth (OIDC)** as an additional sign-in method alongside JWT — no
+  auto-account-creation, RBAC preserved
+- **Electron packaged-startup smoke test** (`npm run electron:smoke`)
+
+### Security
+- **Order integrity hardening** — split-payment now runs inside a
+  `FOR UPDATE` transaction, rejects payments on completed/cancelled orders,
+  and caps each payment to the outstanding balance; completed orders always
+  go through the shared `applyCompletionEffects()` path (no bypass)
+- **Enterprise audit + production hardening pass** — security headers, CORS,
+  rate limiting, and validation reviewed project-wide
+
+### Fixed
+- `SECURITY.md` corrected — was advertising a stale `1.0.x` "Supported
+  Versions" table, 10-round bcrypt, and 7-day JWT expiry; now matches the
+  actual `0.x` release line, 12-round bcrypt, and short-lived access tokens
+  described elsewhere in this changelog
+
+### Changed
+- `attached_assets/` (~99MB of working screenshots, pasted text, and
+  documents) removed from version control — see `.gitignore`
+- README rewritten: accurate feature list, corrected roadmap checkboxes
+  (QR menu / multi-branch / partial PO receive moved from planned to
+  delivered), and an explicit release-hygiene note going forward
+- Documented that test-suite counts referenced across README / replit.md /
+  external docs had drifted (280 → 461 → 491 at various points); `npm test`
+  / CI is the single source of truth going forward, not a hand-written number
+
+---
+
 ## [v0.12.0] — 2026-07-05 — Security & Quality Hardening (round 2)
 
 ### Security
