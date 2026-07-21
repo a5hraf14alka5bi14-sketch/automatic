@@ -1,4 +1,4 @@
- <div align="center">
+  <div align="center">
 
 # 🍽️ الأوتوماتيك — مأكولات لبنانية
 ### Automatic Restaurant OS — AI-Powered Restaurant Management Platform
