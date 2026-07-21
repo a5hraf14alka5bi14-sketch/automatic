@@ -60,6 +60,3 @@ DerivedData/
 # Electron packaged installers
 release/
 .replit_integration_files/
-
-# Working files (screenshots, pasted text, quotes/menus) — never belonged in version control
-attached_assets/

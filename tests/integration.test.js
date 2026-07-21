@@ -525,14 +525,16 @@ describe('GET /api/orders server-side filters + counts', () => {
     expect(byId.body.some(o => o.id === paidId)).toBe(true)
     expect(byId.body.some(o => o.id === cancelledId)).toBe(false)
 
-    // A dine-in order on a distinctive table number is found by that number
+    // A dine-in order on a distinctive table number is found by that number.
+    // Unique table so the running-tab merge doesn't append to leftover data.
+    const distinctTable = 3100 + Math.floor(Math.random() * 800)
     const t = await admin.post('/api/orders').send({
-      type: 'dine-in', table_number: 99,
+      type: 'dine-in', table_number: distinctTable,
       items: [{ menu_item_id: ids.menuItem, name: `${TAG} Manoushe`, quantity: 1, price: 2.5 }],
     })
     const tableId = t.body.id
     try {
-      const byTable = await admin.get('/api/orders?search=99&limit=200')
+      const byTable = await admin.get(`/api/orders?search=${distinctTable}&limit=200`)
       expect(byTable.status).toBe(200)
       expect(byTable.body.some(o => o.id === tableId)).toBe(true)
     } finally {
@@ -794,8 +796,11 @@ describe('Kitchen role order financial field filtering', () => {
     )
     const mId = menu.rows[0].id
 
+    // Unique table so the running-tab merge doesn't append to leftover data
+    // (which would return 200 merged instead of 201).
+    const kitchenTable = 3900 + Math.floor(Math.random() * 800)
     const orderRes = await admin.post('/api/orders').send({
-      type: 'dine-in', table_number: 1,
+      type: 'dine-in', table_number: kitchenTable,
       items: [{ menu_item_id: mId, quantity: 1, price: 5.0, name: `${TAG} KitchenTestDish` }],
     })
     expect(orderRes.status).toBe(201)

@@ -126,14 +126,26 @@ function ReceivePOModal({ po, onReceived, onClose }) {
                 </div>
               </div>
               {item._remaining > 0 && (
-                <div className="flex items-center gap-2">
-                  <label className="text-slate-400 text-xs w-28 flex-shrink-0">Receiving now ({item.unit}):</label>
-                  <input
-                    type="number" min="0" max={item._remaining} step="0.001"
-                    value={qtys[item.id] ?? ''}
-                    onChange={e => setQtys(q => ({ ...q, [item.id]: e.target.value }))}
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm focus:border-orange-500 focus:outline-none"
-                  />
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <label className="text-slate-400 text-xs w-28 flex-shrink-0">Receiving now ({item.unit}):</label>
+                    <input
+                      type="number" min="0" max={item._remaining} step="0.001"
+                      value={qtys[item.id] ?? ''}
+                      onChange={e => setQtys(q => ({ ...q, [item.id]: e.target.value }))}
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm focus:border-orange-500 focus:outline-none"
+                    />
+                  </div>
+                  {item.entered_in_purchase_unit && item.inventory_id && parseFloat(qtys[item.id]) > 0 && item.conversion_factor > 0 && (
+                    <p className="text-green-400 text-xs" style={{paddingLeft:'7.5rem'}}>
+                      📦 {parseFloat(qtys[item.id]).toFixed(3)} {item.unit} × {parseFloat(item.conversion_factor)} = <strong>{(parseFloat(qtys[item.id]) * parseFloat(item.conversion_factor)).toFixed(3)}</strong> base units added to stock
+                    </p>
+                  )}
+                  {item.entered_in_purchase_unit && item.inventory_id && parseFloat(qtys[item.id]) > 0 && !(item.conversion_factor > 0) && (
+                    <p className="text-amber-400 text-xs" style={{paddingLeft:'7.5rem'}}>
+                      ⚠ Purchase-unit flag set but no conversion factor found — receiving raw qty
+                    </p>
+                  )}
                 </div>
               )}
               {item._remaining <= 0 && (
@@ -223,33 +235,79 @@ function SupplierModal({ supplier, onSave, onClose }) {
   )
 }
 
+const BLANK_ITEM = { inventory_id: '', item_name: '', quantity: '', unit: 'kg', unit_cost: '', vat_inclusive: false, vat_rate: '5', entered_in_purchase_unit: false }
+
+function lineNetCost(item) {
+  const qty = parseFloat(item.quantity) || 0
+  const cost = parseFloat(item.unit_cost) || 0
+  const rate = parseFloat(item.vat_rate) || 0
+  if (item.vat_inclusive) return qty * cost / (1 + rate / 100)
+  return qty * cost
+}
+function lineVat(item) {
+  const qty = parseFloat(item.quantity) || 0
+  const cost = parseFloat(item.unit_cost) || 0
+  const rate = parseFloat(item.vat_rate) || 0
+  if (item.vat_inclusive) return qty * cost - lineNetCost(item)
+  return qty * cost * rate / 100
+}
+function lineGross(item) { return lineNetCost(item) + lineVat(item) }
+
 function POModal({ suppliers, inventory, onSave, onClose }) {
   const showToast = useToast()
   const [supplierId, setSupplierId] = useState('')
   const [notes, setNotes] = useState('')
-  const [items, setItems] = useState([{ inventory_id: '', item_name: '', quantity: '', unit: 'kg', unit_cost: '' }])
+  const [items, setItems] = useState([{ ...BLANK_ITEM }])
   const [saving, setSaving] = useState(false)
 
-  const addItem = () => setItems(i => [...i, { inventory_id: '', item_name: '', quantity: '', unit: 'kg', unit_cost: '' }])
+  const addItem = () => setItems(i => [...i, { ...BLANK_ITEM }])
   const removeItem = (idx) => setItems(i => i.filter((_, ii) => ii !== idx))
-  const updateItem = (idx, k, v) => setItems(i => i.map((item, ii) => ii === idx ? { ...item, [k]: v } : item))
+  const updateItem = (idx, k, v) => setItems(i => i.map((it, ii) => ii === idx ? { ...it, [k]: v } : it))
 
   const pickInventory = (idx, invId) => {
     const inv = inventory.find(i => i.id === parseInt(invId))
-    updateItem(idx, 'inventory_id', invId)
-    if (inv) updateItem(idx, 'item_name', inv.name)
+    setItems(prev => prev.map((it, ii) => {
+      if (ii !== idx) return it
+      const updates = { ...it, inventory_id: invId }
+      if (inv) {
+        updates.item_name = inv.name
+        // If item has a purchase unit, auto-switch to it
+        if (inv.purchase_unit) {
+          updates.unit = inv.purchase_unit
+          updates.entered_in_purchase_unit = true
+        } else {
+          updates.unit = inv.unit || it.unit
+          updates.entered_in_purchase_unit = false
+        }
+      }
+      return updates
+    }))
   }
 
-  const total = items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.unit_cost) || 0), 0)
+  const totals = items.reduce((s, i) => ({
+    net: s.net + lineNetCost(i),
+    vat: s.vat + lineVat(i),
+    gross: s.gross + lineGross(i),
+  }), { net: 0, vat: 0, gross: 0 })
 
   const save = async () => {
     const validItems = items.filter(i => i.item_name.trim() && parseFloat(i.quantity) > 0)
     if (!validItems.length) return showToast('Add at least one item', 'error')
     setSaving(true)
     try {
+      const payload = validItems.map(i => ({
+        inventory_id: i.inventory_id || null,
+        item_name: i.item_name,
+        quantity: parseFloat(i.quantity),
+        unit: i.unit || 'kg',
+        unit_cost: parseFloat(i.unit_cost) || 0,
+        vat_inclusive: i.vat_inclusive,
+        vat_rate: parseFloat(i.vat_rate) || 5,
+        entered_in_purchase_unit: i.entered_in_purchase_unit,
+      }))
       const res = await apiFetch('/api/suppliers/purchase-orders', {
         method: 'POST',
-        body: JSON.stringify({ supplier_id: supplierId || null, notes, items: validItems })
+        body: JSON.stringify({ supplier_id: supplierId || null, notes, items: payload })
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Failed')
@@ -258,6 +316,8 @@ function POModal({ suppliers, inventory, onSave, onClose }) {
     } catch (err) { showToast(err.message, 'error') }
     setSaving(false)
   }
+
+  const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500'
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
@@ -283,52 +343,117 @@ function POModal({ suppliers, inventory, onSave, onClose }) {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-slate-300 text-sm font-medium">Items</h3>
               <button onClick={addItem} className="text-orange-400 hover:text-orange-300 text-xs">+ Add Row</button>
             </div>
-            {items.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                <div className="col-span-4">
-                  <select value={item.inventory_id} onChange={e => pickInventory(idx, e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500">
-                    <option value="">— Inventory item —</option>
-                    {inventory.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                  </select>
-                </div>
-                <div className="col-span-3">
-                  <input value={item.item_name} onChange={e => updateItem(idx, 'item_name', e.target.value)}
-                    placeholder="Item name"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500" />
-                </div>
-                <div className="col-span-1">
-                  <input type="number" min="0" value={item.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)}
-                    placeholder="Qty"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500" />
-                </div>
-                <div className="col-span-1">
-                  <select value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-1 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500">
-                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-                <div className="col-span-2">
-                  <input type="number" min="0" step="0.001" value={item.unit_cost} onChange={e => updateItem(idx, 'unit_cost', e.target.value)}
-                    placeholder="Cost/unit"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500" />
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  {items.length > 1 && (
-                    <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300 text-xs">✕</button>
+
+            {items.map((item, idx) => {
+              const inv = inventory.find(i => i.id === parseInt(item.inventory_id))
+              const hasPack = inv?.purchase_unit && inv?.units_per_purchase_unit
+              const vat = lineVat(item)
+              const net = lineNetCost(item)
+              return (
+                <div key={idx} className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 space-y-2">
+                  {/* Row 1: item selector + name + remove */}
+                  <div className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-5">
+                      <select value={item.inventory_id} onChange={e => pickInventory(idx, e.target.value)}
+                        className={inputCls}>
+                        <option value="">— Inventory item —</option>
+                        {inventory.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-6">
+                      <input value={item.item_name} onChange={e => updateItem(idx, 'item_name', e.target.value)}
+                        placeholder="Item name" className={inputCls} />
+                    </div>
+                    <div className="col-span-1 flex justify-end">
+                      {items.length > 1 && (
+                        <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300 text-sm">✕</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 2: qty + unit + cost/unit + VAT toggle */}
+                  <div className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-2">
+                      <label className="text-slate-500 text-xs block mb-0.5">Qty</label>
+                      <input type="number" min="0" value={item.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)}
+                        placeholder="0" className={inputCls} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-slate-500 text-xs block mb-0.5">Unit</label>
+                      <input value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
+                        placeholder="kg" className={inputCls} />
+                    </div>
+                    <div className="col-span-3">
+                      <label className="text-slate-500 text-xs block mb-0.5">Cost / {item.unit || 'unit'}</label>
+                      <input type="number" min="0" step="0.001" value={item.unit_cost} onChange={e => updateItem(idx, 'unit_cost', e.target.value)}
+                        placeholder="0.000" className={inputCls} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-slate-500 text-xs block mb-0.5">VAT %</label>
+                      <input type="number" min="0" max="100" step="0.5" value={item.vat_rate} onChange={e => updateItem(idx, 'vat_rate', e.target.value)}
+                        className={inputCls} />
+                    </div>
+                    <div className="col-span-3 flex flex-col gap-1">
+                      <label className="text-slate-500 text-xs">VAT type</label>
+                      <button
+                        onClick={() => updateItem(idx, 'vat_inclusive', !item.vat_inclusive)}
+                        className={`text-xs px-2 py-1 rounded-md border transition-colors ${item.vat_inclusive ? 'bg-blue-500/20 border-blue-500/40 text-blue-300' : 'bg-slate-700 border-slate-600 text-slate-400'}`}>
+                        {item.vat_inclusive ? 'Inc. VAT' : 'Exc. VAT'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Pack size hint */}
+                  {hasPack && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateItem(idx, 'entered_in_purchase_unit', !item.entered_in_purchase_unit)}
+                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${item.entered_in_purchase_unit ? 'bg-green-500/20 border-green-500/40 text-green-300' : 'bg-slate-700 border-slate-600 text-slate-400'}`}>
+                        {item.entered_in_purchase_unit ? `📦 Qty in ${inv.purchase_unit}s` : `📦 Qty in ${inv.unit}s`}
+                      </button>
+                      {item.entered_in_purchase_unit && parseFloat(item.quantity) > 0 && (
+                        <span className="text-green-400 text-xs">
+                          → {(parseFloat(item.quantity) * parseFloat(inv.units_per_purchase_unit)).toFixed(3)} {inv.unit} added to stock
+                        </span>
+                      )}
+                      {!item.entered_in_purchase_unit && (
+                        <span className="text-slate-500 text-xs">1 {inv.purchase_unit} = {inv.units_per_purchase_unit} {inv.unit}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Line totals */}
+                  {parseFloat(item.quantity) > 0 && parseFloat(item.unit_cost) >= 0 && (
+                    <div className="flex items-center gap-4 text-xs pt-1 border-t border-slate-700">
+                      <span className="text-slate-400">Net: <span className="text-slate-300">{net.toFixed(3)} OMR</span></span>
+                      <span className="text-slate-400">VAT: <span className="text-blue-300">{vat.toFixed(3)} OMR</span></span>
+                      <span className="text-slate-400">Gross: <span className="text-white font-medium">{lineGross(item).toFixed(3)} OMR</span></span>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
-          <div className="flex justify-end text-slate-300 text-sm font-semibold">
-            Total: {total.toFixed(3)} OMR
+          {/* PO Totals */}
+          <div className="bg-slate-800 rounded-xl p-3 space-y-1.5">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400">Net Total (ex-VAT)</span>
+              <span className="text-slate-300">{totals.net.toFixed(3)} OMR</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400">Input VAT</span>
+              <span className="text-blue-300">{totals.vat.toFixed(3)} OMR</span>
+            </div>
+            <div className="flex justify-between text-sm font-semibold border-t border-slate-700 pt-1.5">
+              <span className="text-slate-300">Gross Total</span>
+              <span className="text-white">{totals.gross.toFixed(3)} OMR</span>
+            </div>
           </div>
         </div>
         <div className="flex gap-3 p-5 border-t border-slate-800 flex-shrink-0">

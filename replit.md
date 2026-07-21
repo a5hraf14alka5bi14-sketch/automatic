@@ -106,11 +106,11 @@ Argon2id, native auth+push, Capacitor/Electron packaging) are archived in
 `docs/changelog-archive.md`. Newest work is summarized above; details of each
 subsystem live in the memory topic files and docs/.
 
-## Current Version: v0.13.0 — Comprehensive Quality Pass (2026-07-06)
+## Current Version: v0.12.0 — Comprehensive Quality Pass (2026-07-06)
 
 | | |
 |---|---|
-| **Release** | v0.13.0 — Comprehensive quality, performance & accessibility pass |
+| **Release** | v0.12.0 — Comprehensive quality, performance & accessibility pass |
 | **Test suite** | 298/298 passing |
 | **Migrations** | 012 applied (perf indexes: orders status+created_at, inventory low-stock, order_items) |
 | **Inventory** | 82 active items · 7 categories · 3 suppliers (all linked) |

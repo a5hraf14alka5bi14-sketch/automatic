@@ -61,6 +61,8 @@ export const inventoryCreateSchema = Joi.object({
   unit: Joi.string().max(50).allow('', null),
   min_quantity: qty.allow(null),
   cost: money.allow(null),
+  purchase_unit: Joi.string().max(50).allow('', null),
+  units_per_purchase_unit: Joi.number().min(0.001).allow(null),
 })
 
 export const inventoryUpdateSchema = Joi.object({
@@ -71,6 +73,8 @@ export const inventoryUpdateSchema = Joi.object({
   min_quantity: qty.allow(null),
   cost: money.allow(null),
   adjust: Joi.number(),
+  purchase_unit: Joi.string().max(50).allow('', null),
+  units_per_purchase_unit: Joi.number().min(0.001).allow(null),
 })
 
 export const customerCreateSchema = Joi.object({
@@ -171,6 +175,9 @@ const poItemSchema = Joi.object({
   quantity: Joi.number().min(0).required(),
   unit: Joi.string().max(50).allow('', null),
   unit_cost: Joi.number().min(0).allow(null),
+  vat_inclusive: Joi.boolean().default(false),
+  vat_rate: Joi.number().min(0).max(100).default(5),
+  entered_in_purchase_unit: Joi.boolean().default(false),
 })
 
 export const createPoSchema = Joi.object({
@@ -196,4 +203,21 @@ export const createUserSchema = Joi.object({
 
 export const patchUserRoleSchema = Joi.object({
   role: Joi.string().valid(...VALID_ROLES_LIST).required(),
+})
+
+// ── QR self-ordering schema (public endpoint, no auth) ─────────────────────────
+const qrOrderItemSchema = Joi.object({
+  menu_item_id: Joi.number().integer().min(1).required(),
+  quantity:     Joi.number().integer().min(1).max(99).required(),
+  notes:        Joi.string().max(500).allow('', null),
+  modifiers:    Joi.array().items(Joi.object({
+    id:   Joi.number().integer(),
+    name: Joi.string().max(100).allow('', null),
+  }).unknown(true)).allow(null),
+})
+
+export const qrOrderSchema = Joi.object({
+  table_number: Joi.number().integer().min(1).max(9999).required(),
+  items:        Joi.array().items(qrOrderItemSchema).min(1).max(30).required(),
+  notes:        Joi.string().max(500).allow('', null),
 })

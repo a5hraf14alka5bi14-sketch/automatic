@@ -7,7 +7,7 @@ export default function CartPanel({
   expandedCartItem, setExpandedCartItem, itemNotes, setItemNotes,
   discount, setDiscount, hasDiscount, discountVal,
   subtotal, discountedSub, tax, total, settings,
-  note, setNote, rush, setRush, setSplitModal,
+  note, setNote, rush, setRush, fireTogether, setFireTogether, setSplitModal,
   error, placeOrder, placing, clearCart,
   showCart, setShowCart,
   branches, branchId, setBranchId,
@@ -234,6 +234,16 @@ export default function CartPanel({
                 ÷ Split
               </button>
             </div>
+            {/* Fire Together toggle */}
+            <button
+              onClick={() => setFireTogether && setFireTogether(v => !v)}
+              className={`w-full py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
+                fireTogether
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50'
+                  : 'bg-slate-800 text-slate-500 hover:text-slate-300 border border-slate-700'
+              }`}>
+              🔥 {fireTogether ? 'Fire All Together — ON' : 'Get All Items Together'}
+            </button>
           </div>
         )}
 

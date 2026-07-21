@@ -37,10 +37,15 @@ function splitEvenly(total, n) {
   ]
 }
 
+// Each order gets a UNIQUE table so the running-tab merge (dine-in orders on a
+// table that already has an open unpaid order are appended to it) does NOT fire
+// between unrelated test cases. Merge behaviour is covered explicitly below with
+// a shared table_number override.
+let tableSeq = 400 + Math.floor(Math.random() * 400)
 async function createOrder(agent, overrides = {}) {
   const r = await agent.post('/api/orders').send({
     type: 'dine-in',
-    table_number: 42,
+    table_number: tableSeq++,
     items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }],
     notes: TAG,
     ...overrides,
@@ -253,22 +258,44 @@ describe('POST /api/orders/:id/pay — validation errors', () => {
 })
 
 describe('POST /api/orders/:id/pay — already closed orders', () => {
-  it('returns 400 when order is already completed', async () => {
+  it('returns 400 when order is already paid', async () => {
     const order = await mkOrder()
     const total = parseFloat(order.total)
 
-    // Complete the order
+    // Pay the order (sets payment_method)
     const first = await cashier.post(`/api/orders/${order.id}/pay`).send({
       splits: [{ method: 'cash', amount: total }],
     })
     expect(first.status, 'first payment should succeed').toBe(200)
 
-    // Try to pay again — should be rejected
+    // Try to pay again — should be rejected because it's already paid
     const r = await cashier.post(`/api/orders/${order.id}/pay`).send({
       splits: [{ method: 'card', amount: total }],
     })
     expect(r.status).toBe(400)
-    expect(r.body.error).toMatch(/completed/i)
+    expect(r.body.error).toMatch(/paid/i)
+  })
+
+  it('accepts payment for a pay-later order the kitchen already completed (unpaid)', async () => {
+    const order = await mkOrder()
+    const total = parseFloat(order.total)
+
+    // Kitchen fulfils the pay-later order all the way to "completed" WITHOUT
+    // any payment_method (advances via the status route as kitchen staff).
+    for (const status of ['preparing', 'ready', 'completed']) {
+      const s = await kitchen.patch(`/api/orders/${order.id}/status`).send({ status })
+      expect(s.status, `move to ${status}: ${JSON.stringify(s.body)}`).toBe(200)
+    }
+
+    // The order is now completed but unpaid — the cashier must still be able
+    // to record payment (this was the reported bug).
+    const r = await cashier.post(`/api/orders/${order.id}/pay`).send({
+      splits: [{ method: 'cash', amount: total / 2 }, { method: 'card', amount: total - total / 2 }],
+    })
+    expect(r.status, JSON.stringify(r.body)).toBe(200)
+    expect(r.body.order.status).toBe('completed')
+    expect(r.body.order.payment_method).toBe('split')
+    expect(r.body.split_payments).toHaveLength(2)
   })
 
   it('returns 404 for a non-existent order id', async () => {
@@ -276,6 +303,110 @@ describe('POST /api/orders/:id/pay — already closed orders', () => {
       splits: [{ method: 'cash', amount: 1.000 }],
     })
     expect(r.status).toBe(404)
+  })
+})
+
+describe('Running tab — same-table dine-in orders merge into one bill', () => {
+  it('appends items to the existing open order for the same table (one bill)', async () => {
+    const table = tableSeq++
+    const first = await admin.post('/api/orders').send({
+      type: 'dine-in', table_number: table,
+      items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }], notes: TAG,
+    })
+    expect(first.status).toBe(201)
+    const firstTotal = parseFloat(first.body.total)
+
+    // A second "order" for the SAME table merges into the first.
+    const second = await admin.post('/api/orders').send({
+      type: 'dine-in', table_number: table,
+      items: [{ menu_item_id: ids.menu, quantity: 2, price: 10.000 }], notes: TAG,
+    })
+    expect(second.status).toBe(200)
+    expect(second.body.merged).toBe(true)
+    expect(second.body.id).toBe(first.body.id)
+    // Total now reflects all 3 units, not just the 2 just-added.
+    expect(parseFloat(second.body.total)).toBeGreaterThan(firstTotal)
+
+    // The order carries all appended line items.
+    const detail = await admin.get(`/api/orders/${first.body.id}`)
+    expect(detail.status).toBe(200)
+    expect(detail.body.items.length).toBe(2)
+  })
+
+  it('does NOT merge once the table order is paid — starts a fresh tab', async () => {
+    const table = tableSeq++
+    const a = await admin.post('/api/orders').send({
+      type: 'dine-in', table_number: table,
+      items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }], notes: TAG,
+    })
+    expect(a.status).toBe(201)
+    // Pay it off.
+    const pay = await cashier.post(`/api/orders/${a.body.id}/pay`).send({
+      splits: [{ method: 'cash', amount: parseFloat(a.body.total) }],
+    })
+    expect(pay.status).toBe(200)
+
+    // Next order for the same table is a brand new bill (201, not merged).
+    const b = await admin.post('/api/orders').send({
+      type: 'dine-in', table_number: table,
+      items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }], notes: TAG,
+    })
+    expect(b.status).toBe(201)
+    expect(b.body.id).not.toBe(a.body.id)
+  })
+
+  it('flags the whole tab as rush when an added item is marked rush', async () => {
+    const table = tableSeq++
+    const first = await admin.post('/api/orders').send({
+      type: 'dine-in', table_number: table,
+      items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }], notes: TAG,
+    })
+    expect(first.status).toBe(201)
+    expect(first.body.rush).toBeFalsy()
+
+    const second = await admin.post('/api/orders').send({
+      type: 'dine-in', table_number: table, rush: true,
+      items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }], notes: TAG,
+    })
+    expect(second.status).toBe(200)
+    expect(second.body.merged).toBe(true)
+    expect(second.body.rush).toBe(true)
+  })
+
+  it('serializes concurrent same-table creates into exactly one open tab', async () => {
+    const table = tableSeq++
+    const payload = {
+      type: 'dine-in', table_number: table,
+      items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }], notes: TAG,
+    }
+    // Fire several creates in parallel; the advisory lock must ensure they all
+    // land on a SINGLE running tab, not multiple competing orders.
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () => admin.post('/api/orders').send(payload))
+    )
+    results.forEach(r => expect([200, 201]).toContain(r.status))
+    const created201 = results.filter(r => r.status === 201)
+    expect(created201.length).toBe(1) // exactly one order was created; rest merged
+
+    const open = await admin.get(`/api/orders?limit=500`)
+    const tabsForTable = open.body.filter(
+      o => o.table_number === table && o.payment_method == null && o.status !== 'cancelled'
+    )
+    expect(tabsForTable.length).toBe(1)
+  })
+
+  it('takeaway orders never merge (no table)', async () => {
+    const a = await admin.post('/api/orders').send({
+      type: 'takeaway',
+      items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }], notes: TAG,
+    })
+    const b = await admin.post('/api/orders').send({
+      type: 'takeaway',
+      items: [{ menu_item_id: ids.menu, quantity: 1, price: 10.000 }], notes: TAG,
+    })
+    expect(a.status).toBe(201)
+    expect(b.status).toBe(201)
+    expect(b.body.id).not.toBe(a.body.id)
   })
 })
 

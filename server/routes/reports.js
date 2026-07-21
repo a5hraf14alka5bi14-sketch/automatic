@@ -12,15 +12,42 @@ router.use(requireRole('admin', 'manager'))
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function dateFilter(period, alias = 'o') {
-  if (period === 'week')  return `${alias}.created_at >= NOW() - INTERVAL '7 days'`
-  if (period === 'month') return `DATE_TRUNC('month', ${alias}.created_at) = DATE_TRUNC('month', CURRENT_DATE)`
-  return `DATE(${alias}.created_at) = CURRENT_DATE`
+  const a = alias
+  switch (period) {
+    case 'yesterday':     return `DATE(${a}.created_at) = CURRENT_DATE - 1`
+    case 'week':          return `${a}.created_at >= NOW() - INTERVAL '7 days'`
+    case 'last_week':     return `${a}.created_at >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days' AND ${a}.created_at < DATE_TRUNC('week', CURRENT_DATE)`
+    case 'month':         return `DATE_TRUNC('month', ${a}.created_at) = DATE_TRUNC('month', CURRENT_DATE)`
+    case 'last_month':    return `DATE_TRUNC('month', ${a}.created_at) = DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month'`
+    case 'this_quarter':  return `DATE_TRUNC('quarter', ${a}.created_at) = DATE_TRUNC('quarter', CURRENT_DATE)`
+    case 'last_quarter':  return `DATE_TRUNC('quarter', ${a}.created_at) = DATE_TRUNC('quarter', CURRENT_DATE) - INTERVAL '3 months'`
+    case 'this_year':     return `DATE_TRUNC('year', ${a}.created_at) = DATE_TRUNC('year', CURRENT_DATE)`
+    case 'last_year':     return `DATE_TRUNC('year', ${a}.created_at) = DATE_TRUNC('year', CURRENT_DATE) - INTERVAL '1 year'`
+    default:              return `DATE(${a}.created_at) = CURRENT_DATE`
+  }
+}
+
+function prevDateFilter(period, alias = 'o') {
+  const a = alias
+  switch (period) {
+    case 'yesterday':     return `DATE(${a}.created_at) = CURRENT_DATE - 2`
+    case 'week':          return `${a}.created_at >= NOW() - INTERVAL '14 days' AND ${a}.created_at < NOW() - INTERVAL '7 days'`
+    case 'last_week':     return `${a}.created_at >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '14 days' AND ${a}.created_at < DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days'`
+    case 'month':         return `DATE_TRUNC('month', ${a}.created_at) = DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month'`
+    case 'last_month':    return `DATE_TRUNC('month', ${a}.created_at) = DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '2 months'`
+    case 'this_quarter':  return `DATE_TRUNC('quarter', ${a}.created_at) = DATE_TRUNC('quarter', CURRENT_DATE) - INTERVAL '3 months'`
+    case 'last_quarter':  return `DATE_TRUNC('quarter', ${a}.created_at) = DATE_TRUNC('quarter', CURRENT_DATE) - INTERVAL '6 months'`
+    case 'this_year':     return `DATE_TRUNC('year', ${a}.created_at) = DATE_TRUNC('year', CURRENT_DATE) - INTERVAL '1 year'`
+    case 'last_year':     return `DATE_TRUNC('year', ${a}.created_at) = DATE_TRUNC('year', CURRENT_DATE) - INTERVAL '2 years'`
+    default:              return `DATE(${a}.created_at) = CURRENT_DATE - 1`
+  }
 }
 
 // ── GET /api/reports ─────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   const { period = 'today', branch_id } = req.query
-  const df = dateFilter(period)
+  const df  = dateFilter(period)
+  const pdf = prevDateFilter(period)
   // Safe branch filter: validate to a positive integer, then embed as a literal
   // in SQL (parameterized injection risk is zero since we've already confirmed
   // it's a positive integer, matching the same pattern used by dateFilter()).
@@ -31,15 +58,18 @@ router.get('/', async (req, res) => {
   const bf = branchId ? ` AND o.branch_id = ${branchId}` : ''
 
   try {
-    const [revenue, foodCost, ordersByType, topByQty, topByRevenue, ordersByStatus, categoryPerf, lowStock, heatmap, trend] = await Promise.all([
+    const [revenue, foodCost, ordersByType, topByQty, topByRevenue, ordersByStatus, categoryPerf, lowStock, heatmap, trend,
+           prevData, byPayment, prevByType, topTables, monthlyRevenue] = await Promise.all([
 
       pool.query(`
         SELECT
-          COALESCE(SUM(total), 0)          AS revenue,
-          COALESCE(SUM(tax), 0)            AS tax_collected,
-          COUNT(*)                          AS total_orders,
-          COALESCE(AVG(total), 0)           AS avg_order_value,
-          COUNT(DISTINCT customer_id)       AS customers_served
+          COALESCE(SUM(total), 0)                                            AS revenue,
+          COALESCE(SUM(tax), 0)                                              AS tax_collected,
+          COUNT(*)                                                            AS total_orders,
+          COALESCE(AVG(total), 0)                                            AS avg_order_value,
+          COUNT(DISTINCT customer_id)                                        AS customers_served,
+          COALESCE(SUM(COALESCE(discount,0)),0)                              AS total_discounts,
+          COALESCE(SUM(COALESCE(adults_count,0)+COALESCE(kids_count,0)),0)  AS total_pax
         FROM orders o
         WHERE ${df}${bf} AND o.status != 'cancelled'
       `),
@@ -132,15 +162,83 @@ router.get('/', async (req, res) => {
         WHERE ${df}${bf} AND o.status != 'cancelled'
         GROUP BY DATE(o.created_at)
         ORDER BY date ASC
+      `),
+
+      // ── Previous-period totals for % comparison ───────────────────────────
+      pool.query(`
+        SELECT
+          COALESCE(SUM(total), 0)::float                                     AS revenue,
+          COUNT(*)::int                                                       AS orders,
+          COALESCE(SUM(COALESCE(discount,0)),0)::float                       AS discounts,
+          COALESCE(SUM(COALESCE(adults_count,0)+COALESCE(kids_count,0)),0)::int AS pax
+        FROM orders o
+        WHERE ${pdf}${bf} AND o.status != 'cancelled'
+      `),
+
+      // ── Revenue by payment method ─────────────────────────────────────────
+      pool.query(`
+        SELECT
+          COALESCE(payment_method, 'other') AS payment_method,
+          COUNT(*)::int                     AS count,
+          COALESCE(SUM(total),0)::float     AS revenue
+        FROM orders o
+        WHERE ${df}${bf} AND o.status != 'cancelled' AND payment_method IS NOT NULL
+        GROUP BY payment_method
+        ORDER BY revenue DESC
+      `),
+
+      // ── Previous period revenue by channel ────────────────────────────────
+      pool.query(`
+        SELECT type, COALESCE(SUM(total),0)::float AS revenue
+        FROM orders o
+        WHERE ${pdf}${bf} AND o.status != 'cancelled'
+        GROUP BY type
+      `),
+
+      // ── Top 5 tables by revenue ───────────────────────────────────────────
+      pool.query(`
+        SELECT
+          table_number::text AS table_number,
+          COUNT(DISTINCT o.id)::int    AS orders,
+          COALESCE(SUM(total),0)::float AS revenue
+        FROM orders o
+        WHERE ${df}${bf} AND o.status != 'cancelled' AND table_number IS NOT NULL
+        GROUP BY table_number
+        ORDER BY revenue DESC
+        LIMIT 5
+      `),
+
+      // ── Monthly revenue for current year (all 12 months) ─────────────────
+      pool.query(`
+        SELECT
+          TO_CHAR(DATE_TRUNC('month', created_at), 'Mon') AS month_label,
+          EXTRACT(MONTH FROM created_at)::int              AS month_num,
+          COALESCE(SUM(total),0)::float                    AS revenue,
+          COUNT(*)::int                                    AS orders
+        FROM orders o
+        WHERE DATE_TRUNC('year', o.created_at) = DATE_TRUNC('year', CURRENT_DATE)
+          AND o.status != 'cancelled'
+        GROUP BY DATE_TRUNC('month', created_at), EXTRACT(MONTH FROM created_at)
+        ORDER BY month_num
       `)
     ])
 
-    const r = revenue.rows[0]
-    const fc = parseFloat(foodCost.rows[0].total_food_cost)
+    const r   = revenue.rows[0]
+    const fc  = parseFloat(foodCost.rows[0].total_food_cost)
     const rev = parseFloat(r.revenue)
-    const netRevenue = rev - parseFloat(r.tax_collected)
+    const totalDiscounts = parseFloat(r.total_discounts || 0)
+    const totalPax       = parseInt(r.total_pax || 0)
+    const netRevenue  = rev - parseFloat(r.tax_collected)
     const grossProfit = netRevenue - fc
     const grossMargin = netRevenue > 0 ? Math.round((grossProfit / netRevenue) * 100 * 10) / 10 : 0
+
+    const pv = prevData.rows[0]
+    const prevPeriod = {
+      revenue:   parseFloat(pv.revenue || 0),
+      orders:    parseInt(pv.orders || 0),
+      discounts: parseFloat(pv.discounts || 0),
+      pax:       parseInt(pv.pax || 0),
+    }
 
     const heatmapGrid = heatmap.rows.map(row => ({
       dow: row.dow, hour: row.hour, orders: row.orders, revenue: parseFloat(row.revenue.toFixed(3))
@@ -154,6 +252,9 @@ router.get('/', async (req, res) => {
       profit:   parseFloat((row.revenue - row.food_cost).toFixed(3))
     }))
 
+    const prevTypeMap = {}
+    for (const row of prevByType.rows) prevTypeMap[row.type] = parseFloat(row.revenue || 0)
+
     res.json({
       revenue:         rev,
       taxCollected:    parseFloat(r.tax_collected),
@@ -164,7 +265,31 @@ router.get('/', async (req, res) => {
       totalFoodCost:   parseFloat(fc.toFixed(2)),
       grossProfit:     parseFloat(grossProfit.toFixed(2)),
       grossMargin,
-      ordersByType:    ordersByType.rows.map(row => ({ type: row.type, count: parseInt(row.count), revenue: parseFloat(row.revenue) })),
+      totalDiscounts:  parseFloat(totalDiscounts.toFixed(3)),
+      totalPax,
+      prevPeriod,
+      ordersByType:    ordersByType.rows.map(row => ({
+        type:    row.type,
+        count:   parseInt(row.count),
+        revenue: parseFloat(parseFloat(row.revenue).toFixed(2)),
+        prevRevenue: parseFloat((prevTypeMap[row.type] || 0).toFixed(2)),
+      })),
+      byPayment: byPayment.rows.map(row => ({
+        method:  row.payment_method,
+        count:   row.count,
+        revenue: parseFloat(parseFloat(row.revenue).toFixed(2)),
+      })),
+      topTables: topTables.rows.map(row => ({
+        tableNumber: row.table_number,
+        orders:      row.orders,
+        revenue:     parseFloat(parseFloat(row.revenue).toFixed(2)),
+      })),
+      monthlyRevenue: monthlyRevenue.rows.map(row => ({
+        monthLabel: row.month_label,
+        monthNum:   row.month_num,
+        revenue:    parseFloat(parseFloat(row.revenue).toFixed(2)),
+        orders:     row.orders,
+      })),
       topItems:        topByQty.rows.map(row => ({ name: row.name, qty: parseInt(row.qty), revenue: parseFloat(parseFloat(row.revenue).toFixed(2)), foodCost: parseFloat(parseFloat(row.food_cost).toFixed(2)) })),
       topByRevenue:    topByRevenue.rows.map(row => ({ name: row.name, revenue: parseFloat(parseFloat(row.revenue).toFixed(2)), qty: parseInt(row.qty) })),
       ordersByStatus:  ordersByStatus.rows.map(row => ({ status: row.status, count: parseInt(row.count) })),
@@ -524,6 +649,57 @@ router.get('/voids', async (req, res) => {
     logger.error(err?.message, { path: req.path })
     res.status(500).json({ error: 'Server error' })
   }
+})
+
+// ── GET /api/reports/vat ──────────────────────────────────────────────────────
+// VAT reconciliation: output VAT (charged on sales) vs input VAT (paid on purchases).
+// period: today|week|month. Output VAT uses order created_at; input VAT uses
+// PO received_at so we only count VAT on goods actually received.
+router.get('/vat', async (req, res, next) => {
+  const { period = 'today' } = req.query
+
+  let oFilter, iFilter
+  if (period === 'week') {
+    oFilter = `o.created_at >= NOW() - INTERVAL '7 days'`
+    iFilter = `po.received_at >= NOW() - INTERVAL '7 days'`
+  } else if (period === 'month') {
+    oFilter = `DATE_TRUNC('month', o.created_at) = DATE_TRUNC('month', CURRENT_DATE)`
+    iFilter = `DATE_TRUNC('month', po.received_at) = DATE_TRUNC('month', CURRENT_DATE)`
+  } else {
+    oFilter = `DATE(o.created_at) = CURRENT_DATE`
+    iFilter = `DATE(po.received_at) = CURRENT_DATE`
+  }
+
+  try {
+    const [outputRes, inputRes] = await Promise.all([
+      pool.query(`
+        SELECT COALESCE(SUM(tax), 0) AS output_vat
+        FROM orders o
+        WHERE ${oFilter} AND o.status != 'cancelled'
+      `),
+      pool.query(`
+        SELECT
+          COALESCE(SUM(poi.input_vat_amount), 0) AS input_vat,
+          COALESCE(SUM(poi.quantity * poi.net_unit_cost), 0) AS net_purchases,
+          COALESCE(SUM(poi.quantity * poi.unit_cost), 0) AS gross_purchases,
+          COUNT(DISTINCT po.id) AS po_count
+        FROM purchase_order_items poi
+        JOIN purchase_orders po ON po.id = poi.purchase_order_id
+        WHERE ${iFilter}
+          AND po.status IN ('received', 'partially_received')
+      `),
+    ])
+    const outputVat = parseFloat(outputRes.rows[0].output_vat)
+    const inputVat  = parseFloat(inputRes.rows[0].input_vat)
+    res.json({
+      output_vat:      outputVat,
+      input_vat:       inputVat,
+      net_vat_payable: parseFloat((outputVat - inputVat).toFixed(3)),
+      net_purchases:   parseFloat(inputRes.rows[0].net_purchases),
+      gross_purchases: parseFloat(inputRes.rows[0].gross_purchases),
+      po_count:        parseInt(inputRes.rows[0].po_count),
+    })
+  } catch (err) { next(err) }
 })
 
 export default router

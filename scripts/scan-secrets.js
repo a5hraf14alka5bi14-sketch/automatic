@@ -62,6 +62,8 @@ const PATTERNS = [
   { name: 'GitHub fine-grained PAT', re: /github_pat_[0-9A-Za-z_]{22,}/g },
   { name: 'GitHub token (ghp/gho/ghu/ghs/ghr)', re: /gh[porsu]_[0-9A-Za-z]{36,}/g },
   { name: 'OpenAI API key', re: /sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{32,}/g },
+  { name: 'Tap secret key (sk_test/sk_live)', re: /sk_(?:test|live)_[A-Za-z0-9]{10,}/g },
+  { name: 'Tap public key (pk_test/pk_live)', re: /pk_(?:test|live)_[A-Za-z0-9]{10,}/g },
   { name: 'Slack token', re: /xox[baprs]-[0-9A-Za-z-]{10,}/g },
   { name: 'AWS access key id', re: /\bAKIA[0-9A-Z]{16}\b/g },
   { name: 'PEM private key', re: /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/g, always: true },

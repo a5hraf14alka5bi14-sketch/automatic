@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch } from '../utils/api.js'
+import { useRole } from '../utils/auth.js'
 import { enqueueOfflineOrder } from '../components/OfflineBanner.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { useSettings } from '../context/SettingsContext.jsx'
@@ -18,6 +19,7 @@ import { useLiveEvents, useDebouncedCallback } from '../utils/useLiveEvents.js'
 export default function POS() {
   const showToast = useToast()
   const { refreshLowStock } = useSettings()
+  const role = useRole()
 
   // Core data
   const [menu, setMenu] = useState([])
@@ -27,7 +29,9 @@ export default function POS() {
   const [loading, setLoading] = useState(true)
 
   // View: 'pos' | 'tables'
-  const [view, setView] = useState('pos')
+  // Cashiers land on the Tables view first so they must pick a table before ordering.
+  // Admins and managers land directly on item selection for faster takeaway/delivery access.
+  const [view, setView] = useState(role === 'cashier' ? 'tables' : 'pos')
   const [openOrders, setOpenOrders] = useState([])
   const [tablesLoading, setTablesLoading] = useState(false)
   const [selectedTableOrders, setSelectedTableOrders] = useState(null) // { tableNum, orders }
@@ -38,6 +42,8 @@ export default function POS() {
   const [customerId, setCustomerId] = useState('')
   const [note, setNote] = useState('')
   const [rush, setRush] = useState(false)
+  const [fireTogether, setFireTogether] = useState(false)
+  const [pendingPax, setPendingPax] = useState({ adults: 0, kids: 0 })
 
   // UI state
   const [placing, setPlacing] = useState(false)
@@ -248,7 +254,8 @@ export default function POS() {
   // Clears the cart (via the hook) plus the order-level context fields.
   const clearCart = () => {
     cartClear()
-    setNote(''); setCustomerId(''); setRush(false)
+    setNote(''); setCustomerId(''); setRush(false); setFireTogether(false)
+    setPendingPax({ adults: 0, kids: 0 })
     setTableNum(null) // next dine-in order must pick its table explicitly
   }
 
@@ -267,6 +274,9 @@ export default function POS() {
       customer_id: customerId ? parseInt(customerId) : null,
       notes: note.trim() || null,
       rush,
+      fire_together: fireTogether,
+      adults_count: pendingPax.adults,
+      kids_count: pendingPax.kids,
       branch_id: branchId || null,
       discount: parseFloat(discountVal.toFixed(3)),
       discount_type: discount.type,
@@ -303,6 +313,18 @@ export default function POS() {
       const res = await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(payload) })
       const order = await res.json()
       if (!res.ok) throw new Error(order.error || 'Failed to place order')
+
+      // Running tab: the server appended these items to the table's existing open
+      // order instead of creating a new one. Don't open the payment modal — the
+      // tab is paid once at the end (from Orders / Table View). Just refresh.
+      if (order.merged) {
+        clearCart()
+        setShowCart(false)
+        showToast(`أضيفت الأصناف إلى طلب الطاولة ${tableNum} · Added to Table ${tableNum} tab (Order #${order.id})`, 'info')
+        fetchOpenOrders()
+        setPlacing(false)
+        return
+      }
 
       const selectedCustomer = customerId ? customers.find(c => c.id === parseInt(customerId)) : null
       const cartSnapshot = cart.map(c => ({
@@ -443,6 +465,18 @@ export default function POS() {
         currency={currency}
         tableUpdateStatus={tableUpdateStatus}
         tableToggleRush={tableToggleRush}
+        goToTableOrder={(n, info = {}) => {
+          setTableNum(n)
+          setOrderType('dine-in')
+          setSelectedTableOrders(null)
+          setError('')
+          if (info.customerId) setCustomerId(String(info.customerId))
+          if (info.adultsCount !== undefined) setPendingPax({ adults: info.adultsCount, kids: info.kidsCount || 0 })
+          setView('pos')
+        }}
+        settings={settings}
+        onPay={(order) => setPayModal(order)}
+        showToast={showToast}
       />
     )
   }
@@ -501,6 +535,8 @@ export default function POS() {
         setNote={setNote}
         rush={rush}
         setRush={setRush}
+        fireTogether={fireTogether}
+        setFireTogether={setFireTogether}
         setSplitModal={setSplitModal}
         error={error}
         placeOrder={placeOrder}

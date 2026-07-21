@@ -65,9 +65,13 @@ describe('POST /api/orders — dine-in table requirement', () => {
   })
 
   it('accepts dine-in with a valid table_number', async () => {
-    const res = await agent.post('/api/orders').send({ type: 'dine-in', table_number: 3, items: [item()] })
+    // Unique table so the running-tab merge (dine-in orders on a table that
+    // already has an open unpaid order get appended) doesn't turn this create
+    // into a 200 merge against leftover dev-DB data.
+    const validTable = 700 + Math.floor(Math.random() * 200)
+    const res = await agent.post('/api/orders').send({ type: 'dine-in', table_number: validTable, items: [item()] })
     expect(res.status).toBe(201)
-    expect(res.body.table_number).toBe(3)
+    expect(res.body.table_number).toBe(validTable)
     ids.orders.push(res.body.id)
   })
 

@@ -30,8 +30,12 @@ import Login from './pages/Login.jsx'
 import AIExecutive from './pages/AIExecutive.jsx'
 import System from './pages/System.jsx'
 import Suppliers from './pages/Suppliers.jsx'
+import Expenses from './pages/Expenses.jsx'
 import TwoFactor from './components/TwoFactor.jsx'
 import QRMenu from './pages/QRMenu.jsx'
+import Reservations from './pages/Reservations.jsx'
+import PublicReceipt from './pages/PublicReceipt.jsx'
+import SupportTicketButton from './components/SupportTicketButton.jsx'
 
 function RequireRole({ routeId, role, children }) {
   if (!canAccessRoute(routeId, role)) {
@@ -110,6 +114,8 @@ function AppLayout({ user, onLogout }) {
               <Route path="/ai-executive" element={<RequireRole routeId="ai-executive" role={role}><AIExecutive /></RequireRole>} />
               <Route path="/system" element={<RequireRole routeId="system" role={role}><System /></RequireRole>} />
               <Route path="/suppliers" element={<RequireRole routeId="suppliers" role={role}><Suppliers /></RequireRole>} />
+              <Route path="/expenses" element={<RequireRole routeId="expenses" role={role}><Expenses /></RequireRole>} />
+              <Route path="/reservations" element={<RequireRole routeId="reservations" role={role}><Reservations /></RequireRole>} />
               <Route path="/profile" element={<div className="p-6 max-w-lg mx-auto space-y-6">
                 <div><h1 className="text-2xl font-bold text-white">Account Security</h1><p className="text-slate-400 text-sm mt-0.5">أمان الحساب</p></div>
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6"><h2 className="text-white font-semibold mb-4">Two-Factor Authentication</h2><TwoFactor /></div>
@@ -120,6 +126,8 @@ function AppLayout({ user, onLogout }) {
           </ErrorBoundary>
         </main>
       </div>
+      {/* Floating support ticket button — available to all authenticated roles */}
+      <SupportTicketButton user={user} />
       {/* Bottom navigation — mobile only, sits above iOS home indicator */}
       <MobileNav user={user} onMore={() => setMobileOpen(true)} />
     </div>
@@ -135,6 +143,16 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/qr-menu" element={<QRMenu />} />
+        </Routes>
+      </BrowserRouter>
+    )
+  }
+
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/receipt/')) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/receipt/:token" element={<PublicReceipt />} />
         </Routes>
       </BrowserRouter>
     )

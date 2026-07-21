@@ -393,7 +393,9 @@ function FoodCostAnalysis({ items, fmt }) {
                     {ingCount > 0 ? (
                       <span className="bg-slate-800 text-slate-300 text-xs px-2 py-0.5 rounded-full">{ingCount}</span>
                     ) : (
-                      <span className="text-slate-600 text-xs">No recipe</span>
+                      <span title="No recipe linked — inventory won't auto-deduct for this item" className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs px-2 py-0.5 rounded-full">
+                        ⚠ No recipe
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -708,7 +710,11 @@ export default function Recipes() {
                         </div>
                         <div className="flex-shrink-0 text-right">
                           <CostBadge pct={costPct} />
-                          <p className="text-slate-600 text-xs mt-0.5">{ingCount ? `${ingCount} ing.` : 'No recipe'}</p>
+                          {ingCount ? (
+                            <p className="text-slate-500 text-xs mt-0.5">{ingCount} ing.</p>
+                          ) : (
+                            <p className="text-amber-400/70 text-xs mt-0.5" title="No recipe linked — inventory won't auto-deduct for this item">⚠ No recipe</p>
+                          )}
                         </div>
                       </div>
                     </button>

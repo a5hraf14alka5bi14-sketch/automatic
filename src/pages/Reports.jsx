@@ -14,6 +14,8 @@ import MenuTab from '../components/reports/MenuTab.jsx'
 import InventoryTab from '../components/reports/InventoryTab.jsx'
 import StaffTab from '../components/reports/StaffTab.jsx'
 import VoidsTab from '../components/reports/VoidsTab.jsx'
+import VatTab from '../components/reports/VatTab.jsx'
+import ChannelsTab from '../components/reports/ChannelsTab.jsx'
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Reports() {
@@ -109,9 +111,21 @@ export default function Reports() {
     }
   }
 
-  const periods = [{ id: 'today', label: 'Today' }, { id: 'week', label: '7 Days' }, { id: 'month', label: 'This Month' }]
+  const periods = [
+    { id: 'today',        label: 'Today / اليوم' },
+    { id: 'yesterday',    label: 'Yesterday / أمس' },
+    { id: 'week',         label: 'Last 7 Days' },
+    { id: 'last_week',    label: 'Last Week' },
+    { id: 'month',        label: 'This Month' },
+    { id: 'last_month',   label: 'Last Month' },
+    { id: 'this_quarter', label: 'This Quarter' },
+    { id: 'last_quarter', label: 'Last Quarter' },
+    { id: 'this_year',    label: 'This Year' },
+    { id: 'last_year',    label: 'Last Year' },
+  ]
   const tabs = [
     { id: 'overview',       label: '📊 Overview' },
+    { id: 'channels',       label: '📡 Channels' },
     { id: 'profitability',  label: '💰 Profitability' },
     { id: 'menu',           label: '🍽️ Menu' },
     { id: 'matrix',         label: '⭐ Matrix' },
@@ -121,6 +135,7 @@ export default function Reports() {
     { id: 'inventory',      label: '⚠️ Stock' },
     { id: 'staff',          label: '👤 Staff' },
     { id: 'voids',          label: '🚫 Voids' },
+    { id: 'vat',            label: '🧾 VAT' },
   ]
 
   return (
@@ -131,12 +146,16 @@ export default function Reports() {
           <p className="text-slate-400 text-sm mt-0.5">Business performance overview</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {periods.map(p => (
-            <button key={p.id} onClick={() => setPeriod(p.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${period === p.id ? 'bg-orange-500 text-white' : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-white'}`}>
-              {p.label}
-            </button>
-          ))}
+          <select
+            value={period}
+            onChange={e => setPeriod(e.target.value)}
+            className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-orange-500"
+            aria-label="Select report period"
+          >
+            {periods.map(p => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
           {branches.length > 1 && (
             <select
               value={branchId}
@@ -182,6 +201,8 @@ export default function Reports() {
         <>
           {activeTab === 'overview' && <OverviewTab data={data} fmt={fmt} />}
 
+          {activeTab === 'channels' && <ChannelsTab data={data} fmt={fmt} />}
+
           {activeTab === 'profitability' && <ProfitabilityTab data={data} fmt={fmt} />}
 
           {activeTab === 'menu' && <MenuTab data={data} fmt={fmt} />}
@@ -198,6 +219,8 @@ export default function Reports() {
           )}
 
           {activeTab === 'voids' && <VoidsTab period={period} fmt={fmt} />}
+
+          {activeTab === 'vat' && <VatTab period={period} fmt={fmt} />}
         </>
       )}
     </div>

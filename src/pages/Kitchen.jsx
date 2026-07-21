@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
-import { wsUrl, notifyDesktop } from '../config.js'
+import { notifyDesktop } from '../config.js'
+import { subscribeMessages, subscribeStatus } from '../utils/wsClient.js'
 
 // ── Sound alert (Web Audio API, no external files) ────────────────────────────
 function playBeep(freq = 880, dur = 0.15, vol = 0.4) {
@@ -77,6 +78,21 @@ function KitchenCard({ order, actions, onAction, onToggleItemDone, onToggleRush 
           {order.rush && (
             <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
               🔴 RUSH
+            </span>
+          )}
+          {order.fire_together && (
+            <span className="bg-orange-500/20 text-orange-300 border border-orange-500/40 text-xs font-bold px-2 py-0.5 rounded-full">
+              🔥 All Together
+            </span>
+          )}
+          {order.source === 'qr' && (
+            <span className="bg-purple-500/20 text-purple-400 border border-purple-500/40 text-xs font-bold px-2 py-0.5 rounded-full">
+              📱 QR
+            </span>
+          )}
+          {order.source === 'qr' && order.payment_status === 'paid' && (
+            <span className="bg-green-500/20 text-green-400 border border-green-500/40 text-xs font-medium px-2 py-0.5 rounded-full">
+              ✓ Paid
             </span>
           )}
         </div>
@@ -174,9 +190,9 @@ export default function Kitchen() {
   const [stations, setStations] = useState(['kitchen', 'bar'])
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  const wsRef = useRef(null)
   const pollRef = useRef(null)
-  const reconnectRef = useRef(null)
+  const soundEnabledRef = useRef(soundEnabled)
+  useEffect(() => { soundEnabledRef.current = soundEnabled }, [soundEnabled])
   const prevOrderIdsRef = useRef(new Set())
 
   const fetchOrders = useCallback(async () => {
@@ -217,36 +233,28 @@ export default function Kitchen() {
 
   useEffect(() => {
     fetchOrders()
-    function connect() {
-      try {
-        const ws = new WebSocket(wsUrl('/ws'))
-        wsRef.current = ws
-        ws.onopen = () => { setWsStatus('live'); stopPolling() }
-        ws.onmessage = (evt) => {
-          try {
-            const msg = JSON.parse(evt.data)
-            if (msg.type === 'order_created') {
-              if (soundEnabled) playNewOrderAlert()
-              notifyDesktop('طلب جديد · New order', 'وصل طلب جديد إلى المطبخ')
-              fetchOrders()
-            } else if (msg.type === 'order_updated') {
-              fetchOrders()
-            } else if (msg.type === 'stations_updated') {
-              fetchStations()
-            }
-          } catch {}
-        }
-        ws.onclose = () => { wsRef.current = null; startPolling(); reconnectRef.current = setTimeout(connect, 5000) }
-        ws.onerror = () => ws.close()
-      } catch { startPolling() }
-    }
-    connect()
+    const unsubMsg = subscribeMessages((msg) => {
+      if (msg.type === 'order_created') {
+        if (soundEnabledRef.current) playNewOrderAlert()
+        notifyDesktop('طلب جديد · New order', 'وصل طلب جديد إلى المطبخ')
+        fetchOrders()
+      } else if (msg.type === 'order_updated') {
+        fetchOrders()
+      } else if (msg.type === 'stations_updated') {
+        fetchStations()
+      }
+    })
+    const unsubStatus = subscribeStatus((status) => {
+      if (status === 'live')        { setWsStatus('live');    stopPolling()  }
+      else if (status === 'closed') { setWsStatus('polling'); startPolling() }
+      else                            setWsStatus('connecting')
+    })
     return () => {
-      if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close() }
-      if (pollRef.current) clearInterval(pollRef.current)
-      if (reconnectRef.current) clearTimeout(reconnectRef.current)
+      unsubMsg()
+      unsubStatus()
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     }
-  }, [fetchOrders, startPolling, stopPolling, soundEnabled])
+  }, [fetchOrders, startPolling, stopPolling])
 
   // Refetch when station filter changes
   useEffect(() => { fetchOrders() }, [station])

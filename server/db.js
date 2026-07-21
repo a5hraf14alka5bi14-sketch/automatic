@@ -89,23 +89,6 @@ export async function initDb() {
         created_at TIMESTAMP DEFAULT NOW()
       );
 
-      -- Created before recipe_ingredients: that table's inventory_item_id
-      -- column has a foreign key to inventory(id), so on a brand-new
-      -- database inventory must exist first or the reference fails with
-      -- "relation \"inventory\" does not exist" (only masked on pre-existing
-      -- databases where inventory was already created by an earlier run).
-      CREATE TABLE IF NOT EXISTS inventory (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        category VARCHAR(100),
-        quantity DECIMAL(10,3) NOT NULL DEFAULT 0,
-        unit VARCHAR(50) DEFAULT 'pcs',
-        min_quantity DECIMAL(10,3) DEFAULT 0,
-        cost DECIMAL(10,2),
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      );
-
       CREATE TABLE IF NOT EXISTS recipe_ingredients (
         id SERIAL PRIMARY KEY,
         menu_item_id INTEGER REFERENCES menu_items(id) ON DELETE CASCADE,
@@ -159,6 +142,18 @@ export async function initDb() {
         name VARCHAR(255) NOT NULL,
         price_delta DECIMAL(10,3) DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS inventory (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(100),
+        quantity DECIMAL(10,3) NOT NULL DEFAULT 0,
+        unit VARCHAR(50) DEFAULT 'pcs',
+        min_quantity DECIMAL(10,3) DEFAULT 0,
+        cost DECIMAL(10,2),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS customers (
@@ -445,22 +440,9 @@ export async function initDb() {
     // menu-wide while link coverage kept reporting 100%. Self-heal on every
     // startup: reactivate any soft-deleted inventory item still referenced by
     // a recipe so links never stay broken across a re-seed or merge.
-    //
-    // Guarded: this needs inventory.deleted_at, which migration
-    // 001_soft_delete.sql adds — but both server/index.js and
-    // scripts/init-db.js call initDb() BEFORE runMigrations(), so on a brand
-    // new database this column doesn't exist yet at this point. Nothing to
-    // heal on a fresh database anyway (no soft-deleted rows can exist before
-    // migrations have even run), so skip gracefully instead of crashing.
-    const deletedAtExists = await client.query(`
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'inventory' AND column_name = 'deleted_at'
-    `)
-    if (deletedAtExists.rowCount > 0) {
-      const healed = await reactivateRecipeLinkedInventory(client)
-      if (healed > 0) {
-        console.warn(`Reactivated ${healed} soft-deleted inventory item(s) still referenced by recipes`)
-      }
+    const healed = await reactivateRecipeLinkedInventory(client)
+    if (healed > 0) {
+      console.warn(`Reactivated ${healed} soft-deleted inventory item(s) still referenced by recipes`)
     }
 
     console.log('Database initialized successfully')

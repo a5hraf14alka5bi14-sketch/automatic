@@ -48,17 +48,31 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // which fires `controllerchange`. We reload once (only if a controller already
 // existed) so installed phones/desktops never get stuck on a stale build.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const hadController = !!navigator.serviceWorker.controller
-    let refreshing = false
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshing || !hadController) return
-      refreshing = true
-      window.location.reload()
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      const hadController = !!navigator.serviceWorker.controller
+      let refreshing = false
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing || !hadController) return
+        refreshing = true
+        window.location.reload()
+      })
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => { reg.update?.() })
+        .catch(() => {})
     })
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((reg) => { reg.update?.() })
-      .catch(() => {})
-  })
+  } else {
+    // In development, a registered service worker caches the app shell and
+    // serves a stale build inside the preview iframe — so edits/HMR never
+    // show up. Unregister any existing SW and purge its caches on load.
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => regs.forEach((reg) => reg.unregister()))
+        .catch(() => {})
+      if (window.caches?.keys) {
+        caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {})
+      }
+    })
+  }
 }

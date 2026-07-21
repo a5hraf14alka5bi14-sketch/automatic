@@ -29,6 +29,8 @@ function ItemModal({ item, onClose, onSave }) {
     unit: item?.unit || 'kg',
     min_quantity: item?.min_quantity || '',
     cost: item?.cost || '',
+    purchase_unit: item?.purchase_unit || '',
+    units_per_purchase_unit: item?.units_per_purchase_unit || '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -46,7 +48,9 @@ function ItemModal({ item, onClose, onSave }) {
           ...form,
           quantity: parseFloat(form.quantity),
           min_quantity: parseFloat(form.min_quantity || 0),
-          cost: form.cost !== '' ? parseFloat(form.cost) : null
+          cost: form.cost !== '' ? parseFloat(form.cost) : null,
+          purchase_unit: form.purchase_unit.trim() || null,
+          units_per_purchase_unit: form.units_per_purchase_unit !== '' ? parseFloat(form.units_per_purchase_unit) : null,
         })
       })
       if (!res.ok) throw new Error((await res.json()).error)
@@ -97,6 +101,36 @@ function ItemModal({ item, onClose, onSave }) {
               <label className="text-slate-400 text-xs mb-1 block">Cost per Unit ({symbol})</label>
               <input type="number" step="0.001" min="0" value={form.cost} onChange={e => set('cost', e.target.value)} placeholder="e.g. 4.500"
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
+            </div>
+            {/* ── Purchase Packaging (pack-size conversion) ── */}
+            <div className="sm:col-span-2">
+              <div className="border-t border-slate-800 pt-3 mt-1">
+                <p className="text-slate-500 text-xs font-medium mb-2 uppercase tracking-wide">Purchase Packaging <span className="normal-case font-normal">(optional)</span></p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-400 text-xs mb-1 block">Supplier packages as</label>
+                    <input value={form.purchase_unit} onChange={e => set('purchase_unit', e.target.value)}
+                      placeholder={`e.g. carton, box, case`}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
+                  </div>
+                  <div>
+                    <label className="text-slate-400 text-xs mb-1 block">
+                      {form.unit}s per {form.purchase_unit || 'package'}
+                    </label>
+                    <input type="number" step="any" min="0.001" value={form.units_per_purchase_unit} onChange={e => set('units_per_purchase_unit', e.target.value)}
+                      placeholder="e.g. 30"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
+                  </div>
+                </div>
+                {form.purchase_unit && form.units_per_purchase_unit && (
+                  <p className="text-green-400 text-xs mt-2">
+                    ✓ 1 {form.purchase_unit} = {form.units_per_purchase_unit} {form.unit} — PO quantities entered as {form.purchase_unit} will be converted automatically on receipt
+                  </p>
+                )}
+                {!form.purchase_unit && (
+                  <p className="text-slate-600 text-xs mt-1.5">Leave blank if you buy directly in {form.unit || 'base unit'}</p>
+                )}
+              </div>
             </div>
           </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}

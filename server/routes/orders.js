@@ -11,6 +11,7 @@ import {
   orderDiscountSchema, orderRushSchema, orderItemDoneSchema
 } from '../validators.js'
 import { logger } from '../logger.js'
+import { repriceItems, insertOrderItems } from '../lib/orderPricing.js'
 
 const router = express.Router()
 
@@ -87,6 +88,8 @@ const VALID_PAYMENTS = ['cash', 'card', 'other', 'unpaid']
 // Unknown values are hand-crafted requests: rejected rather than silently
 // matching nothing (keeps status consistent with the payment/date behaviour).
 const VALID_STATUSES = ['pending', 'preparing', 'ready', 'completed', 'cancelled']
+// 'awaiting_payment' is intentionally excluded from VALID_STATUSES — QR draft
+// orders in this state are not visible to staff via the API filter.
 
 // Stations come from the MANAGED list (the stations table, editable by
 // admins/managers via /api/stations) — see server/lib/stations.js. Filter
@@ -118,6 +121,8 @@ function buildOrderFilters(query, { alias = '', includeStatus = true, validStati
   const search = (query.search ?? query.q ?? '').trim()
   const params = []
   const where = []
+  // Always exclude draft QR orders awaiting payment — staff should never see them.
+  where.push(`${alias}status != 'awaiting_payment'`)
   // Validate status even when it isn't applied (the counts endpoint passes
   // includeStatus:false) so a malformed value is rejected consistently on both
   // endpoints; only append the SQL clause when the status filter is in effect.
@@ -217,7 +222,7 @@ router.get('/table/:n', async (req, res) => {
     if (isNaN(n)) return res.status(400).json({ error: 'Invalid table number' })
     const result = await pool.query(
       `${ORDERS_SELECT}
-       WHERE o.table_number=$1 AND o.status NOT IN ('completed','cancelled') AND o.type='dine-in'
+       WHERE o.table_number=$1 AND o.status NOT IN ('completed','cancelled','awaiting_payment') AND o.type='dine-in'
        GROUP BY o.id, u.name, b.name, b.name_ar ORDER BY o.created_at DESC`,
       [n]
     )
@@ -286,10 +291,21 @@ router.get('/:id', async (req, res) => {
 router.post('/', requireRole('cashier', 'manager', 'admin'), validate(orderCreateSchema), async (req, res) => {
   // NOTE: client-supplied subtotal / tax / total are intentionally ignored.
   // The server recomputes all financial values from authoritative DB records.
-  const { type, table_number, items, customer_id, notes, discount, discount_type, rush, station, branch_id } = req.body
+  const { type, table_number, items, customer_id, notes, discount, discount_type, rush, station, branch_id,
+          adults_count, kids_count, fire_together } = req.body
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
+
+    // Serialize concurrent creates for the SAME dine-in table so the running-tab
+    // merge decision (append to the open tab vs. start a new one) can't race two
+    // orders into existence at once. The advisory lock is transaction-scoped and
+    // auto-releases on COMMIT/ROLLBACK; the namespace int keeps it from colliding
+    // with any other advisory locks. Non-dine-in / tableless orders never merge,
+    // so they skip the lock entirely.
+    if ((type || 'dine-in') === 'dine-in' && table_number) {
+      await client.query('SELECT pg_advisory_xact_lock($1, $2)', [190001, table_number])
+    }
 
     // Fetch authoritative tax rate from settings
     const { taxRate } = await getSettings(client)
@@ -300,58 +316,80 @@ router.post('/', requireRole('cashier', 'manager', 'admin'), validate(orderCreat
     const { active: activeStations } = await getStationSets()
     const coerceStation = s => (s && activeStations.has(s) ? s : 'kitchen')
 
-    // Reprice every line item from authoritative menu / modifier data
-    const repricedItems = []
-    let rawSubtotal = 0
+    // Reprice every line item from authoritative menu / modifier data.
+    // Throws { status, error } on validation failure — caught by the outer catch.
+    const { repricedItems, rawSubtotal } = await repriceItems(client, items)
 
-    for (const item of items) {
-      let unitPrice = 0
-      let itemName = item.name || null
+    // ── Running tab: merge into the table's existing open order ────────────────
+    // A dine-in order for a table that already has an OPEN, UNPAID order is not a
+    // new bill — the new items are appended to that order so each table keeps a
+    // single running tab / one final bill. Paid orders (payment_method set) or
+    // cancelled ones never merge; the next order starts a fresh tab.
+    if ((type || 'dine-in') === 'dine-in' && table_number) {
+      const existing = await client.query(
+        `SELECT id, subtotal, discount, discount_type, status, notes, rush, customer_id
+           FROM orders
+          WHERE table_number=$1 AND type='dine-in'
+            AND status IN ('pending','preparing','ready')
+            AND payment_method IS NULL
+          ORDER BY id ASC LIMIT 1 FOR UPDATE`,
+        [table_number]
+      )
 
-      if (item.menu_item_id) {
-        const m = await client.query(
-          'SELECT name, price FROM menu_items WHERE id=$1 AND deleted_at IS NULL',
-          [item.menu_item_id]
+      if (existing.rows.length) {
+        const tab = existing.rows[0]
+
+        // Append the new (already repriced) line items to the existing order.
+        await insertOrderItems(client, tab.id, repricedItems, coerceStation)
+
+        // Recompute the WHOLE order's money from authoritative values. The stored
+        // `subtotal` is POST-discount, so pre-discount = subtotal + discount. The
+        // tab's existing discount is preserved (one bill = one discount); for a
+        // percent discount we re-derive the effective rate so it scales with the
+        // new, larger subtotal. Any discount on the incoming batch is ignored.
+        const existingPre = parseFloat(tab.subtotal) + parseFloat(tab.discount || 0)
+        const newPre = existingPre + rawSubtotal
+        const existingDiscount = parseFloat(tab.discount || 0)
+        let mergedDiscountAmt
+        if (tab.discount_type === 'percent') {
+          const rate = existingPre > 0 ? existingDiscount / existingPre : 0
+          mergedDiscountAmt = newPre * rate
+        } else {
+          mergedDiscountAmt = Math.min(existingDiscount, newPre)
+        }
+        const mergedSub   = Math.max(0, newPre - mergedDiscountAmt)
+        const mergedTax   = parseFloat((mergedSub * taxRate).toFixed(3))
+        const mergedTotal = parseFloat((mergedSub + mergedTax).toFixed(3))
+        // New items still need cooking: a 'ready' tab drops back to 'preparing'
+        // so the kitchen sees the additions ('pending'/'preparing' stay as-is).
+        const mergedStatus = tab.status === 'ready' ? 'preparing' : tab.status
+        // Metadata carry-over: an urgent add-on flags the whole tab as rush; a
+        // customer id fills an anonymous tab but never overwrites an existing one.
+        const mergedRush = tab.rush || !!rush
+        const mergedCustomer = tab.customer_id || customer_id || null
+
+        const updated = await client.query(
+          `UPDATE orders
+              SET subtotal=$1, tax=$2, total=$3, discount=$4, status=$5,
+                  rush=$6, customer_id=$7, updated_at=NOW()
+            WHERE id=$8 RETURNING *`,
+          [
+            parseFloat(mergedSub.toFixed(3)), mergedTax, mergedTotal,
+            parseFloat(mergedDiscountAmt.toFixed(3)), mergedStatus,
+            mergedRush, mergedCustomer, tab.id
+          ]
         )
-        if (!m.rows.length) {
-          await client.query('ROLLBACK')
-          return res.status(400).json({ error: `Menu item ${item.menu_item_id} not found` })
-        }
-        unitPrice = parseFloat(m.rows[0].price)
-        itemName = itemName || m.rows[0].name
 
-        // Validate and sum modifier price-deltas from authoritative source.
-        // Each submitted modifier id is verified to belong to a modifier_group
-        // that is linked to this menu_item_id.  Any modifier id that is
-        // missing, belongs to a different menu item, or is otherwise
-        // unrecognised causes the entire order to be rejected so an
-        // attacker cannot present a real menu_item_id while omitting valid
-        // modifier ids to undercharge the order.
-        const mods = Array.isArray(item.modifiers) ? item.modifiers : []
-        for (const mod of mods) {
-          if (!mod.id) continue // modifiers without an id carry no price (display-only)
-          const modRow = await client.query(
-            `SELECT m.price_delta
-               FROM modifiers m
-               JOIN modifier_groups mg ON mg.id = m.group_id
-              WHERE m.id = $1 AND mg.menu_item_id = $2`,
-            [mod.id, item.menu_item_id]
-          )
-          if (!modRow.rows.length) {
-            await client.query('ROLLBACK')
-            return res.status(400).json({
-              error: `Modifier ${mod.id} is not valid for menu item ${item.menu_item_id}`
-            })
-          }
-          unitPrice += parseFloat(modRow.rows[0].price_delta || 0)
-        }
-      } else {
-        // Custom / open-priced item (no menu_item_id) — no authoritative source; clamp to ≥ 0
-        unitPrice = Math.max(0, parseFloat(item.price || 0))
+        await client.query('COMMIT')
+        invalidateStationCache()
+        broadcast('order_updated', { id: tab.id, status: mergedStatus, table_number, merged: true })
+        sendPushNotification(
+          'Items added to order',
+          `Order #${tab.id} · Table ${table_number}`,
+          { role: 'kitchen', data: { orderId: tab.id, type: 'order_updated' } }
+        ).catch(() => {})
+        return res.status(200).json({ ...updated.rows[0], merged: true })
       }
-
-      rawSubtotal += unitPrice * (item.quantity || 1)
-      repricedItems.push({ ...item, _authPrice: unitPrice, name: itemName || 'Item' })
     }
 
     // Apply discount server-side — cap fixed to subtotal, cap percent to 100%
@@ -369,8 +407,9 @@ router.post('/', requireRole('cashier', 'manager', 'admin'), validate(orderCreat
     const orderResult = await client.query(
       `INSERT INTO orders
          (type, table_number, status, subtotal, tax, total, customer_id, notes,
-          discount, discount_type, rush, station, user_id, branch_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+          discount, discount_type, rush, station, user_id, branch_id, source,
+          adults_count, kids_count, fire_together)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
       [
         type || 'dine-in', table_number || null, 'pending',
         parseFloat(discountedSub.toFixed(3)), serverTax, serverTotal,
@@ -378,25 +417,16 @@ router.post('/', requireRole('cashier', 'manager', 'admin'), validate(orderCreat
         parseFloat(discountAmt.toFixed(3)), discountType,
         rush || false, coerceStation(station),
         req.user?.id || null,
-        branch_id ? parseInt(branch_id, 10) : null
+        branch_id ? parseInt(branch_id, 10) : null,
+        'staff',
+        parseInt(adults_count || 0, 10),
+        parseInt(kids_count   || 0, 10),
+        fire_together === true,
       ]
     )
     const order = orderResult.rows[0]
 
-    for (const item of repricedItems) {
-      await client.query(
-        `INSERT INTO order_items
-           (order_id, menu_item_id, quantity, price, name, notes, item_notes, modifiers, station)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [
-          order.id, item.menu_item_id || null, item.quantity || 1,
-          item._authPrice, item.name,
-          item.notes || null, item.item_notes || null,
-          JSON.stringify(Array.isArray(item.modifiers) ? item.modifiers : []),
-          coerceStation(item.station)
-        ]
-      )
-    }
+    await insertOrderItems(client, order.id, repricedItems, coerceStation)
 
     await client.query('COMMIT')
     invalidateStationCache()
@@ -442,6 +472,7 @@ router.post('/', requireRole('cashier', 'manager', 'admin'), validate(orderCreat
     res.status(201).json(order)
   } catch (err) {
     await client.query('ROLLBACK')
+    if (err.status) return res.status(err.status).json({ error: err.error })
     logger.error(err?.message, { path: req.path }); res.status(500).json({ error: 'Server error' })
   } finally { client.release() }
 })
@@ -800,7 +831,7 @@ router.patch('/:id/status', validate(orderStatusSchema), async (req, res) => {
 // becomes fully paid it is completed through the SAME side-effect path as
 // PATCH /:id/status (inventory deduction + loyalty accounting) — split payment
 // can never bypass stock or customer accounting.
-router.post('/:id/split-payment', async (req, res) => {
+router.post('/:id/split-payment', requireRole('cashier', 'manager', 'admin'), async (req, res) => {
   const { method, amount, notes } = req.body
   const METHODS = ['cash', 'card', 'other']
   if (!method || !METHODS.includes(method)) return res.status(400).json({ error: 'Invalid payment method' })
@@ -894,18 +925,27 @@ router.post('/:id/pay', requireRole('cashier', 'manager', 'admin'), async (req, 
   try {
     await client.query('BEGIN')
     const order = await client.query(
-      'SELECT id, status, total, customer_id FROM orders WHERE id=$1 FOR UPDATE',
+      'SELECT id, status, total, customer_id, payment_method FROM orders WHERE id=$1 FOR UPDATE',
       [req.params.id]
     )
     if (!order.rows.length) {
       await client.query('ROLLBACK')
       return res.status(404).json({ error: 'Order not found' })
     }
-    const { status, total, customer_id } = order.rows[0]
+    const { status, total, customer_id, payment_method: existingPM } = order.rows[0]
 
-    if (status === 'completed' || status === 'cancelled') {
+    // Cancelled orders never accept payment.
+    if (status === 'cancelled') {
       await client.query('ROLLBACK')
-      return res.status(400).json({ error: `Order is already ${status} — no payment accepted` })
+      return res.status(400).json({ error: 'Order is cancelled — no payment accepted' })
+    }
+    // An order that already has a payment method recorded is already paid.
+    // NOTE: a *completed* order with NO payment_method is a pay-later order that
+    // the kitchen has already fulfilled/delivered — payment is collected here,
+    // so it must NOT be rejected just for being 'completed'.
+    if (existingPM) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ error: 'Order is already paid — no further payment accepted' })
     }
 
     const orderTotal = parseFloat(total)
@@ -932,13 +972,25 @@ router.post('/:id/pay', requireRole('cashier', 'manager', 'admin'), async (req, 
     }
 
     const finalPM = splits.length === 1 ? splits[0].method : 'split'
-    await client.query(
-      'UPDATE orders SET status=$1, payment_method=$2, paid_at=NOW(), updated_at=NOW() WHERE id=$3',
-      ['completed', finalPM, req.params.id]
-    )
-    await applyCompletionEffects(client, parseInt(req.params.id), {
-      orderTotal, customerId: customer_id, loyaltyRedemptionPoints: loyalty_redemption_points,
-    })
+
+    if (status === 'completed') {
+      // Pay-later order already fulfilled/delivered by the kitchen — completion
+      // side-effects (inventory deduction, loyalty accounting) already ran when
+      // it was marked completed. Here we ONLY record the payment; re-running
+      // applyCompletionEffects would double-deduct stock and double-award points.
+      await client.query(
+        'UPDATE orders SET payment_method=$1, paid_at=NOW(), updated_at=NOW() WHERE id=$2',
+        [finalPM, req.params.id]
+      )
+    } else {
+      await client.query(
+        'UPDATE orders SET status=$1, payment_method=$2, paid_at=NOW(), updated_at=NOW() WHERE id=$3',
+        ['completed', finalPM, req.params.id]
+      )
+      await applyCompletionEffects(client, parseInt(req.params.id), {
+        orderTotal, customerId: customer_id, loyaltyRedemptionPoints: loyalty_redemption_points,
+      })
+    }
 
     await client.query('COMMIT')
     broadcast('order_updated', { id: parseInt(req.params.id), status: 'completed' })
@@ -949,6 +1001,89 @@ router.post('/:id/pay', requireRole('cashier', 'manager', 'admin'), async (req, 
     )).rows[0]
 
     res.json({ order: updatedOrder, split_payments: paymentRows })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    logger.error(err?.message, { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  } finally { client.release() }
+})
+
+// PATCH /:id/pax — update party size (adults/kids) on an open order
+router.patch('/:id/pax', requireRole('cashier', 'manager', 'admin'), async (req, res) => {
+  const id = parseInt(req.params.id, 10)
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid order id' })
+  const adults = parseInt(req.body.adults_count ?? 0, 10)
+  const kids   = parseInt(req.body.kids_count   ?? 0, 10)
+  if (adults < 0 || kids < 0) return res.status(400).json({ error: 'Counts must be >= 0' })
+  try {
+    const r = await pool.query(
+      `UPDATE orders SET adults_count=$1, kids_count=$2
+       WHERE id=$3 AND status NOT IN ('completed','cancelled') RETURNING id, adults_count, kids_count`,
+      [adults, kids, id]
+    )
+    if (!r.rows.length) return res.status(404).json({ error: 'Order not found or already closed' })
+    res.json(r.rows[0])
+  } catch (err) {
+    logger.error(err?.message, { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// PATCH /:id/customer-link — attach or update the customer on an existing order
+router.patch('/:id/customer-link', requireRole('cashier', 'manager', 'admin'), async (req, res) => {
+  const id = parseInt(req.params.id, 10)
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid order id' })
+  const customerId = req.body.customer_id ? parseInt(req.body.customer_id, 10) : null
+  try {
+    const r = await pool.query(
+      `UPDATE orders SET customer_id=$1
+       WHERE id=$2 AND status NOT IN ('completed','cancelled') RETURNING id, customer_id`,
+      [customerId, id]
+    )
+    if (!r.rows.length) return res.status(404).json({ error: 'Order not found or already closed' })
+    res.json(r.rows[0])
+  } catch (err) {
+    logger.error(err?.message, { path: req.path })
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// PATCH /:id/table — move an open order to a different (empty) table
+router.patch('/:id/table', requireRole('cashier', 'manager', 'admin'), async (req, res) => {
+  const id = parseInt(req.params.id, 10)
+  const targetTable = parseInt(req.body.table_number, 10)
+  if (isNaN(id) || isNaN(targetTable) || targetTable < 1) {
+    return res.status(400).json({ error: 'Invalid order id or table number' })
+  }
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    // Lock both the order and any occupants of the target table
+    await client.query('SELECT pg_advisory_xact_lock($1, $2)', [190002, targetTable])
+    const order = await client.query(
+      `SELECT id, table_number FROM orders WHERE id=$1 AND status NOT IN ('completed','cancelled') FOR UPDATE`,
+      [id]
+    )
+    if (!order.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: 'Order not found or already closed' })
+    }
+    const occupied = await client.query(
+      `SELECT id FROM orders WHERE table_number=$1 AND type='dine-in'
+       AND status NOT IN ('completed','cancelled') AND id != $2`,
+      [targetTable, id]
+    )
+    if (occupied.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(409).json({ error: `Table ${targetTable} already has an open order` })
+    }
+    const updated = await client.query(
+      `UPDATE orders SET table_number=$1 WHERE id=$2 RETURNING id, table_number`,
+      [targetTable, id]
+    )
+    await client.query('COMMIT')
+    broadcast('order_updated', { id, table_number: targetTable })
+    res.json(updated.rows[0])
   } catch (err) {
     await client.query('ROLLBACK')
     logger.error(err?.message, { path: req.path })

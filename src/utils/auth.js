@@ -28,6 +28,8 @@ export const ROUTE_ROLES = {
   'ai-executive': ['admin', 'manager'],
   system: ['admin'],
   suppliers: ['admin', 'manager'],
+  expenses: ['admin', 'manager'],
+  reservations: ['admin', 'manager', 'cashier'],
   profile: ['admin', 'manager', 'cashier', 'kitchen', 'staff'],
 }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { apiFetch } from '../utils/api.js'
 import logo from '../assets/brand/logo-full.png'
 
 const PAPER_PX = { '58mm': '219px', '80mm': '302px' }
@@ -168,6 +169,11 @@ function CustomerReceipt({ order, settings, currency }) {
           <span>VAT {taxRate}% <span dir="rtl" style={{ fontSize: 10 }}>(الضريبة المضافة)</span></span>
           <span>{parseFloat(order.tax || 0).toFixed(3)}</span>
         </div>
+        {settings?.vat_number && (
+          <div style={{ fontSize: 9, color: '#666', textAlign: 'center', margin: '2px 0' }}>
+            VAT Reg. No: {settings.vat_number} · رقم التسجيل الضريبي
+          </div>
+        )}
         <div style={{ borderTop: '1px dashed #999', borderBottom: '1px dashed #999', margin: '4px 0', padding: '3px 0', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: 13 }}>
           <span>Grand Total <span dir="rtl" style={{ fontSize: 10 }}>(المجموع الاجمالي)</span></span>
           <span>{currency} {parseFloat(order.total || 0).toFixed(3)}</span>
@@ -262,10 +268,32 @@ function KitchenReceipt({ order }) {
   )
 }
 
-export default function ReceiptModal({ order, settings, onClose }) {
+export default function ReceiptModal({ order, settings, onClose, initialTab }) {
   const [paperSize, setPaperSize] = useState('80mm')
-  const [activeTab, setActiveTab] = useState('customer')
+  const [activeTab, setActiveTab] = useState(initialTab || 'customer')
+  const [shareLoading, setShareLoading] = useState(false)
   const currency = settings?.currency_symbol || 'OMR'
+
+  async function handleShareWhatsApp() {
+    setShareLoading(true)
+    try {
+      const r = await apiFetch(`/api/receipts/${order.id}/share-token`, { method: 'POST' })
+      if (!r.ok) throw new Error('Could not generate link')
+      const { url } = await r.json()
+      const restName = settings?.restaurant_name || 'Automatic'
+      const orderNo  = String(order.id).padStart(5, '0')
+      const phone    = order.customer_phone || ''
+      const waBase   = phone ? `https://wa.me/${phone.replace(/\D/g,'')}` : 'https://wa.me/'
+      const text     = encodeURIComponent(
+        `Here's your receipt for Order #${orderNo} from ${restName}:\n${url}\n\nإليك فاتورتك — شكراً لزيارتك!`
+      )
+      window.open(`${waBase}?text=${text}`, '_blank', 'noopener,noreferrer')
+    } catch {
+      alert('Could not generate share link. Please try again.')
+    } finally {
+      setShareLoading(false)
+    }
+  }
 
   const handlePrint = () => {
     const styleId = '__receipt-print-style'
@@ -352,14 +380,21 @@ export default function ReceiptModal({ order, settings, onClose }) {
           </div>
         </div>
 
-        <div className="p-4 border-t border-slate-800 flex gap-3 flex-shrink-0">
+        <div className="p-4 border-t border-slate-800 flex gap-2 flex-shrink-0 flex-wrap">
           <button onClick={onClose}
-            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-colors">
+            className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-colors">
             Close
+          </button>
+          <button
+            onClick={handleShareWhatsApp}
+            disabled={shareLoading}
+            title="Share receipt link via WhatsApp"
+            className="py-2.5 px-3 bg-green-600/20 hover:bg-green-600/30 border border-green-600/40 text-green-400 rounded-xl text-sm font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50">
+            {shareLoading ? '⏳' : '📲'} WhatsApp
           </button>
           <button onClick={handlePrint}
             className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-            <span>🖨️</span> Print / Save PDF
+            <span>🖨️</span> Print / PDF
           </button>
         </div>
       </div>

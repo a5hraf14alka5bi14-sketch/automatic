@@ -104,15 +104,18 @@ describe('Barcode scan', () => {
 // ── 2. Full POS order lifecycle ─────────────────────────────────────────────
 describe('POS order lifecycle', () => {
   let orderId
+  // Unique table so the running-tab merge doesn't append this to a leftover
+  // open order from a prior run/other data (which would return 200, not 201).
+  const dineInTable = 500 + Math.floor(Math.random() * 200)
 
   it('cashier creates a dine-in order', async () => {
     const res = await cashier.post('/api/orders').send({
-      type: 'dine-in', table_number: 5,
+      type: 'dine-in', table_number: dineInTable,
       items: [{ menu_item_id: ids.menu, name: `${TAG} Shawarma`, quantity: 2, price: 3.5 }],
       subtotal: 7, tax: 0.770, total: 7.770,
     })
     expect(res.status).toBe(201)
-    expect(res.body.table_number).toBe(5)
+    expect(res.body.table_number).toBe(dineInTable)
     orderId = res.body.id
     orderIds.push(orderId)
   })
@@ -272,10 +275,13 @@ describe('Void / cancel controls', () => {
 // ── 6. Rush / station flags ─────────────────────────────────────────────────
 describe('Rush orders and KDS station routing', () => {
   let orderId
+  // Unique table so this rush create makes a NEW order (the running-tab merge
+  // ignores rush/station, so merging into a leftover order would drop rush).
+  const rushTable = 720 + Math.floor(Math.random() * 200)
 
   it('creates a rush order with station label', async () => {
     const res = await admin.post('/api/orders').send({
-      type: 'dine-in', table_number: 3, rush: true, station: 'grill',
+      type: 'dine-in', table_number: rushTable, rush: true, station: 'grill',
       items: [{ menu_item_id: ids.menu, name: `${TAG} Shawarma`, quantity: 1, price: 3.5 }],
       subtotal: 3.5, tax: 0, total: 3.5,
     })

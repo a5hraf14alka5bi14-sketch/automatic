@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { apiFetch } from '../utils/api.js'
-import { wsUrl } from '../config.js'
+import { subscribeMessages, subscribeStatus } from '../utils/wsClient.js'
 import { useCurrency } from '../utils/currency.js'
 import { useToast } from '../context/ToastContext.jsx'
 import ShiftCloseModal from '../components/ShiftCloseModal.jsx'
@@ -28,7 +28,7 @@ const PAYMENT_ICONS = { cash: '💵', card: '💳', other: '📱' }
 const PAGE_SIZE = 50   // server default; capped server-side at 200
 
 // ── Order Detail Drawer ───────────────────────────────────────────────────────
-function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, fmt, userRole }) {
+function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, onPrint, fmt, userRole }) {
   const closeBtnRef = useRef(null)
   // Shared dialog a11y: initial focus on the close button, Escape to close,
   // Tab trap, and focus restore — stack-aware so a modal opened on top of the
@@ -56,6 +56,12 @@ function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, fmt, 
               <h2 id="order-drawer-title" className="text-white font-bold text-lg">Order #{order.id}</h2>
               {order.rush && (
                 <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">🔴 RUSH</span>
+              )}
+              {order.source === 'qr' && (
+                <span className="bg-purple-500/20 text-purple-400 border border-purple-500/40 text-xs font-bold px-2 py-0.5 rounded-full">📱 QR</span>
+              )}
+              {order.source === 'qr' && order.payment_status === 'paid' && (
+                <span className="bg-green-500/20 text-green-400 border border-green-500/40 text-xs font-medium px-2 py-0.5 rounded-full">✓ Paid Online</span>
               )}
             </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -150,6 +156,16 @@ function OrderDetailDrawer({ order, onClose, onUpdateStatus, onToggleRush, fmt, 
 
         {/* Actions */}
         <div className="p-4 border-t border-slate-800 space-y-2 flex-shrink-0">
+          {/* Print receipt — available for completed (paid) orders */}
+          {order.status === 'completed' && order.payment_method && (
+            <button
+              onClick={() => onPrint(order)}
+              className="w-full py-2 rounded-xl text-sm font-medium transition-colors bg-orange-500/15 text-orange-400 border border-orange-500/40 hover:bg-orange-500/25"
+            >
+              🖨️ Print Receipt · طباعة الفاتورة
+            </button>
+          )}
+
           {/* Rush toggle */}
           <button
             onClick={() => onToggleRush(order.id, !order.rush)}
@@ -485,9 +501,7 @@ export default function Orders() {
   const [total, setTotal] = useState(0)
   const [counts, setCounts] = useState({})
 
-  const wsRef = useRef(null)
   const pollRef = useRef(null)
-  const reconnectRef = useRef(null)
   const pageRef = useRef(0)   // keeps live refresh (WS/poll) on the current page without re-creating fetchOrders
   const autoOpenedSearchRef = useRef(null)   // remembers the search term we already auto-opened, so we don't re-open after the user closes the drawer
 
@@ -607,26 +621,18 @@ export default function Orders() {
   }, [orders, search, loading])
 
   useEffect(() => {
-    function connect() {
-      try {
-        const ws = new WebSocket(wsUrl('/ws'))
-        wsRef.current = ws
-        ws.onopen = () => { setWsStatus('live'); stopPolling() }
-        ws.onmessage = (evt) => {
-          try {
-            const msg = JSON.parse(evt.data)
-            if (msg.type === 'order_created' || msg.type === 'order_updated') liveRefresh()
-          } catch {}
-        }
-        ws.onclose = () => { wsRef.current = null; startPolling(); reconnectRef.current = setTimeout(connect, 5000) }
-        ws.onerror = () => ws.close()
-      } catch { startPolling() }
-    }
-    connect()
+    const unsubMsg = subscribeMessages((msg) => {
+      if (msg.type === 'order_created' || msg.type === 'order_updated') liveRefresh()
+    })
+    const unsubStatus = subscribeStatus((status) => {
+      if (status === 'live')        { setWsStatus('live');       stopPolling()  }
+      else if (status === 'closed') { setWsStatus('polling');    startPolling() }
+      else                            setWsStatus('connecting')
+    })
     return () => {
-      if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close() }
-      if (pollRef.current) clearInterval(pollRef.current)
-      if (reconnectRef.current) clearTimeout(reconnectRef.current)
+      unsubMsg()
+      unsubStatus()
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     }
   }, [liveRefresh, startPolling, stopPolling])
 
@@ -852,6 +858,12 @@ export default function Orders() {
                       {order.rush && (
                         <span className="bg-red-500/20 text-red-400 border border-red-500/40 text-xs px-2 py-0.5 rounded-full font-bold">🔴 RUSH</span>
                       )}
+                      {order.source === 'qr' && (
+                        <span className="bg-purple-500/20 text-purple-400 border border-purple-500/40 text-xs px-2 py-0.5 rounded-full font-bold">📱 QR</span>
+                      )}
+                      {order.source === 'qr' && order.payment_status === 'paid' && (
+                        <span className="bg-green-500/20 text-green-400 border border-green-500/40 text-xs px-2 py-0.5 rounded-full font-medium">✓ Paid Online</span>
+                      )}
                       <span className={`text-xs px-2 py-0.5 rounded-full border font-medium capitalize ${STATUS_STYLES[order.status] || STATUS_STYLES.cancelled}`}>
                         {order.status}
                       </span>
@@ -948,6 +960,7 @@ export default function Orders() {
           onClose={() => setSelectedOrder(null)}
           onUpdateStatus={(id, s) => s === 'cancelled' ? requestVoid(orders.find(o => o.id === id) || { id, status: selectedOrder?.status }) : updateStatus(id, s)}
           onToggleRush={toggleRush}
+          onPrint={(o) => setReceiptData(o)}
           fmt={fmt}
           userRole={userRole}
         />

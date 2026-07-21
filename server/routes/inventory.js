@@ -142,13 +142,15 @@ router.get('/impact', requireRole('admin', 'manager'), async (req, res) => {
 
 // ── POST /api/inventory ───────────────────────────────────────────────────────
 router.post('/', validate(inventoryCreateSchema), async (req, res) => {
-  const { name, category, quantity, unit, min_quantity, cost } = req.body
+  const { name, category, quantity, unit, min_quantity, cost, purchase_unit, units_per_purchase_unit } = req.body
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
     const result = await client.query(
-      'INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [name, category || 'general', quantity, unit || 'pcs', min_quantity || 0, cost || null]
+      `INSERT INTO inventory (name, category, quantity, unit, min_quantity, cost, purchase_unit, units_per_purchase_unit)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [name, category || 'general', quantity, unit || 'pcs', min_quantity || 0, cost || null,
+       purchase_unit || null, units_per_purchase_unit || null]
     )
     const created = result.rows[0]
     const qty = parseFloat(created.quantity)
@@ -256,16 +258,22 @@ router.patch('/:id', validate(inventoryUpdateSchema), async (req, res) => {
         [parseFloat(adjust), req.params.id]
       )
     } else {
+      const { name, category, quantity, unit, min_quantity, cost, purchase_unit, units_per_purchase_unit } = req.body
       result = await client.query(
         `UPDATE inventory SET
           name=COALESCE($1,name), category=COALESCE($2,category),
           quantity=COALESCE($3,quantity), unit=COALESCE($4,unit),
           min_quantity=COALESCE($5,min_quantity), cost=COALESCE($6,cost),
+          purchase_unit=COALESCE($7,purchase_unit),
+          units_per_purchase_unit=COALESCE($8,units_per_purchase_unit),
           updated_at=NOW()
-         WHERE id=$7 RETURNING *`,
+         WHERE id=$9 RETURNING *`,
         [name, category, quantity !== undefined ? parseFloat(quantity) : null,
          unit, min_quantity !== undefined ? parseFloat(min_quantity) : null,
-         cost !== undefined ? parseFloat(cost) : null, req.params.id]
+         cost !== undefined ? parseFloat(cost) : null,
+         purchase_unit !== undefined ? (purchase_unit || null) : null,
+         units_per_purchase_unit !== undefined ? parseFloat(units_per_purchase_unit) : null,
+         req.params.id]
       )
     }
 

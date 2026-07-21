@@ -3,10 +3,11 @@ import { apiFetch } from '../utils/api.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 
 const TABS = [
-  { id: 'general', label: '🏪 General', adminOnly: false },
-  { id: 'operations', label: '⚙️ Operations', adminOnly: false },
-  { id: 'branches', label: '🏢 Branches', adminOnly: true },
-  { id: 'staff', label: '👥 Staff', adminOnly: true },
+  { id: 'general',    label: '🏪 General',          adminOnly: false },
+  { id: 'operations', label: '⚙️ Operations',       adminOnly: false },
+  { id: 'branches',   label: '🏢 Branches',          adminOnly: true },
+  { id: 'staff',      label: '👥 Staff',             adminOnly: true },
+  { id: 'support',    label: '🎫 Support Tickets',   adminOnly: true },
 ]
 
 const ROLES = ['admin', 'manager', 'cashier', 'kitchen', 'staff']
@@ -217,6 +218,9 @@ export default function Settings({ user }) {
             <Field label="Tax Card No." hint="رقم البطاقة الضريبية">
               <Input value={settings.business_tax_card || ''} onChange={v => set('business_tax_card', v)} placeholder="1017973" />
             </Field>
+            <Field label="VAT Registration No." hint="رقم التسجيل الضريبي (هيئة الزكاة والضريبة والجمارك) — printed on every VAT invoice">
+              <Input value={settings.vat_number || ''} onChange={v => set('vat_number', v)} placeholder="OM1234567890" />
+            </Field>
             <Field label="Phone" hint="رقم الهاتف المطبوع على الفاتورة">
               <Input value={settings.business_phone || ''} onChange={v => set('business_phone', v)} placeholder="+968 24499981" />
             </Field>
@@ -296,6 +300,7 @@ export default function Settings({ user }) {
       )}
 
       {tab === 'branches' && isAdmin && <BranchesSection />}
+      {tab === 'support'  && isAdmin && <SupportTicketsSection />}
 
       {tab === 'staff' && isAdmin && (
         <>
@@ -494,6 +499,7 @@ function BranchesSection() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [tableNum, setTableNum] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -558,7 +564,7 @@ function BranchesSection() {
       </p>
 
       {/* QR Menu link */}
-      <div className="mb-5 flex items-center gap-3 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
+      <div className="mb-3 flex items-center gap-3 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
         <span className="text-2xl select-none">📱</span>
         <div className="flex-1 min-w-0">
           <p className="text-white text-sm font-medium">Customer QR Menu</p>
@@ -568,12 +574,41 @@ function BranchesSection() {
           </a>
         </div>
         <button
-          onClick={() => { navigator.clipboard?.writeText(qrUrl); }}
+          onClick={() => { navigator.clipboard?.writeText(qrUrl) }}
           className="text-slate-400 hover:text-white text-xs px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg transition-colors"
           title="Copy link"
         >
           Copy
         </button>
+      </div>
+
+      {/* Per-table QR link generator */}
+      <div className="mb-5 bg-slate-800/40 border border-slate-700/60 rounded-xl px-4 py-3">
+        <p className="text-slate-300 text-xs font-medium mb-2">📋 Per-table QR Link · رابط طاولة محدد</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number" min={1} max={9999}
+            value={tableNum}
+            onChange={e => setTableNum(e.target.value)}
+            placeholder="Table #"
+            className="w-24 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-orange-500"
+          />
+          <a
+            href={tableNum ? `${qrUrl}?table=${tableNum}` : qrUrl}
+            target="_blank" rel="noopener noreferrer"
+            className="flex-1 min-w-0 text-orange-400 hover:text-orange-300 text-xs break-all transition-colors"
+          >
+            {tableNum ? `${qrUrl}?table=${tableNum}` : 'Enter a table number…'}
+          </a>
+          {tableNum && (
+            <button
+              onClick={() => navigator.clipboard?.writeText(`${qrUrl}?table=${tableNum}`)}
+              className="text-slate-400 hover:text-white text-xs px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg transition-colors flex-shrink-0"
+            >
+              Copy
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-3">{error}</p>}
@@ -701,6 +736,94 @@ function BranchesSection() {
           className="w-full px-4 py-2.5 border border-dashed border-slate-700 hover:border-orange-500 text-slate-400 hover:text-orange-400 text-sm rounded-xl transition-colors">
           + Add Branch
         </button>
+      )}
+    </Section>
+  )
+}
+
+// ── Support Tickets management (admin/manager only) ───────────────────────────
+function SupportTicketsSection() {
+  const [tickets, setTickets] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState('')
+  const [updating, setUpdating] = useState(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const params = statusFilter ? `?status=${statusFilter}` : ''
+    const r = await apiFetch(`/api/support${params}`)
+    if (r.ok) setTickets(await r.json())
+    setLoading(false)
+  }, [statusFilter])
+
+  useEffect(() => { load() }, [load])
+
+  const updateStatus = async (id, status) => {
+    setUpdating(id)
+    await apiFetch(`/api/support/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })
+    await load()
+    setUpdating(null)
+  }
+
+  const TICKET_STATUS_STYLES = {
+    open:        'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+    in_progress: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+    resolved:    'bg-green-500/10 text-green-400 border-green-500/30',
+  }
+
+  return (
+    <Section title="🎫 Support Tickets · تذاكر الدعم">
+      <div className="flex items-center gap-2 mb-4">
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-orange-500">
+          <option value="">All tickets</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+        </select>
+        <button onClick={load} className="text-slate-400 hover:text-white text-sm px-2 py-1 rounded transition-colors" title="Refresh">↻</button>
+        <span className="text-slate-600 text-xs ml-auto">{tickets.length} ticket{tickets.length !== 1 ? 's' : ''}</span>
+      </div>
+      {loading ? (
+        <p className="text-slate-500 text-sm text-center py-8">Loading…</p>
+      ) : tickets.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-3xl mb-2">🎫</p>
+          <p className="text-slate-500 text-sm">No support tickets{statusFilter ? ` with status "${statusFilter.replace('_',' ')}"` : ''} yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {tickets.map(t => (
+            <div key={t.id} className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-white text-sm font-semibold">#{t.id}</span>
+                    <span className="text-slate-300 text-sm">{t.topic}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TICKET_STATUS_STYLES[t.status] || ''}`}>
+                      {t.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-xs">
+                    {t.name}
+                    {t.phone ? ` · ${t.phone}` : ''}
+                    {t.user_email ? ` · ${t.user_email}` : ''}
+                  </p>
+                </div>
+                <p className="text-slate-600 text-xs flex-shrink-0">{new Date(t.created_at).toLocaleDateString()}</p>
+              </div>
+              <p className="text-slate-300 text-sm mb-3 bg-slate-900/60 rounded-lg px-3 py-2 italic">"{t.details}"</p>
+              <div className="flex gap-2 flex-wrap">
+                {['open', 'in_progress', 'resolved'].filter(s => s !== t.status).map(s => (
+                  <button key={s} onClick={() => updateStatus(t.id, s)} disabled={updating === t.id}
+                    className="px-3 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 disabled:opacity-50 capitalize">
+                    → {s.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </Section>
   )

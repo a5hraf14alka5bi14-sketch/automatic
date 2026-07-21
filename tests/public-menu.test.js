@@ -80,7 +80,8 @@ describe('GET /api/public/settings', () => {
     expect(keys).not.toContain('SESSION_SECRET')
     expect(keys).not.toContain('tax_rate')
     expect(keys).not.toContain('loyalty_points_per_dollar')
-    // Exactly the two safe keys
-    expect(keys.sort()).toEqual(['currency_symbol', 'restaurant_name'].sort())
+    // Safe keys only — currency, name, and TAP payment config (intentionally public)
+    const ALLOWED = ['currency_symbol', 'restaurant_name', 'tap_enabled', 'tap_pub_key']
+    expect(keys.every(k => ALLOWED.includes(k))).toBe(true)
   })
 })
